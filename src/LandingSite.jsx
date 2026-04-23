@@ -148,12 +148,27 @@ function Navbar({ setPage }) {
             onMouseEnter={e => { e.currentTarget.style.background = `${ORANGE}18`; }}
             onMouseLeave={e => { e.currentTarget.style.background = "none"; }}>
             Symptom Triage
-          </button>
-          <button onClick={() => goPage("system")} style={{ padding: "8px 20px", background: RED, color: WHITE, borderRadius: 4, fontSize: 12.5, fontWeight: 700, border: "none", cursor: "pointer", letterSpacing: 0.5, fontFamily: "'IBM Plex Sans',sans-serif", transition: "background .2s", textTransform: "uppercase" }}
-            onMouseEnter={e => e.currentTarget.style.background = "#A02810"}
-            onMouseLeave={e => e.currentTarget.style.background = RED}>
-            Access System
-          </button>
+          <button
+  onClick={onAccessSystem}
+  style={{
+    padding: "8px 20px",
+    background: RED,
+    color: WHITE,
+    borderRadius: 4,
+    fontSize: 12.5,
+    fontWeight: 700,
+    border: "none",
+    cursor: "pointer",
+    letterSpacing: 0.5,
+    fontFamily: "'IBM Plex Sans',sans-serif",
+    transition: "background .2s",
+    textTransform: "uppercase"
+  }}
+  onMouseEnter={e => e.currentTarget.style.background = "#A02810"}
+  onMouseLeave={e => e.currentTarget.style.background = RED}
+>
+  Access System
+</button>
         </div>
       </div>
     </nav>
