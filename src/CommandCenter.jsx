@@ -358,21 +358,57 @@ function StudentPortal({ user, onLogout }) {
     <div style={{minHeight:"100vh",background:PAPER,fontFamily:"'IBM Plex Sans',sans-serif"}}>
       <style>{STYLES}</style>
       {/* Header */}
-      <div style={{background:NAVY,borderBottom:`3px solid ${GOLD}`,position:"sticky",top:0,zIndex:100}}>
-        <div style={{maxWidth:1100,margin:"0 auto",padding:"0 5%",height:60,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <img src={LOGO} alt="UMP" style={{height:36,objectFit:"contain",mixBlendMode:"lighten"}}/>
-            <div style={{borderLeft:"1px solid rgba(255,255,255,0.15)",paddingLeft:12}}>
-              <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:1.8,textTransform:"uppercase"}}>Student Portal</div>
-              <div style={{fontSize:14,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>{user.name}</div>
-            </div></div>
-          </div>
-          <div style={{display:"flex",gap:8}}>
-            {safeStatus&&<div style={{padding:"4px 12px",background:`${safeStatus==="safe"?GREEN:RED}22`,border:`1px solid ${safeStatus==="safe"?GREEN:RED}40`,borderRadius:4,fontSize:11,fontWeight:700,color:safeStatus==="safe"?GREEN:RED}}>{safeStatus==="safe"?"✓ Safe":"⚠ Needs Help"}</div>}
-            <button onClick={onLogout} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.14)",color:"rgba(255,255,255,0.6)",borderRadius:4,padding:"6px 14px",fontSize:12,cursor:"pointer"}}>Sign Out</button>
-          </div>
+<div style={{background:NAVY,borderBottom:`3px solid ${GOLD}`,position:"sticky",top:0,zIndex:100}}>
+  <div style={{maxWidth:1100,margin:"0 auto",padding:"0 5%",height:60,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+    
+    <div style={{display:"flex",alignItems:"center",gap:12}}>
+      <img src={LOGO} alt="UMP" style={{height:36,objectFit:"contain",mixBlendMode:"lighten"}}/>
+      
+      <div style={{borderLeft:"1px solid rgba(255,255,255,0.15)",paddingLeft:12}}>
+        <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:1.8,textTransform:"uppercase"}}>
+          Student Portal
+        </div>
+        <div style={{fontSize:14,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>
+          {user.name}
         </div>
       </div>
+    </div>
+
+    <div style={{display:"flex",gap:8}}>
+      {safeStatus && (
+        <div
+          style={{
+            padding:"4px 12px",
+            background:`${safeStatus==="safe"?GREEN:RED}22`,
+            border:`1px solid ${safeStatus==="safe"?GREEN:RED}40`,
+            borderRadius:4,
+            fontSize:11,
+            fontWeight:700,
+            color:safeStatus==="safe"?GREEN:RED
+          }}
+        >
+          {safeStatus==="safe" ? "✓ Safe" : "⚠ Needs Help"}
+        </div>
+      )}
+
+      <button
+        onClick={onLogout}
+        style={{
+          background:"rgba(255,255,255,0.07)",
+          border:"1px solid rgba(255,255,255,0.14)",
+          color:"rgba(255,255,255,0.6)",
+          borderRadius:4,
+          padding:"6px 14px",
+          fontSize:12,
+          cursor:"pointer"
+        }}
+      >
+        Sign Out
+      </button>
+    </div>
+
+  </div>
+</div>
       {/* Nav */}
       <div style={{background:WHITE,borderBottom:`1px solid ${BD}`,position:"sticky",top:60,zIndex:99}}>
         <div style={{maxWidth:1100,margin:"0 auto",padding:"0 5%",display:"flex",gap:0}}>
