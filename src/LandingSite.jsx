@@ -755,24 +755,111 @@ function Contact() {
             <Chip label="Emergency Contacts" c={RED} bg={`${RED}0a`} bd={`${RED}22`} />
             <h2 style={{ fontFamily: "'IBM Plex Serif',serif", fontSize: "clamp(20px,2.5vw,30px)", fontWeight: 700, color: NK, letterSpacing: -0.4, marginBottom: 14 }}>Need Help?</h2>
             <p style={{ fontSize: 14, color: SL, lineHeight: 1.85, marginBottom: 26, fontFamily: "'IBM Plex Sans',sans-serif" }}>For immediate emergency assistance or technical support, use the contacts below. The UMP Security Operations Centre is staffed around the clock.</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {[
-                { Icon: IHotline, label: "Security Hotline", val: "+27 13 002 0099", note: "24 / 7 Emergency Line", c: RED, bg: `${RED}08`, bd: `${RED}20` },
-                { Icon: IPhone, label: "Campus Security", val: "+27 13 002 0100", note: "Direct command centre", c: NAVY, bg: `${NAVY}07`, bd: `${NAVY}18` },
-                { Icon: IMail, label: "Email Support", val: "ceis@ump.ac.za", note: "Response within 2 hours", c: ORANGE, bg: `${ORANGE}08`, bd: `${ORANGE}20` },
-              ].map((item, i) => (
-                <Reveal key={i} delay={i * 0.1}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 13, padding: "13px 15px", background: item.bg, border: `1px solid ${item.bd}`, borderRadius: 8, borderLeft: `3px solid ${item.c}` }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 7, background: WHITE, border: `1px solid ${item.bd}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: item.c }}><item.Icon /></div>
-                    <div>
-                      <div style={{ fontSize: 9.5, fontWeight: 700, color: MID, textTransform: "uppercase", letterSpacing: 1, marginBottom: 2, fontFamily: "'IBM Plex Sans',sans-serif" }}>{item.label}</div>
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: item.c, fontFamily: "'IBM Plex Sans',sans-serif" }}>{item.val}</div>
-                      <div style={{ fontSize: 10.5, color: MID, marginTop: 1, fontFamily: "'IBM Plex Sans',sans-serif" }}>{item.note}</div>
-                    </div>
-                  </div>
-                </Reveal>
-              ))}
+           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+  {[
+    {
+      Icon: IHotline,
+      label: "Security Hotline",
+      val: "+27 13 002 0099",
+      note: "24 / 7 Emergency Line",
+      c: RED,
+      bg: `${RED}08`,
+      bd: `${RED}20`,
+    },
+    {
+      Icon: IPhone,
+      label: "Campus Security",
+      val: "+27 13 002 0100",
+      note: "Direct command centre",
+      c: NAVY,
+      bg: `${NAVY}07`,
+      bd: `${NAVY}18`,
+    },
+    {
+      Icon: IMail,
+      label: "Email Support",
+      val: "ceis@ump.ac.za",
+      note: "Response within 2 hours",
+      c: ORANGE,
+      bg: `${ORANGE}08`,
+      bd: `${ORANGE}20`,
+    },
+  ].map((item, i) => {
+    const { Icon } = item;
+
+    return (
+      <Reveal key={item.label} delay={i * 0.1}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 13,
+            padding: "13px 15px",
+            background: item.bg,
+            border: `1px solid ${item.bd}`,
+            borderRadius: 8,
+            borderLeft: `3px solid ${item.c}`,
+          }}
+        >
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 7,
+              background: WHITE,
+              border: `1px solid ${item.bd}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              color: item.c,
+            }}
+          >
+            <Icon />
+          </div>
+
+          <div>
+            <div
+              style={{
+                fontSize: 9.5,
+                fontWeight: 700,
+                color: MID,
+                textTransform: "uppercase",
+                letterSpacing: 1,
+                marginBottom: 2,
+                fontFamily: "'IBM Plex Sans',sans-serif",
+              }}
+            >
+              {item.label}
             </div>
+
+            <div
+              style={{
+                fontSize: 13.5,
+                fontWeight: 700,
+                color: item.c,
+                fontFamily: "'IBM Plex Sans',sans-serif",
+              }}
+            >
+              {item.val}
+            </div>
+
+            <div
+              style={{
+                fontSize: 10.5,
+                color: MID,
+                marginTop: 1,
+                fontFamily: "'IBM Plex Sans',sans-serif",
+              }}
+            >
+              {item.note}
+            </div>
+          </div>
+        </div>
+      </Reveal>
+    );
+  })}
+</div>
           </Reveal>
 
           {/* Team */}
