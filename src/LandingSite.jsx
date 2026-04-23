@@ -207,32 +207,95 @@ function Hero({ setPage }) {
             </h1>
           </Reveal>
           <Reveal delay={0.24}>
-            {/* Orange accent — signals this is a safe, approachable system */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 22 }}>
-              <div style={{ width: 22, height: 2, background: ORANGE, borderRadius: 1 }} />
-              <p style={{ fontSize: 13.5, color: "rgba(255,255,255,0.75)", fontFamily: "'IBM Plex Sans',sans-serif", letterSpacing: 0.2 }}>Integrated Safety &amp; Emergency Response Platform</p>
-            </div>
-          </Reveal>
-          <Reveal delay={0.3}>
-            <p style={{ fontSize: 14.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.85, marginBottom: 36, maxWidth: 480, fontFamily: "'IBM Plex Sans',sans-serif" }}>
-              A real-time emergency detection and response system built exclusively for UMP — integrating mobile reporting, automated incident triage, and a live command dashboard to protect every member of the university community.
-            </p>
-          </Reveal>
-          <Reveal delay={0.36}>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <button onClick={() => scrollTo("how-it-works")} style={{ padding: "12px 24px", background: "transparent", color: WHITE, border: `1.5px solid rgba(255,255,255,0.35)`, borderRadius: 4, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif", letterSpacing: 0.3, transition: "all .2s" }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = WHITE; e.currentTarget.style.background = "rgba(255,255,255,0.07)"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.35)"; e.currentTarget.style.background = "transparent"; }}>
-                Learn How It Works
-              </button>
-              {/* Red CTA — emergency action colour signals urgency/authority */}
-              <button onClick={() => goPage("system")} style={{ padding: "12px 24px", background: RED, color: WHITE, border: `1.5px solid ${RED}`, borderRadius: 4, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif", letterSpacing: 0.4, display: "flex", alignItems: "center", gap: 8, transition: "background .2s", textTransform: "uppercase" }}
-                onMouseEnter={e => e.currentTarget.style.background = "#A02810"}
-                onMouseLeave={e => e.currentTarget.style.background = RED}>
-                Access System <IArrowR />
-              </button>
-            </div>
-          </Reveal>
+  {/* Orange accent — signals this is a safe, approachable system */}
+  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 22 }}>
+    <div style={{ width: 22, height: 2, background: ORANGE, borderRadius: 1 }} />
+    <p
+      style={{
+        fontSize: 13.5,
+        color: "rgba(255,255,255,0.75)",
+        fontFamily: "'IBM Plex Sans',sans-serif",
+        letterSpacing: 0.2
+      }}
+    >
+      Integrated Safety &amp; Emergency Response Platform
+    </p>
+  </div>
+</Reveal>
+
+<Reveal delay={0.3}>
+  <p
+    style={{
+      fontSize: 14.5,
+      color: "rgba(255,255,255,0.6)",
+      lineHeight: 1.85,
+      marginBottom: 36,
+      maxWidth: 480,
+      fontFamily: "'IBM Plex Sans',sans-serif"
+    }}
+  >
+    A real-time emergency detection and response system built exclusively for UMP — integrating mobile reporting, automated incident triage, and a live command dashboard to protect every member of the university community.
+  </p>
+</Reveal>
+
+<Reveal delay={0.36}>
+  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+    
+    <button
+      onClick={() => scrollTo("how-it-works")}
+      style={{
+        padding: "12px 24px",
+        background: "transparent",
+        color: WHITE,
+        border: `1.5px solid rgba(255,255,255,0.35)`,
+        borderRadius: 4,
+        fontSize: 13,
+        fontWeight: 600,
+        cursor: "pointer",
+        fontFamily: "'IBM Plex Sans',sans-serif",
+        letterSpacing: 0.3,
+        transition: "all .2s"
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.borderColor = WHITE;
+        e.currentTarget.style.background = "rgba(255,255,255,0.07)";
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.borderColor = "rgba(255,255,255,0.35)";
+        e.currentTarget.style.background = "transparent";
+      }}
+    >
+      Learn How It Works
+    </button>
+
+    {/* Red CTA — emergency action colour signals urgency/authority */}
+    <button
+      onClick={onAccessSystem}
+      style={{
+        padding: "12px 24px",
+        background: RED,
+        color: WHITE,
+        border: `1.5px solid ${RED}`,
+        borderRadius: 4,
+        fontSize: 13,
+        fontWeight: 700,
+        cursor: "pointer",
+        fontFamily: "'IBM Plex Sans',sans-serif",
+        letterSpacing: 0.4,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        transition: "background .2s",
+        textTransform: "uppercase"
+      }}
+      onMouseEnter={e => (e.currentTarget.style.background = "#A02810")}
+      onMouseLeave={e => (e.currentTarget.style.background = RED)}
+    >
+      Access System <IArrowR />
+    </button>
+
+  </div>
+</Reveal>
           <Reveal delay={0.44}>
             <div style={{ display: "flex", gap: 0, marginTop: 40, paddingTop: 30, borderTop: `1px solid rgba(255,255,255,0.1)` }}>
               {[["Real-Time","Emergency Detection"],["Instant","Alert Dispatch"],["24 / 7","Campus Coverage"]].map(([a, b], i) => (
