@@ -113,7 +113,7 @@ function SectionHead({ chip, chipColor, title, titleHighlight, sub, center = tru
 }
 
 /* ── NAVBAR ──────────────────────────────────────────────────── */
-function Navbar({ setPage }) {
+function Navbar({ setPage, onAccessSystem }) {
   const [sc, setSc] = useState(false);
   useEffect(() => {
     const h = () => setSc(window.scrollY > 20);
