@@ -161,7 +161,7 @@ function Navbar({ setPage, goPage }){
 }
 
 /* ── HERO ────────────────────────────────────────────────────── */
-function Hero({ setPage, onAccessSystem }) {
+function Hero({ setPage, goPage }) {
   return (
     <section id="hero" style={{ background: `linear-gradient(160deg, ${NAVY3} 0%, ${NAVY} 45%, ${NAVYL} 100%)`, padding: "0 5%", position: "relative", overflow: "hidden", minHeight: "100vh", display: "flex", alignItems: "center" }}>
 
