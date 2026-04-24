@@ -113,7 +113,7 @@ function SectionHead({ chip, chipColor, title, titleHighlight, sub, center = tru
 }
 
 /* ── NAVBAR ──────────────────────────────────────────────────── */
-function Navbar({ setPage, onAccessSystem }) {
+function Navbar({ setPage, goPage }){
   const [sc, setSc] = useState(false);
   useEffect(() => {
     const h = () => setSc(window.scrollY > 20);
@@ -2610,8 +2610,14 @@ export default function LandingSite({ onAccessSystem }) {
         @keyframes dotBounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${BD};border-radius:3px}
       `}</style>
-      <Navbar setPage={goPage} />
-      <Hero setPage={goPage} />
+     <Navbar
+  setPage={setPage}
+  goPage={goPage}
+/>
+     <Hero
+  setPage={setPage}
+  goPage={goPage}
+/>
       <WhatIsIt />
       <Features />
       <WhoFor />
