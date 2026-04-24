@@ -112,7 +112,7 @@ const STYLES = `
 /* ══════════════════════════════════════════════════════════════
    LOGIN PAGE
    ══════════════════════════════════════════════════════════════ */
-function LoginPage({ onLogin }) {
+function LoginPage({ onLogin, onBack }) {
   const [portal, setPortal]       = useState(null);  // "student" | "staff"
   // onBack goes back to the public landing site
   const [idVal, setIdVal]         = useState("");
@@ -223,6 +223,12 @@ function LoginPage({ onLogin }) {
       <style>{STYLES}</style>
       {BG}
       <div style={{position:"relative",zIndex:1,width:"100%",maxWidth:460,margin:"0 20px"}}>
+        {/* Back to Landing Button */}
+        {onBack && <button onClick={onBack} style={{position:"absolute",top:"-50px",left:0,background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:6,padding:"8px 12px",fontSize:12,color:"rgba(255,255,255,0.7)",cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif",transition:"all .2s"}}
+          onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.15)";e.currentTarget.style.borderColor="rgba(255,255,255,0.4)"}}
+          onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.1)";e.currentTarget.style.borderColor="rgba(255,255,255,0.2)"}}>
+          ← Back to Landing
+        </button>}
         {/* UMP Header */}
         <div style={{textAlign:"center",marginBottom:28,animation:"fadeIn .5s ease"}}>
           <img src={LOGO} alt="University of Mpumalanga" style={{height:52,objectFit:"contain",mixBlendMode:"lighten",marginBottom:14}}/>
