@@ -150,7 +150,7 @@ function Navbar({ setPage, onAccessSystem }) {
             Symptom Triage
             </button>
           <button
-  onClick={onAccessSystem}
+  onClick={() => goPage("system")}
   style={{
     padding: "8px 20px",
     background: RED,
@@ -271,7 +271,7 @@ function Hero({ setPage, onAccessSystem }) {
 
     {/* Red CTA — emergency action colour signals urgency/authority */}
     <button
-      onClick={onAccessSystem}
+      onClick={() => goPage("system")}
       style={{
         padding: "12px 24px",
         background: RED,
