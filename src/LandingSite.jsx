@@ -148,6 +148,7 @@ function Navbar({ setPage, onAccessSystem }) {
             onMouseEnter={e => { e.currentTarget.style.background = `${ORANGE}18`; }}
             onMouseLeave={e => { e.currentTarget.style.background = "none"; }}>
             Symptom Triage
+            </button>
           <button
   onClick={onAccessSystem}
   style={{
