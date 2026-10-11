@@ -7,7 +7,7 @@ Advanced Diploma in ICT Applications Development · Phase 2–4 Academic Project
 
 ## Overview
 
-UMP-CEIS is a full-stack campus emergency response platform built in React. It combines a public-facing institutional landing site with a secure multi-role Command Centre for real-time incident management.
+UMP-CEIS is an academic campus emergency response prototype built in React. It combines a public-facing landing site with a browser-based demonstration of the student portal and multi-role Command Centre.
 
 ```
 Landing Site  ──→  Login Portal  ──→  Student Portal
@@ -36,6 +36,7 @@ Landing Site  ──→  Login Portal  ──→  Student Portal
 ### Command Centre
 - **Two login portals**: Student (student number) and Staff/Admin (staff number)
 - **Input validation**: Format rules, password strength meter, forgot-password flow
+- **Academic demo identity flow**: browser-local student/staff registration, fictional directory matches, pending requests, and demo-admin review
 - **Student Portal**: Report incidents, safety check-in, campus map, report history
 - **Admin Command Centre** (6 views):
   - Live dashboard with real-time KPIs
@@ -83,6 +84,12 @@ ump-ceis/
 ---
 
 ## Getting Started
+
+### Authentication demonstration
+
+The registration flow uses fictional sample records and `localStorage` in the current browser. Matching sample records become active immediately; other valid UMP-shaped demo IDs remain pending until approved from **Account Requests** by a pre-provisioned demo administrator. An inactive sample identity is denied. No email, OTP, UMP directory, or university identity service is contacted. Accounts and pending requests are not shared across browsers or devices.
+
+This is suitable only for an academic presentation. Browser storage and client-side role checks are not secure authentication or authorization. The existing pre-provisioned presentation credentials also remain in the client bundle. Before using this site for real users or sensitive incident data, replace this demo provider with a server-side identity provider and database, enforce roles on the server, configure institutional email/identity verification, and remove all demo credentials and records.
 
 ### Prerequisites
 - Node.js 18+

@@ -140,8 +140,8 @@ export function pwdStrength(p) {
   if (pass <= 5) return { label:"Good",   color:"#D4960E", pct:80  };
   return              { label:"Strong", color:"#2D7D35", pct:100 };
 }
-export function validateStudentNo(n) { return /^20(18|19|20|21|22|23|24|25)\d{4}$/.test(n); }
-export function validateStaffNo(n)   { return /^(STAFF|SEC|NUR|ADM|ENG|FAC)\d{2,4}$/i.test(n.toUpperCase()); }
+export function validateStudentNo(n) { return /^(?:UMP)?20(18|19|20|21|22|23|24|25|26)\d{4}$/i.test(n.trim()); }
+export function validateStaffNo(n)   { return /^(?:UMPSTAFF\d{3,5}|(?:STAFF|SEC|NUR|ADM|ENG|FAC)\d{2,4})$/i.test(n.trim().toUpperCase()); }
 
 // ── MOCK LIVE INCIDENTS ─────────────────────────────────────────
 export const INIT_INCIDENTS = [

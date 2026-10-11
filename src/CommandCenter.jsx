@@ -3,7 +3,7 @@ import {
   NAVY, NAVY2, NAVY3, NAVYL, RED, REDL, ORANGE, ORANGEL, GREEN, GREENL,
   GOLD, GOLDL, WHITE, PAPER, PAPER2, BD, NK, SL, MID,
   LOGO,
-  STUDENT_DB, STAFF_DB, PWD_RULES, validatePwd, pwdStrength,
+  PWD_RULES, validatePwd, pwdStrength,
   validateStudentNo, validateStaffNo,
   INIT_INCIDENTS, INC_TYPES, PRIORITY, STATUS_FLOW, STATUS_LABEL,
   MBOMBELA_BUILDINGS, ZONE_COLORS,
@@ -11,6 +11,15 @@ import {
 import CampusMap from "./components/CampusMap.jsx";
 import { MAPPED_BUILDINGS } from "./maps/campusBuildings.js";
 import { checkCampusLocation, getCurrentLocation } from "./maps/location.js";
+import {
+  authenticateDemoAccount,
+  clearDemoSession,
+  listPendingDemoAccounts,
+  readDemoSession,
+  registerDemoAccount,
+  setDemoAccountStatus,
+  writeDemoSession,
+} from "./auth/demoIdentityProvider.js";
 
 
 /* ── GLOBAL STYLES ────────────────────────────────────────────── */
@@ -32,6 +41,11 @@ const STYLES = `
    ══════════════════════════════════════════════════════════════ */
 function LoginPage({ onLogin, onBack }) {
   const [portal, setPortal]       = useState(null);  // "student" | "staff"
+  const [authView, setAuthView]   = useState("portal");
+  const [registrationType, setRegistrationType] = useState("student");
+  const [registration, setRegistration] = useState({ id:"", email:"", name:"", password:"", confirm:"" });
+  const [registrationError, setRegistrationError] = useState("");
+  const [registrationResult, setRegistrationResult] = useState(null);
   // onBack goes back to the public landing site
   const [idVal, setIdVal]         = useState("");
   const [pwdVal, setPwdVal]       = useState("");
@@ -48,39 +62,74 @@ function LoginPage({ onLogin, onBack }) {
   const rules = validatePwd(pwdVal);
   const allPass = rules.every(r => r.pass);
   const strength = pwdStrength(pwdVal);
+  const registrationRules = validatePwd(registration.password);
 
   function validateId(v) {
     if (!v) return "This field is required";
     if (portal === "student") {
-      if (!/^\d+$/.test(v)) return "Student number must contain digits only";
-      if (v.length !== 8)    return "Student number must be exactly 8 digits";
-      if (!validateStudentNo(v)) return "Invalid student number format (YYYY + 4 digits, year 2018–2025)";
+      if (!validateStudentNo(v)) return "Enter a valid student number (for example, UMP20260001).";
     } else {
-      if (!validateStaffNo(v)) return "Invalid staff number (e.g. STAFF001, SEC001, ADM001, NUR001)";
+      if (!validateStaffNo(v)) return "Enter a valid staff number (for example, UMPSTAFF001).";
     }
     return "";
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     const iErr = validateId(idVal);
     setIdErr(iErr);
     if (iErr) return;
     if (!pwdVal) { setPwdErr("Password is required"); return; }
     setPwdErr("");
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const result = await authenticateDemoAccount(portal, idVal, pwdVal);
       setLoading(false);
-      const db = portal === "student" ? STUDENT_DB : STAFF_DB;
-      const key = portal === "student" ? idVal : idVal.toUpperCase();
-      const user = db[key];
-      if (!user || user.password !== pwdVal) {
+      if (result.status === "pending") {
+        setPwdErr("This account is awaiting CEIS administrator review. You can sign in after it is approved.");
+      } else if (result.status !== "active") {
         setShake(true);
         setTimeout(()=>setShake(false),600);
-        setPwdErr("Incorrect credentials. Please check your ID and password and try again.");
-        return;
+        setPwdErr("We could not sign you in with those details. Check your portal, ID, and password.");
+      } else {
+        onLogin(result.user);
       }
-      onLogin({ ...user, id: key, portal });
-    }, 900);
+    } catch {
+      setLoading(false);
+      setPwdErr("Demo sign-in is unavailable in this browser. Please try again.");
+    }
+  }
+
+  async function handleRegistration() {
+    setRegistrationError("");
+    const validId = registrationType === "student" ? validateStudentNo(registration.id) : validateStaffNo(registration.id);
+    if (!registration.name.trim() || !validId || !/^\S+@ump\.ac\.za$/i.test(registration.email.trim())) {
+      setRegistrationError("Enter your name, a valid student or staff number, and an @ump.ac.za email address.");
+      return;
+    }
+    const validPassword = validatePwd(registration.password).every(rule => rule.pass);
+    if (!validPassword) {
+      setRegistrationError("Choose a password that meets all the listed requirements.");
+      return;
+    }
+    if (registration.password !== registration.confirm) {
+      setRegistrationError("The passwords do not match.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await registerDemoAccount({ ...registration, type:registrationType });
+      setLoading(false);
+      if (result.status === "active" || result.status === "pending") {
+        setRegistrationResult(result);
+        setAuthView("registration-result");
+        setPortal(registrationType);
+      } else {
+        setRegistrationError(result.message || "We could not verify your eligibility for CEIS. Check your details or contact the CEIS administrator.");
+      }
+    } catch {
+      setLoading(false);
+      setRegistrationError("Demo registration is unavailable in this browser. Please try again.");
+    }
   }
 
   function handleForgot() {
@@ -91,7 +140,7 @@ function LoginPage({ onLogin, onBack }) {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      setForgotMsg("If this account exists, a password reset link has been sent to the registered institutional email address. Please check your inbox.");
+      setForgotMsg("Password reset email is not configured in this academic demo. No email was sent; contact the CEIS administrator for help.");
     }, 1200);
   }
 
@@ -117,17 +166,17 @@ function LoginPage({ onLogin, onBack }) {
             <div style={{fontSize:20,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>Forgot your password?</div>
           </div>
           <div style={{padding:"28px"}}>
-            <p style={{fontSize:13.5,color:SL,lineHeight:1.7,marginBottom:20}}>Enter your student or staff number below. If an account is found, a reset link will be sent to your registered institutional email.</p>
+            <p style={{fontSize:13.5,color:SL,lineHeight:1.7,marginBottom:20}}>Password reset email is not available in this academic demo. Contact the CEIS administrator for help.</p>
             <div style={{marginBottom:16}}>
               <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:7}}>Student / Staff Number</label>
               <input value={forgotId} onChange={e=>setForgotId(e.target.value)} placeholder="e.g. 20240001 or STAFF001"
                 style={{width:"100%",padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,fontFamily:"'IBM Plex Mono',monospace",outline:"none",color:NK}}/>
             </div>
-            {forgotMsg && <div style={{padding:"11px 14px",background:forgotMsg.includes("sent")?GREENL:REDL,border:`1px solid ${forgotMsg.includes("sent")?GREEN:RED}28`,borderRadius:7,fontSize:13,color:forgotMsg.includes("sent")?GREEN:RED,marginBottom:16,lineHeight:1.65}}>{forgotMsg}</div>}
+            {forgotMsg && <div style={{padding:"11px 14px",background:REDL,border:`1px solid ${RED}28`,borderRadius:7,fontSize:13,color:RED,marginBottom:16,lineHeight:1.65}}>{forgotMsg}</div>}
             <div style={{display:"flex",gap:10}}>
               <button onClick={()=>{setForgotMode(false);setForgotMsg("");}} style={{padding:"11px 18px",background:WHITE,border:`1.5px solid ${BD}`,borderRadius:7,fontSize:13,fontWeight:600,color:NK,cursor:"pointer"}}>← Back</button>
               <button onClick={handleForgot} disabled={loading} style={{flex:1,padding:"11px",background:NAVY,color:WHITE,border:"none",borderRadius:7,fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                {loading?<><span style={{width:14,height:14,border:`2px solid rgba(255,255,255,0.3)`,borderTop:`2px solid ${WHITE}`,borderRadius:"50%",animation:"spin 1s linear infinite"}}/>Sending…</>:"Send Reset Link"}
+                {loading?<><span style={{width:14,height:14,border:`2px solid rgba(255,255,255,0.3)`,borderTop:`2px solid ${WHITE}`,borderRadius:"50%",animation:"spin 1s linear infinite"}}/>Checking…</>:"Get Help"}
               </button>
             </div>
           </div>
@@ -149,7 +198,29 @@ function LoginPage({ onLogin, onBack }) {
           <div style={{fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:4,fontFamily:"'IBM Plex Mono',monospace"}}>Campus Emergency Intelligence System</div>
         </div>
 
-        {!portal ? (
+        {authView === "registration-result" ? (
+          <div style={{background:WHITE,borderRadius:16,padding:28,boxShadow:"0 24px 80px rgba(0,0,0,0.4)",animation:"fadeIn .35s ease"}}>
+            <div style={{fontSize:11,fontWeight:700,color:MID,letterSpacing:1.4,textTransform:"uppercase",marginBottom:8}}>Academic demo account</div>
+            <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:22,color:NAVY,marginBottom:10}}>{registrationResult?.status === "active" ? "Demo identity verified" : "Verification pending"}</h2>
+            <p style={{fontSize:13.5,color:SL,lineHeight:1.7,marginBottom:18}}>{registrationResult?.status === "active" ? "The fictional demo directory matched your details. This account is active in this browser; no email verification was sent." : "This fictional identity is awaiting approval by a demo administrator. The request is stored only in this browser; no email was sent."}</p>
+            <div style={{padding:14,background:PAPER,borderRadius:8,fontSize:13,color:NK,marginBottom:18}}><strong>{registrationResult?.name}</strong><br/>{registrationResult?.id} · {registrationType === "student" ? "Student" : "Staff"}</div>
+            <button onClick={()=>{setIdVal(registrationResult?.id || "");setPwdVal("");setPwdErr("");setAuthView("portal");setPortal(registrationType);setRegistrationResult(null);}} style={{width:"100%",padding:12,background:NAVY,color:WHITE,border:0,borderRadius:7,fontSize:14,fontWeight:700,cursor:"pointer"}}>Continue to sign in</button>
+          </div>
+        ) : authView === "register" ? (
+          <div style={{background:WHITE,borderRadius:16,overflow:"hidden",boxShadow:"0 24px 80px rgba(0,0,0,0.4)",animation:"fadeIn .35s ease"}}>
+            <div style={{background:NAVY,padding:"20px 26px",borderBottom:`3px solid ${GOLD}`}}><button onClick={()=>{setAuthView("portal");setRegistrationError("");}} style={{background:"none",border:0,color:"rgba(255,255,255,.7)",cursor:"pointer",marginBottom:8}}>← Back</button><h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:21,color:WHITE}}>Create demo account</h2><p style={{fontSize:12,color:"rgba(255,255,255,.65)",marginTop:5}}>Academic presentation mode · No email is sent</p></div>
+            <div style={{padding:"22px 26px",maxHeight:"65vh",overflowY:"auto"}}>
+              <div style={{display:"flex",gap:8,marginBottom:16}}>{[["student","Student"],["staff","Staff"]].map(([type,label])=><button key={type} onClick={()=>{setRegistrationType(type);setRegistrationError("");}} style={{flex:1,padding:9,border:`1px solid ${registrationType===type?NAVY:BD}`,borderRadius:6,background:registrationType===type?`${NAVY}0d`:WHITE,color:registrationType===type?NAVY:MID,fontWeight:700,cursor:"pointer"}}>{label}</button>)}</div>
+              {[["Full name","name","e.g. Alex Mokoena"],[registrationType==="student"?"Student number":"Staff number","id",registrationType==="student"?"UMP20260001":"UMPSTAFF001"],["UMP email","email","name@ump.ac.za"]].map(([label,key,placeholder])=><label key={key} style={{display:"block",fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:.6,marginBottom:11}}>{label}<input value={registration[key]} onChange={e=>setRegistration(v=>({...v,[key]:e.target.value}))} placeholder={placeholder} style={{display:"block",width:"100%",marginTop:6,padding:"10px 12px",border:`1px solid ${BD}`,borderRadius:6,fontSize:13,color:NK,outline:"none",textTransform:key==="id"?"uppercase":"none"}}/></label>)}
+              <label style={{display:"block",fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:.6,marginBottom:11}}>Password<input type="password" value={registration.password} onChange={e=>setRegistration(v=>({...v,password:e.target.value}))} style={{display:"block",width:"100%",marginTop:6,padding:"10px 12px",border:`1px solid ${BD}`,borderRadius:6,fontSize:13}}/></label>
+              <div style={{fontSize:11,lineHeight:1.6,color:SL,margin:"-4px 0 12px"}}>{PWD_RULES.map(rule=><div key={rule.label} style={{color:registrationRules.find(r=>r.label===rule.label)?.pass?GREEN:MID}}>· {rule.label}</div>)}</div>
+              <label style={{display:"block",fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:.6,marginBottom:14}}>Confirm password<input type="password" value={registration.confirm} onChange={e=>setRegistration(v=>({...v,confirm:e.target.value}))} style={{display:"block",width:"100%",marginTop:6,padding:"10px 12px",border:`1px solid ${BD}`,borderRadius:6,fontSize:13}}/></label>
+              {registrationError&&<div style={{background:REDL,color:RED,padding:10,borderRadius:6,fontSize:12,marginBottom:12,lineHeight:1.5}}>{registrationError}</div>}
+              <button onClick={handleRegistration} disabled={loading} style={{width:"100%",padding:12,background:NAVY,color:WHITE,border:0,borderRadius:7,fontSize:14,fontWeight:700,cursor:loading?"wait":"pointer"}}>{loading?"Creating demo account…":"Create account"}</button>
+              <div style={{marginTop:14,padding:12,background:PAPER,borderRadius:7,fontSize:11,color:SL,lineHeight:1.7}}><strong>Fictional demo directory records</strong><br/>Active student: UMP20260001 / thabo@ump.ac.za<br/>Inactive student: UMP20260003 / sipho@ump.ac.za<br/>Active staff: UMPSTAFF001 / example@ump.ac.za<br/>Other valid demo IDs are sent for local administrator review.</div>
+            </div>
+          </div>
+        ) : !portal ? (
           /* Portal selection */
           <div style={{animation:"fadeIn .4s ease"}}>
             <div style={{background:"rgba(255,255,255,0.06)",backdropFilter:"blur(12px)",borderRadius:16,border:"1px solid rgba(255,255,255,0.12)",overflow:"hidden"}}>
@@ -171,8 +242,9 @@ function LoginPage({ onLogin, onBack }) {
               </div>
             </div>
             <div style={{textAlign:"center",marginTop:20}}>
+              <button onClick={()=>setAuthView("register")} style={{display:"block",margin:"0 auto 14px",background:"none",border:"1px solid rgba(255,255,255,.24)",borderRadius:7,padding:"10px 18px",color:WHITE,fontWeight:600,cursor:"pointer"}}>Create student or staff demo account</button>
               {onBack && <button onClick={onBack} style={{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.6)",borderRadius:6,padding:"8px 16px",fontSize:12,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif",marginBottom:12}}>← Back to Landing</button>}
-              <div style={{fontSize:11,color:"rgba(255,255,255,0.25)",fontFamily:"'IBM Plex Mono',monospace"}}>UMP-CEIS v2.0 · Secure Connection · TLS 1.3</div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.55)",fontFamily:"'IBM Plex Mono',monospace"}}>Academic demo identity mode · Browser-local accounts · No email verification</div>
             </div>
           </div>
         ) : (
@@ -189,7 +261,7 @@ function LoginPage({ onLogin, onBack }) {
                 <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:2,textTransform:"uppercase",marginBottom:5}}>{portal==="student"?"Student Portal":"Command Centre Access"}</div>
                 <div style={{fontSize:20,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>Sign In</div>
                 <div style={{fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:4,fontFamily:"'IBM Plex Mono',monospace"}}>
-                  {portal==="student"?"Demo: 20240001 / UMP@2024!":"Demo: STAFF001 / Admin@2024!"}
+                  {portal==="student"?"Academic demo account sign-in":"Academic demo staff sign-in"}
                 </div>
               </div>
               <div style={{padding:"26px 28px"}}>
@@ -201,7 +273,7 @@ function LoginPage({ onLogin, onBack }) {
                   <input value={idVal}
                     onChange={e=>{setIdVal(e.target.value);if(idErr)setIdErr(validateId(e.target.value));}}
                     onBlur={e=>setIdErr(validateId(e.target.value))}
-                    placeholder={portal==="student"?"e.g. 20240001":"e.g. STAFF001"}
+                    placeholder={portal==="student"?"e.g. UMP20260001":"e.g. UMPSTAFF001"}
                     style={{width:"100%",padding:"11px 14px",border:`1.5px solid ${idErr?RED:BD}`,borderRadius:7,fontSize:14,fontFamily:"'IBM Plex Mono',monospace",outline:"none",color:NK,background:idErr?REDL:WHITE,transition:"all .2s"}}/>
                   {idErr&&<div style={{fontSize:12,color:RED,marginTop:5,display:"flex",gap:5,alignItems:"center"}}>⚠ {idErr}</div>}
                 </div>
@@ -226,12 +298,13 @@ function LoginPage({ onLogin, onBack }) {
                   {loading?<><span style={{width:16,height:16,border:`2px solid rgba(255,255,255,0.3)`,borderTop:`2px solid ${WHITE}`,borderRadius:"50%",animation:"spin 1s linear infinite"}}/>Authenticating…</>:`Sign In to ${portal==="student"?"Student Portal":"Command Centre"}`}
                 </button>
                 <div style={{textAlign:"center"}}>
+                  <button onClick={()=>setAuthView("register")} style={{display:"block",margin:"0 auto 10px",background:"none",border:"none",color:NAVY,fontSize:13,cursor:"pointer",textDecoration:"underline",fontFamily:"'IBM Plex Sans',sans-serif"}}>Create demo account</button>
                   <button onClick={()=>setForgotMode(true)} style={{background:"none",border:"none",color:NAVY,fontSize:13,cursor:"pointer",textDecoration:"underline",fontFamily:"'IBM Plex Sans',sans-serif"}}>Forgot password?</button>
                 </div>
               </div>
             </div>
             <div style={{textAlign:"center",marginTop:16,fontSize:11,color:"rgba(255,255,255,0.25)",fontFamily:"'IBM Plex Mono',monospace"}}>
-              Authorised users only · All access is logged and monitored
+              Academic demo mode · This browser stores demo accounts locally
             </div>
           </div>
         )}
@@ -610,7 +683,8 @@ function StudentPortal({ user, onLogout }) {
    ADMIN COMMAND CENTRE
    ══════════════════════════════════════════════════════════════ */
 function CommandCentre({ user, onLogout }) {
-  const [view, setView]             = useState("dashboard");
+  const [view, setView]             = useState(user.access === "staff" ? "input" : "dashboard");
+  const [pendingAccounts, setPendingAccounts] = useState(() => listPendingDemoAccounts());
   const [incidents, setIncidents]   = useState(INIT_INCIDENTS);
   const [selectedInc, setSelectedInc] = useState(null);
   const [selectedBldg, setSelectedBldg] = useState(null);
@@ -644,8 +718,11 @@ function CommandCentre({ user, onLogout }) {
   const NAVITEMS = [
     ["dashboard","📡","Dashboard"],["incidents","🚨","Incidents"],["map","🗺","Live Map"],
     ["dispatch","⚡","Dispatch"],["analytics","📊","Analytics"],["input","📥","Report Input"],
+    ...(user.access === "full" ? [["users","👤","Account Requests"]] : []),
   ];
   const canAccess = (view) => {
+    if (user.access === "staff") return view === "input";
+    if (view === "users") return user.access === "full";
     if (user.access==="security" && ["analytics"].includes(view)) return false;
     if (user.access==="medical"  && ["dispatch"].includes(view)) return false;
     return true;
@@ -691,8 +768,8 @@ function CommandCentre({ user, onLogout }) {
       <div style={{background:WHITE,borderBottom:`1px solid ${BD}`,position:"sticky",top:p1count>0?96:60,zIndex:99}}>
         <div style={{maxWidth:1400,margin:"0 auto",padding:"0 3%",display:"flex",gap:0}}>
           {NAVITEMS.filter(([k])=>canAccess(k)).map(([k,ico,lbl])=>(
-            <button key={k} onClick={()=>setView(k)} style={{padding:"11px 18px",background:"none",border:"none",borderBottom:`2px solid ${view===k?RED:"transparent"}`,color:view===k?RED:MID,fontSize:12.5,fontWeight:view===k?700:500,cursor:"pointer",display:"flex",alignItems:"center",gap:6,marginBottom:-1,transition:"all .2s"}}>
-              <span>{ico}</span>{lbl}
+            <button key={k} onClick={()=>{setView(k);if(k==="users")setPendingAccounts(listPendingDemoAccounts());}} style={{padding:"11px 18px",background:"none",border:"none",borderBottom:`2px solid ${view===k?RED:"transparent"}`,color:view===k?RED:MID,fontSize:12.5,fontWeight:view===k?700:500,cursor:"pointer",display:"flex",alignItems:"center",gap:6,marginBottom:-1,transition:"all .2s"}}>
+              <span>{ico}</span>{lbl}{k==="users"&&pendingAccounts.length>0&&<span style={{fontSize:10,background:RED,color:WHITE,borderRadius:12,padding:"2px 6px"}}>{pendingAccounts.length}</span>}
             </button>
           ))}
         </div>
@@ -1115,6 +1192,19 @@ function CommandCentre({ user, onLogout }) {
             </div>
           </div>
         )}
+
+        {view==="users"&&user.access==="full"&&(
+          <div style={{animation:"fadeIn .35s ease"}}>
+            <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,color:NK,marginBottom:6}}>Demo account requests</h2>
+            <p style={{fontSize:13,color:SL,lineHeight:1.6,marginBottom:18}}>Academic demo only. These requests are stored in this browser and approvals do not verify real UMP identities or grant production access.</p>
+            {pendingAccounts.length===0?<div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:9,padding:24,color:MID}}>No pending requests.</div>:pendingAccounts.map(account=>(
+              <div key={account.id} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:9,padding:18,marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+                <div><div style={{fontSize:14,fontWeight:700,color:NK}}>{account.name} · {account.type}</div><div style={{fontSize:12,color:SL,marginTop:4}}>{account.id} · {account.email}</div><div style={{fontSize:11,color:MID,marginTop:3}}>Requested {new Date(account.createdAt).toLocaleString()}</div></div>
+                <div style={{display:"flex",gap:8}}><button onClick={()=>{setDemoAccountStatus(account.id,"ACTIVE");setPendingAccounts(listPendingDemoAccounts());}} style={{padding:"8px 13px",background:GREEN,color:WHITE,border:0,borderRadius:6,fontWeight:700,cursor:"pointer"}}>Approve demo</button><button onClick={()=>{setDemoAccountStatus(account.id,"REJECTED");setPendingAccounts(listPendingDemoAccounts());}} style={{padding:"8px 13px",background:WHITE,color:RED,border:`1px solid ${RED}55`,borderRadius:6,fontWeight:700,cursor:"pointer"}}>Reject</button></div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1181,14 +1271,20 @@ function OperatorIncidentForm({ incidents, setIncidents }) {
    APP ROUTER
    ══════════════════════════════════════════════════════════════ */
 export default function CommandCenterApp({ onBack }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => readDemoSession());
+
+  function handleLogin(nextUser) {
+    writeDemoSession(nextUser);
+    setUser(nextUser);
+  }
 
   function handleLogout() {
+    clearDemoSession();
     setUser(null);
     if (onBack) onBack();
   }
 
-  if (!user) return <LoginPage onLogin={setUser} onBack={onBack} />;
+  if (!user) return <LoginPage onLogin={handleLogin} onBack={onBack} />;
   if (user.portal==="student") return <StudentPortal user={user} onLogout={handleLogout} />;
   return <CommandCentre user={user} onLogout={handleLogout} />;
 }
