@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   LOGO, NAVY, NAVY2, NAVY3, NAVYL,
   RED, REDL, ORANGE, ORANGEL, GREEN, GREENL,
@@ -16,7 +16,7 @@ function useReveal(t = 0.1) {
     }, { threshold: t });
     if (ref.current) obs.observe(ref.current);
     return () => obs.disconnect();
-  }, []);
+  }, [t]);
   return [ref, vis];
 }
 function Reveal({ children, delay = 0, y = 20, style = {} }) {
@@ -82,17 +82,10 @@ function EmergencyCallDock() {
   );
 }
 
-function IHospital()  { return <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><rect x={1.5} y={3} width={15} height={13.5} rx={1.5} stroke="currentColor" strokeWidth={1.3}/><path d="M9 6.5v5M6.5 9h5" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round"/><path d="M5.5 3V1.5M12.5 3V1.5" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round"/></svg> }
 function IHeart()     { return <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><path d="M9 15S2 10.5 2 6c0-2.2 1.8-4 4-4 1.2 0 2.3.5 3 1.4C9.7 2.5 10.8 2 12 2c2.2 0 4 1.8 4 4 0 4.5-7 9-7 9Z" stroke="currentColor" strokeWidth={1.3} strokeLinejoin="round"/></svg> }
-function IPulse()     { return <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><path d="M1.5 9h3l2-5.5 3 11 2.5-7 1.5 3 2 0h1.5" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round"/></svg> }
-function IUser()      { return <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><circle cx={9} cy={6} r={3.5} stroke="currentColor" strokeWidth={1.3}/><path d="M2.5 16c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round"/></svg> }
-function IContacts()  { return <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><rect x={2.5} y={2} width={13} height={14} rx={2} stroke="currentColor" strokeWidth={1.3}/><path d="M6 7h6M6 10h4" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round"/><circle cx={9} cy={5} r={1.2} fill="currentColor"/></svg> }
 function IFlame()     { return <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><path d="M9 2c0 0-5 4-5 8a5 5 0 0010 0c0-2-1-3.5-2.5-5C11 7 10 9 9 9c0 0 .5-4-0-7Z" stroke="currentColor" strokeWidth={1.3} strokeLinejoin="round"/></svg> }
 function IDroplet()   { return <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><path d="M9 2L5 9a4 4 0 008 0L9 2Z" stroke="currentColor" strokeWidth={1.3} strokeLinejoin="round"/></svg> }
 function ILung()      { return <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><path d="M9 2v7M6 9C4 9 2 10.5 2 13c0 2 1.5 3 3 3 2 0 4-1 4-4V9M12 9c2 0 4 1.5 4 4 0 2-1.5 3-3 3-2 0-4-1-4-4V9" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round"/></svg> }
-function IMap()       { return <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><path d="M1.5 3.5l5 2 5-2 5 2v11l-5-2-5 2-5-2V3.5Z" stroke="currentColor" strokeWidth={1.2} strokeLinejoin="round"/><path d="M6.5 5.5v10M11.5 3.5v10" stroke="currentColor" strokeWidth={1.1}/></svg> }
-function IClock()     { return <svg width={16} height={16} viewBox="0 0 16 16" fill="none"><circle cx={8} cy={8} r={6.5} stroke="currentColor" strokeWidth={1.2}/><path d="M8 5v3.5l2.5 1.5" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round"/></svg> }
-function IStar()      { return <svg width={14} height={14} viewBox="0 0 14 14" fill="currentColor"><path d="M7 1l1.5 4H13l-3.5 2.5 1.3 4L7 9l-3.8 2.5 1.3-4L1 5h4.5L7 1Z"/></svg> }
 function IWarning()   { return <svg width={16} height={16} viewBox="0 0 16 16" fill="none"><path d="M8 1L1 14h14L8 1Z" stroke="currentColor" strokeWidth={1.3} strokeLinejoin="round"/><path d="M8 6.5v3.5M8 12v.5" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round"/></svg> }
 
 function IChev({ dir = "right" }) {
@@ -156,7 +149,7 @@ function NavIcon({ id }) {
   );
 }
 
-function Navbar({ setPage, goPage }){
+function Navbar({ goPage }){
   const [sc, setSc] = useState(false);
   const [activeNav, setActiveNav] = useState("hero");
   useEffect(() => {
@@ -301,7 +294,7 @@ function HeroIncidentSlideshow() {
 }
 
 /* ── HERO ────────────────────────────────────────────────────── */
-function Hero({ setPage, goPage }) {
+function Hero({ goPage }) {
   return (
     <section id="hero" className="landing-hero" style={{ "--hero-campus-image": `url("${HERO_BACKGROUND_IMAGE}")`, background: `linear-gradient(160deg, ${NAVY3} 0%, ${NAVY} 45%, ${NAVYL} 100%)`, padding: "0 5%", position: "relative", overflow: "hidden", minHeight: "100vh", display: "flex", alignItems: "center" }}>
 
@@ -667,7 +660,7 @@ function ChatBot() {
     setTyping(true);
     setTimeout(() => {
       setTyping(false);
-      setMsgs(p => [...p, { from: "bot", text: "Thank you for your message. This assistant is currently in demonstration mode. For emergencies, call the UMP security hotline immediately: +27 13 002 0099.", ts: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) }]);
+      setMsgs(p => [...p, { from: "bot", text: "Thank you for your message. This information assistant cannot contact emergency services or dispatch responders. For emergencies, call the UMP security hotline: +27 13 002 0099.", ts: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) }]);
     }, 1800);
   }
 
@@ -697,7 +690,7 @@ function ChatBot() {
                 <div style={{ fontSize: 13, fontWeight: 700, color: WHITE, fontFamily: "'IBM Plex Serif',serif" }}>UMP-CEIS Assistant</div>
                 <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", fontFamily: "'IBM Plex Sans',sans-serif", display: "flex", alignItems: "center", gap: 5 }}>
                   <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
-                  Online · Demonstration mode
+                  Information assistant
                 </div>
               </div>
               <button onClick={() => setOpen(false)} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 5, cursor: "pointer", padding: "5px 7px", color: "rgba(255,255,255,0.6)", display: "flex", transition: "background .15s" }}
@@ -968,222 +961,17 @@ function Footer({ setPage }) {
   );
 }
 
-/* ── SYSTEM PAGE ─────────────────────────────────────────────── */
-function SystemPage({ setPage }) {
-  return (
-    <div style={{ minHeight: "100vh", background: PAPER, display: "flex", flexDirection: "column" }}>
-      <div style={{ background: NAVY, padding: "0 5%", borderBottom: `2px solid ${RED}` }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", height: 66, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <img src={LOGO} alt="UMP" style={{ height: 40, objectFit: "contain", mixBlendMode: "lighten" }} />
-            <div style={{ borderLeft: "1px solid rgba(255,255,255,0.15)", paddingLeft: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: WHITE, letterSpacing: 2, textTransform: "uppercase", fontFamily: "'IBM Plex Sans',sans-serif", lineHeight: 1.1 }}>UMP-CEIS</div>
-              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", letterSpacing: 0.8, fontFamily: "'IBM Plex Sans',sans-serif", marginTop: 2 }}>Command Centre Access</div>
-            </div>
-          </div>
-          <button onClick={() => setPage("landing")} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.7)", borderRadius: 4, padding: "7px 16px", fontSize: 12, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif", transition: "all .2s" }}
-            onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.12)"}
-            onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.07)"}>
-            ← Back to Home
-          </button>
-        </div>
-      </div>
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 5%" }}>
-        <div style={{ textAlign: "center", maxWidth: 460 }}>
-          <div style={{ width: 64, height: 64, borderRadius: "50%", background: NAVY, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 22px", color: WHITE, boxShadow: `0 8px 32px ${NAVY}30` }}>
-            <IShield />
-          </div>
-          <h1 style={{ fontFamily: "'IBM Plex Serif',serif", fontSize: 27, fontWeight: 700, color: NK, marginBottom: 10 }}>System Access</h1>
-          <p style={{ fontSize: 14, color: SL, lineHeight: 1.85, marginBottom: 28, fontFamily: "'IBM Plex Sans',sans-serif" }}>Accessible to authorised UMP personnel only. Authenticate with your institutional credentials.</p>
-          <div style={{ background: WHITE, border: `1px solid ${BD}`, borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
-            <div style={{ background: NAVY, padding: "12px 20px", display: "flex", alignItems: "center", gap: 8 }}>
-              <img src={LOGO} alt="UMP" style={{ height: 26, objectFit: "contain", mixBlendMode: "lighten" }} />
-              <span style={{ fontSize: 10.5, fontWeight: 600, color: "rgba(255,255,255,0.7)", fontFamily: "'IBM Plex Sans',sans-serif", letterSpacing: 0.5 }}>Secure Authentication Portal</span>
-            </div>
-            <div style={{ padding: "22px 22px 20px" }}>
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: NK, marginBottom: 6, fontFamily: "'IBM Plex Sans',sans-serif", textTransform: "uppercase", letterSpacing: 0.8 }}>Staff / Student Number</label>
-                <input type="text" placeholder="Enter your UMP ID" style={{ width: "100%", padding: "10px 12px", border: `1px solid ${BD}`, borderRadius: 5, fontSize: 13.5, fontFamily: "'IBM Plex Sans',sans-serif", color: NK, background: PAPER, outline: "none", transition: "border-color .2s" }}
-                  onFocus={e => e.target.style.borderColor = NAVY}
-                  onBlur={e => e.target.style.borderColor = BD} />
-              </div>
-              <div style={{ marginBottom: 18 }}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: NK, marginBottom: 6, fontFamily: "'IBM Plex Sans',sans-serif", textTransform: "uppercase", letterSpacing: 0.8 }}>Password</label>
-                <input type="password" placeholder="Enter your password" style={{ width: "100%", padding: "10px 12px", border: `1px solid ${BD}`, borderRadius: 5, fontSize: 13.5, fontFamily: "'IBM Plex Sans',sans-serif", color: NK, background: PAPER, outline: "none", transition: "border-color .2s" }}
-                  onFocus={e => e.target.style.borderColor = NAVY}
-                  onBlur={e => e.target.style.borderColor = BD} />
-              </div>
-              <button style={{ width: "100%", padding: "11px", background: NAVY, color: WHITE, border: "none", borderRadius: 5, fontSize: 13.5, fontWeight: 600, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif", transition: "background .2s", textTransform: "uppercase", letterSpacing: 0.5 }}
-                onMouseEnter={e => e.currentTarget.style.background = NAVY2}
-                onMouseLeave={e => e.currentTarget.style.background = NAVY}>
-                Access Command Centre
-              </button>
-            </div>
-          </div>
-          {/* Red emergency notice */}
-          <div style={{ background: `${RED}0a`, border: `1px solid ${RED}22`, borderRadius: 6, padding: "10px 14px" }}>
-            <p style={{ fontSize: 11.5, color: RED, fontFamily: "'IBM Plex Sans',sans-serif", lineHeight: 1.6, fontWeight: 500 }}>
-              For emergencies — call <strong>+27 13 002 0099</strong> immediately.<br />
-              <span style={{ color: MID, fontWeight: 400 }}>Do not wait for system access in a life-threatening situation.</span>
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-/* ── PHASES ROADMAP SECTION ──────────────────────────────────── */
-function PhasesSection({ setPage }) {
-  const [active, setActive] = useState(0);
-  const phases = [
-    {
-      num: "01", label: "Phase 1", months: "Month 1–2", title: "Core Emergency Utility",
-      color: NAVY, tagColor: NAVY,
-      icon: <ISOS />,
-      summary: "A working emergency assistance mobile app — functional, presentable, and deployable.",
-      features: ["User registration & institutional login","Emergency contacts storage","Live GPS location sharing","One-tap SOS with SMS + push dispatch","Offline first aid library (CPR, choking, bleeding, burns)"],
-      badge: "Foundation",
-    },
-    {
-      num: "02", label: "Phase 2", months: "Month 3–4", title: "Intelligent Triage Engine",
-      color: ORANGE, tagColor: ORANGE,
-      icon: <IPulse />,
-      summary: "ML-powered symptom assessment with risk scoring and emergency severity classification.",
-      features: ["Symptom selection with adaptive follow-up questions","Risk score calculation engine","Severity classification: Low · Moderate · High · Critical","Logistic regression / decision tree classifier","Trained on public symptom-disease datasets"],
-      badge: "Academic",
-    },
-    {
-      num: "03", label: "Phase 3", months: "Month 5–6", title: "Explainable AI + Transparency",
-      color: GREEN, tagColor: GREEN,
-      icon: <IChart />,
-      summary: "Research-grade explainability layer — probability scores, SHAP analysis, and session tracking.",
-      features: ["Probability score with confidence interval","Contributing symptom weights (SHAP)","Risk factor breakdown display","Previous triage session history","Ethical safeguards & disclaimer logic"],
-      badge: "Thesis-Level",
-    },
-    {
-      num: "04", label: "Phase 4", months: "Month 7–8", title: "Real-Time Response Intelligence",
-      color: RED, tagColor: RED,
-      icon: <IHospital />,
-      summary: "Expands system impact with hospital routing, live traffic, and optional IoT vitals ingestion.",
-      features: ["Nearest hospital detection","Estimated travel time + live traffic","Hospital crowd prediction (simulated)","Offline fallback routing","Optional: Bluetooth heart rate / SpO₂ integration"],
-      badge: "High Impact",
-    },
-  ];
-  const p = phases[active];
-  return (
-    <section id="phases" style={{ padding: "96px 5%", background: PAPER, borderTop: `1px solid ${BD}` }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-        <Reveal style={{ marginBottom: 52 }}>
-          <SectionHead chip="System Roadmap" chipColor={NAVY} title="Four-Phase Development" titleHighlight="Architecture"
-            sub="UMP-CEIS is built across four progressive phases — from core utility to research-grade explainable AI and real-time response intelligence." />
-        </Reveal>
-        {/* Phase tabs */}
-        <Reveal>
-          <div style={{ display: "flex", gap: 8, marginBottom: 28, flexWrap: "wrap", justifyContent: "center" }}>
-            {phases.map((ph, i) => (
-              <button key={i} onClick={() => setActive(i)} style={{ padding: "10px 20px", borderRadius: 5, border: `1.5px solid ${i === active ? ph.color : BD}`, background: i === active ? `${ph.color}12` : WHITE, color: i === active ? ph.color : SL, fontSize: 12.5, fontWeight: i === active ? 700 : 500, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif", transition: "all .2s", display: "flex", alignItems: "center", gap: 7 }}>
-                <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, opacity: 0.6 }}>{ph.num}</span>
-                {ph.label}: {ph.title.split(" ").slice(0,2).join(" ")}
-              </button>
-            ))}
-          </div>
-        </Reveal>
-        {/* Active phase detail */}
-        <Reveal key={active}>
-          <div style={{ background: WHITE, borderRadius: 12, border: `1px solid ${BD}`, borderTop: `4px solid ${p.color}`, overflow: "hidden", boxShadow: `0 8px 40px ${p.color}10` }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-              {/* Left */}
-              <div style={{ padding: "40px 38px", borderRight: `1px solid ${BD}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 10, background: `${p.color}12`, border: `1px solid ${p.color}28`, display: "flex", alignItems: "center", justifyContent: "center", color: p.color }}>{p.icon}</div>
-                  <div>
-                    <div style={{ fontSize: 9.5, fontWeight: 700, color: p.color, letterSpacing: 1.8, textTransform: "uppercase", fontFamily: "'IBM Plex Sans',sans-serif" }}>{p.months} · {p.badge}</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: NK, fontFamily: "'IBM Plex Serif',serif", marginTop: 2 }}>{p.title}</div>
-                  </div>
-                </div>
-                <p style={{ fontSize: 13.5, color: SL, lineHeight: 1.85, marginBottom: 26, fontFamily: "'IBM Plex Sans',sans-serif" }}>{p.summary}</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-                  {p.features.map((f, j) => (
-                    <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
-                      <div style={{ width: 18, height: 18, borderRadius: "50%", background: `${p.color}10`, border: `1px solid ${p.color}28`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1, color: p.color }}><ICheck /></div>
-                      <span style={{ fontSize: 13, color: SL, lineHeight: 1.65, fontFamily: "'IBM Plex Sans',sans-serif" }}>{f}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* Right — CTA tile */}
-              <div style={{ padding: "40px 38px", background: `${p.color}06`, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-                <div style={{ fontSize: 72, fontWeight: 900, color: `${p.color}14`, fontFamily: "'IBM Plex Serif',serif", lineHeight: 1, marginBottom: 16, letterSpacing: -4 }}>{p.num}</div>
-                {active === 1 && (
-                  <div>
-                    <p style={{ fontSize: 13, color: SL, lineHeight: 1.8, marginBottom: 22, fontFamily: "'IBM Plex Sans',sans-serif" }}>Try the live symptom triage demo — enter your symptoms and receive an instant risk classification with full explainability.</p>
-                    <button onClick={() => setPage("triage")} style={{ padding: "12px 26px", background: ORANGE, color: WHITE, border: "none", borderRadius: 5, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif", letterSpacing: 0.4, display: "inline-flex", alignItems: "center", gap: 8, transition: "background .2s" }}
-                      onMouseEnter={e => e.currentTarget.style.background = "#B86005"}
-                      onMouseLeave={e => e.currentTarget.style.background = ORANGE}>
-                      Open Triage Engine <IArrowR />
-                    </button>
-                  </div>
-                )}
-                {active === 0 && (
-                  <div>
-                    <p style={{ fontSize: 13, color: SL, lineHeight: 1.8, marginBottom: 22, fontFamily: "'IBM Plex Sans',sans-serif" }}>Access the interactive first aid library — offline-ready guides for CPR, choking, bleeding control, and burns.</p>
-                    <button onClick={() => setPage("firstaid")} style={{ padding: "12px 26px", background: NAVY, color: WHITE, border: "none", borderRadius: 5, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif", letterSpacing: 0.4, display: "inline-flex", alignItems: "center", gap: 8, transition: "background .2s" }}
-                      onMouseEnter={e => e.currentTarget.style.background = NAVYL}
-                      onMouseLeave={e => e.currentTarget.style.background = NAVY}>
-                      Open First Aid Library <IArrowR />
-                    </button>
-                  </div>
-                )}
-                {active === 2 && (
-                  <div>
-                    <p style={{ fontSize: 13, color: SL, lineHeight: 1.8, marginBottom: 22, fontFamily: "'IBM Plex Sans',sans-serif" }}>The explainability layer shows probability scores, confidence intervals, and SHAP-style contributing factors for every triage decision.</p>
-                    <button onClick={() => setPage("triage")} style={{ padding: "12px 26px", background: GREEN, color: WHITE, border: "none", borderRadius: 5, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif", letterSpacing: 0.4, display: "inline-flex", alignItems: "center", gap: 8 }}>
-                      See Explainable Triage <IArrowR />
-                    </button>
-                  </div>
-                )}
-                {active === 3 && (
-                  <div>
-                    <p style={{ fontSize: 13, color: SL, lineHeight: 1.8, marginBottom: 22, fontFamily: "'IBM Plex Sans',sans-serif" }}>Phase 4 adds nearest hospital detection, live traffic routing, and optional IoT vitals ingestion — merging ML health intelligence with real-world logistics.</p>
-                    <button onClick={() => setPage("hospitals")} style={{ padding: "12px 26px", background: RED, color: WHITE, border: "none", borderRadius: 5, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif", letterSpacing: 0.4, display: "inline-flex", alignItems: "center", gap: 8 }}>
-                      View Hospital Finder <IArrowR />
-                    </button>
-                  </div>
-                )}
-                <div style={{ marginTop: 32, paddingTop: 24, borderTop: `1px solid ${BD}` }}>
-                  <div style={{ fontSize: 10.5, fontWeight: 700, color: MID, textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 10, fontFamily: "'IBM Plex Sans',sans-serif" }}>Deliverable</div>
-                  <div style={{ fontSize: 13, color: NK, fontWeight: 600, fontFamily: "'IBM Plex Serif',serif", lineHeight: 1.5 }}>
-                    {active === 0 && "A working emergency assistance mobile app. Presentable."}
-                    {active === 1 && "An intelligent emergency triage assistant. Academic-grade."}
-                    {active === 2 && "A transparent ML decision-support system. Thesis-level."}
-                    {active === 3 && "A real-time response intelligence platform with IoT expansion."}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
-
-/* ── FIRST AID PAGE ──────────────────────────────────────────── */
-/* ── FIRST AID SIMULATIONS (SVG) ─────────────────────────────── */
 function SimCPR({ step, running }) {
   const [beat, setBeat] = useState(false);
   const [count, setCount] = useState(0);
-  const [phase, setPhase] = useState("compress"); // compress | breath
   useEffect(() => {
     if (!running) return;
     const interval = step === 4 ? 545 : step === 5 ? 1200 : null; // 110 BPM for compressions
     if (!interval) return;
     const t = setInterval(() => {
       setBeat(b => !b);
-      if (step === 4) setCount(c => { const n = (c + 1) % 30; if (n === 0) setPhase("breath"); return n; });
-      if (step === 5) setCount(c => { const n = (c + 1) % 2; if (n === 0) setPhase("compress"); return n; });
+      if (step === 4) setCount(c => (c + 1) % 30);
+      if (step === 5) setCount(c => (c + 1) % 2);
     }, interval);
     return () => clearInterval(t);
   }, [running, step]);
@@ -1454,15 +1242,15 @@ function SimBurns({ step, running }) {
 /* ── VOICE HOOK ───────────────────────────────────────────────── */
 function useVoice() {
   const [speaking, setSpeaking] = useState(false);
-  const [supported] = useState(() => typeof window !== "undefined" && "speechSynthesis" in window);
+  const supported = typeof window !== "undefined" && "speechSynthesis" in window;
   const utteranceRef = useRef(null);
-  const cancel = () => {
+  const cancel = useCallback(() => {
     if (!supported) return;
     if (utteranceRef.current) utteranceRef.current.__ceisCancelled = true;
     window.speechSynthesis.cancel();
     setSpeaking(false);
-  };
-  const speak = (text, onEnd) => {
+  }, [supported]);
+  const speak = useCallback((text, onEnd) => {
     if (!supported) { onEnd?.(); return; }
     cancel();
     const u = new SpeechSynthesisUtterance(text);
@@ -1484,7 +1272,7 @@ function useVoice() {
     u.onend = complete;
     u.onerror = complete;
     window.speechSynthesis.speak(u);
-  };
+  }, [cancel, supported]);
   return { speak, cancel, speaking, supported };
 }
 
@@ -1505,7 +1293,7 @@ function FirstAidPage({ setPage }) {
   const { speak, cancel, speaking, supported } = useVoice();
   const stepRef = useRef(null);
 
-  const guides = [
+  const guides = useMemo(() => [
     {
       id: "cpr", title: "CPR", subtitle: "Cardiopulmonary Resuscitation", color: RED, icon: <IHeart />,
       when: "Person is unresponsive and not breathing normally.",
@@ -1561,7 +1349,7 @@ function FirstAidPage({ setPage }) {
         { n: "07", title: "Seek medical attention", body: "All burns larger than 3 centimetres, burns on face, hands, feet, or genitals, or burns in children require emergency medical care." },
       ]
     },
-  ];
+  ], []);
 
   const g = guides[active];
   const totalSteps = g.steps.length;
@@ -1594,7 +1382,7 @@ function FirstAidPage({ setPage }) {
     setVoiceStep(0); setVoiceAuto(false); setVoicePaused(false); setVoiceWaiting(false);
     clearTimeout(voiceAdvanceTimer.current);
     cancel();
-  }, [active, mode]);
+  }, [active, mode, cancel]);
 
   // Voice auto-advance
   useEffect(() => {
@@ -1614,7 +1402,7 @@ function FirstAidPage({ setPage }) {
       }
     });
     stepRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [voiceStep, voiceAuto, voicePaused]);
+  }, [voiceStep, voiceAuto, voicePaused, g.steps, speak, totalSteps]);
 
   function startVoice() {
     clearTimeout(voiceAdvanceTimer.current);
@@ -1683,7 +1471,7 @@ function FirstAidPage({ setPage }) {
             <img src={LOGO} alt="UMP" style={{ height: 40, objectFit: "contain", mixBlendMode: "lighten" }} />
             <div style={{ borderLeft: "1px solid rgba(255,255,255,0.15)", paddingLeft: 12 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: WHITE, letterSpacing: 1.8, textTransform: "uppercase", fontFamily: "'IBM Plex Sans',sans-serif" }}>UMP-CEIS</div>
-              <div style={{ fontSize: 8.5, color: "rgba(255,255,255,0.4)", fontFamily: "'IBM Plex Sans',sans-serif" }}>First Aid Library — Phase 1 · Voice + Simulation</div>
+              <div style={{ fontSize: 8.5, color: "rgba(255,255,255,0.4)", fontFamily: "'IBM Plex Sans',sans-serif" }}>First Aid Library · Voice + Guided Steps</div>
             </div>
           </div>
           <button onClick={() => { clearTimeout(voiceAdvanceTimer.current); cancel(); setPage("landing"); }} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.7)", borderRadius: 4, padding: "7px 16px", fontSize: 12, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif" }}>← Back</button>
@@ -1693,7 +1481,7 @@ function FirstAidPage({ setPage }) {
       <div style={{ maxWidth: 1060, margin: "0 auto", padding: "36px 5% 112px" }}>
         <EmergencyCallDock />
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 10.5, fontWeight: 700, color: MID, letterSpacing: 1.8, textTransform: "uppercase", fontFamily: "'IBM Plex Sans',sans-serif", marginBottom: 6 }}>Phase 1 · Emergency Utility</div>
+          <div style={{ fontSize: 10.5, fontWeight: 700, color: MID, letterSpacing: 1.8, textTransform: "uppercase", fontFamily: "'IBM Plex Sans',sans-serif", marginBottom: 6 }}>Emergency First Aid</div>
           <h1 style={{ fontFamily: "'IBM Plex Serif',serif", fontSize: "clamp(22px,3vw,32px)", fontWeight: 700, color: NK, letterSpacing: -0.5, marginBottom: 5 }}>First Aid Library</h1>
           <p style={{ fontSize: 13.5, color: SL, fontFamily: "'IBM Plex Sans',sans-serif", lineHeight: 1.7, maxWidth: 560 }}>Step-by-step guides with animated simulation and voice instructor. Not a substitute for professional medical care.</p>
         </div>
@@ -1915,8 +1703,8 @@ function FirstAidPage({ setPage }) {
 
 
 /* ══════════════════════════════════════════════════════════════
-   EMERGENCY AID ENGINE — Demo Mode
-   Integrated Triage + First Aid + Voice + Simulation + Analytics
+   EMERGENCY AID
+   Symptom guidance and first aid
    ══════════════════════════════════════════════════════════════ */
 
 /* ── FIRST AID INSTRUCTION DATABASE ─────────────────────────── */
@@ -2081,123 +1869,6 @@ function StepAnim({ type, color, running }) {
   );
 }
 
-/* ── DEMO ANALYTICS STORE ─────────────────────────────────────── */
-const DEMO_LOG = [
-  { id: 1748200000001, ts: new Date(Date.now()-86400000).toISOString(), symptoms:["chest_pain"],  risk:"High",     location:"Library Block",    responseTime:4.2 },
-  { id: 1748200000002, ts: new Date(Date.now()-43200000).toISOString(), symptoms:["seizure"],     risk:"Critical", location:"Sports Field",      responseTime:2.8 },
-  { id: 1748200000003, ts: new Date(Date.now()-21600000).toISOString(), symptoms:["limb_injury"], risk:"Moderate", location:"Parking Lot B",     responseTime:7.1 },
-  { id: 1748200000004, ts: new Date(Date.now()-7200000).toISOString(),  symptoms:["high_fever"],  risk:"Moderate", location:"Lecture Hall 3",    responseTime:5.6 },
-  { id: 1748200000005, ts: new Date(Date.now()-3600000).toISOString(),  symptoms:["breath"],      risk:"High",     location:"Res Block C",       responseTime:3.3 },
-];
-const SESSION_LOG = [];
-function logSession(inc) { SESSION_LOG.unshift(inc); }
-
-/* ── ANALYTICS PAGE ───────────────────────────────────────────── */
-function AnalyticsPage({ setPage }) {
-  const all = [...SESSION_LOG, ...DEMO_LOG];
-  const byRisk = all.reduce((a,i)=>{ a[i.risk]=(a[i.risk]||0)+1; return a; },{});
-  const withRT = all.filter(i=>i.responseTime);
-  const avgRT = withRT.length ? (withRT.reduce((a,i)=>a+i.responseTime,0)/withRT.length).toFixed(1) : "—";
-  const hotspots = all.reduce((a,i)=>{ a[i.location]=(a[i.location]||0)+1; return a; },{});
-  const topSpots = Object.entries(hotspots).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  const RC = { Critical:RED, High:"#B85000", Moderate:"#7A6000", Low:GREEN };
-
-  return (
-    <div style={{minHeight:"100vh",background:PAPER,fontFamily:"'IBM Plex Sans',sans-serif"}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');*{box-sizing:border-box;margin:0;padding:0;}@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes spin{to{transform:rotate(360deg)}}@keyframes alertPulse{0%,100%{box-shadow:0 0 0 0 rgba(184,48,24,0.5)}70%{box-shadow:0 0 0 14px rgba(184,48,24,0)}}`}</style>
-      <div style={{background:NAVY,borderBottom:`3px solid ${GOLD}`}}>
-        <div style={{maxWidth:1200,margin:"0 auto",padding:"0 5%",height:64,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <img src={LOGO} alt="UMP" style={{height:38,objectFit:"contain",mixBlendMode:"lighten"}}/>
-            <div style={{borderLeft:"1px solid rgba(255,255,255,0.15)",paddingLeft:12}}>
-              <div style={{fontSize:10,fontWeight:700,color:WHITE,letterSpacing:1.8,textTransform:"uppercase",fontFamily:"'IBM Plex Sans',sans-serif"}}>UMP-CEIS</div>
-              <div style={{fontSize:8.5,color:"rgba(255,255,255,0.4)",fontFamily:"'IBM Plex Sans',sans-serif"}}>Response Analytics — Demo Mode</div>
-            </div>
-          </div>
-          <button onClick={()=>setPage("landing")} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.14)",color:"rgba(255,255,255,0.7)",borderRadius:4,padding:"7px 16px",fontSize:12,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>← Back</button>
-        </div>
-      </div>
-      <div style={{maxWidth:1060,margin:"0 auto",padding:"36px 5% 60px",animation:"fadeIn .4s ease"}}>
-        <div style={{marginBottom:28}}>
-          <div style={{fontSize:10.5,fontWeight:700,color:MID,letterSpacing:1.8,textTransform:"uppercase",fontFamily:"'IBM Plex Sans',sans-serif",marginBottom:6}}>Phase 4 · Real-Time Intelligence</div>
-          <h1 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:"clamp(22px,3vw,30px)",fontWeight:700,color:NK,letterSpacing:-0.5,marginBottom:6}}>Incident Analytics Dashboard</h1>
-          <p style={{fontSize:12.5,color:MID,fontFamily:"'IBM Plex Mono',monospace"}}>GET /analytics/incident-trends · GET /analytics/response-times · GET /analytics/location-hotspots</p>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:26}}>
-          {[[`${all.length}`,"Total Incidents","all time",NAVY],[`${avgRT} min`,"Avg Response","from alert to arrival",GREEN],[`${byRisk.Critical||0}`,"Critical Alerts","P1 — ambulance dispatched",RED],[`${all.filter(i=>["Critical","High"].includes(i.risk)).length}`,"Auto-Dispatched","auto-alert triggered",ORANGE]].map(([v,l,s,c])=>(
-            <div key={l} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:10,borderTop:`3px solid ${c}`,padding:"16px 18px"}}>
-              <div style={{fontSize:9.5,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1.2,fontFamily:"'IBM Plex Sans',sans-serif",marginBottom:6}}>{l}</div>
-              <div style={{fontSize:30,fontWeight:800,color:c,fontFamily:"'IBM Plex Mono',monospace",lineHeight:1}}>{v}</div>
-              <div style={{fontSize:10.5,color:MID,fontFamily:"'IBM Plex Sans',sans-serif",marginTop:5}}>{s}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:22}}>
-          <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:10,overflow:"hidden"}}>
-            <div style={{padding:"14px 18px",borderBottom:`1px solid ${BD}`}}>
-              <div style={{fontSize:9.5,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1.2,fontFamily:"'IBM Plex Sans',sans-serif"}}>Incident Trends — /analytics/incident-trends</div>
-              <div style={{fontSize:14,fontWeight:700,color:NK,fontFamily:"'IBM Plex Serif',serif",marginTop:3}}>Risk Level Distribution</div>
-            </div>
-            <div style={{padding:"18px"}}>
-              {["Critical","High","Moderate","Low"].map(r=>{
-                const c=byRisk[r]||0, pct=all.length?Math.round(c/all.length*100):0;
-                return <div key={r} style={{marginBottom:14}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{fontSize:12.5,fontWeight:600,color:RC[r],fontFamily:"'IBM Plex Sans',sans-serif"}}>{r}</span><span style={{fontSize:12,fontFamily:"'IBM Plex Mono',monospace",color:MID}}>{c} ({pct}%)</span></div><div style={{height:8,background:PAPER,borderRadius:4,overflow:"hidden"}}><div style={{width:`${pct}%`,height:"100%",background:RC[r],borderRadius:4}}/></div></div>;
-              })}
-            </div>
-          </div>
-          <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:10,overflow:"hidden"}}>
-            <div style={{padding:"14px 18px",borderBottom:`1px solid ${BD}`}}>
-              <div style={{fontSize:9.5,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1.2,fontFamily:"'IBM Plex Sans',sans-serif"}}>Response Times — /analytics/response-times</div>
-              <div style={{fontSize:14,fontWeight:700,color:NK,fontFamily:"'IBM Plex Serif',serif",marginTop:3}}>Minutes from Alert to Arrival</div>
-            </div>
-            <div style={{padding:"18px"}}>
-              {all.filter(i=>i.responseTime).slice(0,6).map((inc,i)=>(
-                <div key={i} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-                  <div style={{width:8,height:8,borderRadius:"50%",background:RC[inc.risk]||MID,flexShrink:0}}/>
-                  <div style={{flex:1,display:"flex",justifyContent:"space-between"}}>
-                    <span style={{fontSize:12,color:SL,fontFamily:"'IBM Plex Sans',sans-serif"}}>{inc.location}</span>
-                    <span style={{fontSize:12,fontWeight:700,color:inc.responseTime<=5?GREEN:RED,fontFamily:"'IBM Plex Mono',monospace"}}>{inc.responseTime} min</span>
-                  </div>
-                </div>
-              ))}
-              <div style={{marginTop:12,padding:"8px 12px",background:GREENL,borderRadius:6,border:`1px solid ${GREEN}28`}}>
-                <span style={{fontSize:11.5,color:"#1D5C24",fontWeight:600,fontFamily:"'IBM Plex Sans',sans-serif"}}>Target: ≤ 5 min · Current avg: {avgRT} min</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:10,overflow:"hidden",marginBottom:18}}>
-          <div style={{padding:"14px 18px",borderBottom:`1px solid ${BD}`}}>
-            <div style={{fontSize:9.5,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1.2,fontFamily:"'IBM Plex Sans',sans-serif"}}>Location Hotspots — /analytics/location-hotspots</div>
-            <div style={{fontSize:14,fontWeight:700,color:NK,fontFamily:"'IBM Plex Serif',serif",marginTop:3}}>Incident Frequency by Campus Zone</div>
-          </div>
-          <div style={{padding:"18px",display:"grid",gridTemplateColumns:`repeat(${Math.min(topSpots.length,5)},1fr)`,gap:10}}>
-            {topSpots.map(([loc,cnt],i)=>{
-              const heat=["#EF4444","#F97316","#EAB308","#22C55E","#3B82F6"][i];
-              return <div key={i} style={{textAlign:"center",padding:"14px 10px",background:`${heat}10`,border:`1px solid ${heat}30`,borderRadius:8}}><div style={{fontSize:24,fontWeight:800,color:heat,fontFamily:"'IBM Plex Mono',monospace"}}>{cnt}</div><div style={{fontSize:10.5,color:SL,fontFamily:"'IBM Plex Sans',sans-serif",marginTop:4,lineHeight:1.4}}>{loc}</div><div style={{width:"100%",height:4,background:`${heat}20`,borderRadius:2,marginTop:8}}><div style={{width:`${Math.min(100,cnt*20)}%`,height:"100%",background:heat,borderRadius:2}}/></div></div>;
-            })}
-          </div>
-        </div>
-        <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:10,overflow:"hidden"}}>
-          <div style={{padding:"14px 18px",borderBottom:`1px solid ${BD}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div style={{fontSize:14,fontWeight:700,color:NK,fontFamily:"'IBM Plex Serif',serif"}}>Recent Incident Log</div>
-            <div style={{fontSize:10.5,color:MID,fontFamily:"'IBM Plex Mono',monospace"}}>Live — updates on each triage session</div>
-          </div>
-          <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12.5,fontFamily:"'IBM Plex Sans',sans-serif"}}>
-              <thead><tr style={{borderBottom:`1px solid ${BD}`}}>{["Incident ID","Timestamp","Symptoms","Risk","Location","Response"].map(h=><th key={h} style={{padding:"10px 16px",textAlign:"left",fontSize:10,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1}}>{h}</th>)}</tr></thead>
-              <tbody>{all.slice(0,8).map((inc,i)=><tr key={i} style={{borderBottom:`1px solid ${BD}`,background:i%2===0?WHITE:PAPER}}><td style={{padding:"10px 16px",fontFamily:"'IBM Plex Mono',monospace",fontSize:11,color:MID}}>#{String(inc.id).slice(-6)}</td><td style={{padding:"10px 16px",color:SL}}>{new Date(inc.ts).toLocaleString()}</td><td style={{padding:"10px 16px",color:NK}}>{(inc.symptoms||[]).slice(0,2).join(", ")}</td><td style={{padding:"10px 16px"}}><span style={{padding:"2px 8px",background:`${RC[inc.risk]||MID}16`,color:RC[inc.risk]||MID,borderRadius:3,fontSize:11,fontWeight:700}}>{inc.risk||"—"}</span></td><td style={{padding:"10px 16px",color:SL}}>{inc.location||"—"}</td><td style={{padding:"10px 16px",fontFamily:"'IBM Plex Mono',monospace",color:inc.responseTime&&inc.responseTime<=5?GREEN:inc.responseTime?RED:MID}}>{inc.responseTime?`${inc.responseTime} min`:"—"}</td></tr>)}</tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════
-   MAIN EMERGENCY AID ENGINE — DEMO MODE
-   ══════════════════════════════════════════════════════════════ */
 function TriagePage({ setPage }) {
   const [phase, setPhase]           = useState(0);   // 0=select 1=details 2=aid 3=done
   const [selected, setSelected]     = useState([]);
@@ -2215,7 +1886,7 @@ function TriagePage({ setPage }) {
   const [stepPause, setStepPause] = useState(false);
   const autoAdvanceRef = useRef(false);
   const autoAdvanceTimer = useRef(null);
-  const { speak, cancel, speaking, supported } = useVoice();
+  const { speak, cancel, speaking } = useVoice();
   const topRef = useRef(null);
 
   useEffect(() => () => {
@@ -2321,8 +1992,6 @@ function TriagePage({ setPage }) {
     setLoading(true);
     const risk = scoreRisk(selected, useCustom ? customText : null);
     setRiskResult(risk);
-    const inc = { id: Date.now(), ts: new Date().toISOString(), symptoms: useCustom?["custom"]:selected, custom: useCustom?customText:"", risk: risk.level, location: "Not provided", responseTime: null, deliveryStatus: "Local demo only — no dispatch" };
-    logSession(inc);
     const db = getSteps(selected, useCustom ? customText : null);
     setTimeout(() => {
       setAidSteps(db.steps);
@@ -2380,12 +2049,12 @@ function TriagePage({ setPage }) {
             <img src={LOGO} alt="UMP" style={{height:38,objectFit:"contain",mixBlendMode:"lighten"}}/>
             <div style={{borderLeft:"1px solid rgba(255,255,255,0.15)",paddingLeft:12}}>
               <div style={{fontSize:10,fontWeight:700,color:WHITE,letterSpacing:1.8,textTransform:"uppercase",fontFamily:"'IBM Plex Sans',sans-serif"}}>UMP-CEIS</div>
-              <div style={{fontSize:8.5,color:"rgba(255,255,255,0.4)",fontFamily:"'IBM Plex Sans',sans-serif"}}>Emergency Aid Engine — Demo Mode</div>
+              <div style={{fontSize:8.5,color:"rgba(255,255,255,0.4)",fontFamily:"'IBM Plex Sans',sans-serif"}}>Emergency Aid Guidance</div>
             </div>
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
             {phase>=2&&riskResult&&<div style={{padding:"5px 12px",background:`${riskResult.color}22`,border:`1px solid ${riskResult.color}44`,borderRadius:4,fontSize:11.5,fontWeight:700,color:riskResult.color,fontFamily:"'IBM Plex Sans',sans-serif"}}>{riskResult.icon} {riskResult.level} Risk</div>}
-            <button onClick={()=>setPage("analytics")} style={{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.7)",borderRadius:4,padding:"6px 12px",fontSize:11.5,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>📊 Analytics</button>
+            <button onClick={()=>setPage("system")} style={{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.7)",borderRadius:4,padding:"6px 12px",fontSize:11.5,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>Command Centre</button>
             <button onClick={()=>{cancel();setPage("landing");}} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.14)",color:"rgba(255,255,255,0.7)",borderRadius:4,padding:"6px 14px",fontSize:12,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>← Back</button>
           </div>
         </div>
@@ -2397,9 +2066,9 @@ function TriagePage({ setPage }) {
       {phase===0&&(
         <div style={{maxWidth:880,margin:"0 auto",padding:"36px 5% 112px",animation:"fadeIn .35s ease"}}>
           <div style={{marginBottom:26}}>
-            <div style={{fontSize:10.5,fontWeight:700,color:MID,letterSpacing:1.8,textTransform:"uppercase",fontFamily:"'IBM Plex Sans',sans-serif",marginBottom:6}}>Emergency Aid Engine · Demo Mode</div>
+            <div style={{fontSize:10.5,fontWeight:700,color:MID,letterSpacing:1.8,textTransform:"uppercase",fontFamily:"'IBM Plex Sans',sans-serif",marginBottom:6}}>Emergency Aid Guidance</div>
             <h1 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:"clamp(24px,3.5vw,36px)",fontWeight:700,color:NK,letterSpacing:-0.5,marginBottom:8}}>What is happening?</h1>
-            <p style={{fontSize:14,color:SL,fontFamily:"'IBM Plex Sans',sans-serif",lineHeight:1.7,maxWidth:560}}>Select symptoms or describe what is happening. This demo provides existing first-aid guidance and a rule-based triage estimate; it is not a diagnosis and does not contact responders.</p>
+            <p style={{fontSize:14,color:SL,fontFamily:"'IBM Plex Sans',sans-serif",lineHeight:1.7,maxWidth:560}}>Select symptoms or describe what is happening to view general first-aid guidance and a rule-based urgency estimate. This is not a diagnosis and does not send an alert or contact responders.</p>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9,marginBottom:18}}>
             {SYMPTOM_DATA.map(sym=>{
@@ -2423,7 +2092,7 @@ function TriagePage({ setPage }) {
             {useCustom&&<textarea value={customText} onChange={e=>setCustomText(e.target.value)} placeholder="e.g. Student fell from stairs, cannot move right leg, conscious but in severe pain, no visible bleeding..." style={{width:"100%",minHeight:90,padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:13.5,fontFamily:"'IBM Plex Sans',sans-serif",color:NK,background:PAPER,resize:"vertical",outline:"none",lineHeight:1.65}}/>}
           </div>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16}}>
-            <span style={{fontSize:13,color:MID,fontFamily:"'IBM Plex Sans',sans-serif"}}>{useCustom?(customText.trim()?"Situation ready for the demo guide":"Describe the situation above"):`${selected.length} symptom${selected.length!==1?"s":""} selected`}</span>
+            <span style={{fontSize:13,color:MID,fontFamily:"'IBM Plex Sans',sans-serif"}}>{useCustom?(customText.trim()?"Situation ready for the first-aid guide":"Describe the situation above"):`${selected.length} symptom${selected.length!==1?"s":""} selected`}</span>
             <button disabled={(!useCustom&&selected.length===0)||(useCustom&&!customText.trim())} onClick={()=>{if(useCustom){launch();}else{setDetailIdx(0);setPhase(1);}}} style={{padding:"13px 30px",background:(!useCustom&&selected.length===0)||(useCustom&&!customText.trim())?BD:ORANGE,color:WHITE,border:"none",borderRadius:7,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif",display:"flex",alignItems:"center",gap:9,transition:"background .2s"}}>
               Get Emergency Support →
             </button>
@@ -2438,7 +2107,7 @@ function TriagePage({ setPage }) {
             <div style={{fontSize:10,fontWeight:700,color:ORANGE,letterSpacing:1.8,textTransform:"uppercase",fontFamily:"'IBM Plex Sans',sans-serif",marginBottom:6}}>Additional Details — {detailIdx+1} of {detailItems.length}</div>
             <div style={{width:"100%",height:5,background:BD,borderRadius:3,marginBottom:20}}><div style={{width:`${((detailIdx+1)/detailItems.length)*100}%`,height:"100%",background:ORANGE,borderRadius:3,transition:"width .4s"}}/></div>
             <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:"clamp(18px,2.5vw,26px)",fontWeight:700,color:NK,letterSpacing:-0.3,marginBottom:8}}>{SYMPTOM_DATA.find(s=>s.id===curDetailId)?.label}</h2>
-            <p style={{fontSize:14,color:SL,fontFamily:"'IBM Plex Sans',sans-serif",lineHeight:1.7}}>Details are optional and do not change the guidance selected by this demo. Skip them to open the guide sooner.</p>
+            <p style={{fontSize:14,color:SL,fontFamily:"'IBM Plex Sans',sans-serif",lineHeight:1.7}}>Details are optional and do not change the guidance selected by this assessment. Skip them to open the guide sooner.</p>
           </div>
           <textarea value={details[curDetailId]||""} onChange={e=>setDetails(d=>({...d,[curDetailId]:e.target.value}))} placeholder={`Describe: severity, duration, any known history, what you can see...`} style={{width:"100%",minHeight:100,padding:"12px 16px",border:`1.5px solid ${BD}`,borderRadius:9,fontSize:14,fontFamily:"'IBM Plex Sans',sans-serif",color:NK,background:WHITE,resize:"vertical",outline:"none",lineHeight:1.65,marginBottom:20}}/>
           <div style={{display:"flex",gap:10}}>
@@ -2560,13 +2229,13 @@ function TriagePage({ setPage }) {
           {riskResult&&(
             <div style={{background:`${riskResult.color}0d`,border:`1.5px solid ${riskResult.color}30`,borderRadius:10,padding:"16px 20px",marginBottom:24}}>
               <div style={{fontSize:24,marginBottom:6}}>{riskResult.icon}</div>
-              <div style={{fontSize:15,fontWeight:700,color:riskResult.color,fontFamily:"'IBM Plex Serif',serif"}}>Demo triage estimate: {riskResult.level}</div>
+              <div style={{fontSize:15,fontWeight:700,color:riskResult.color,fontFamily:"'IBM Plex Serif',serif"}}>Rule-based urgency estimate: {riskResult.level}</div>
               <p style={{fontSize:12.5,color:SL,lineHeight:1.55,marginTop:6}}>This estimate is not a diagnosis and cannot determine that someone is safe. Call emergency services if you are concerned.</p>
             </div>
           )}
           <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>
             <button onClick={reset} style={{padding:"13px 28px",background:NAVY,color:WHITE,border:"none",borderRadius:7,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>New Triage</button>
-            <button onClick={()=>setPage("analytics")} style={{padding:"13px 28px",background:WHITE,border:`1.5px solid ${BD}`,color:NK,borderRadius:7,fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>📊 View Analytics</button>
+            <button onClick={()=>setPage("system")} style={{padding:"13px 28px",background:WHITE,border:`1.5px solid ${BD}`,color:NK,borderRadius:7,fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>Open Command Centre</button>
             <button onClick={()=>setPage("landing")} style={{padding:"13px 28px",background:WHITE,border:`1.5px solid ${BD}`,color:NK,borderRadius:7,fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>← Home</button>
           </div>
         </div>
@@ -2578,110 +2247,6 @@ function TriagePage({ setPage }) {
 
 
 /* ── HOSPITAL FINDER PAGE ─────────────────────────────────────── */
-function HospitalPage({ setPage }) {
-  const [searching, setSearching] = useState(false);
-  const [found, setFound] = useState(false);
-  const hospitals = [
-    { name: "Rob Ferreira Regional Hospital", dist: "3.2 km", time: "6 min", type: "Public · Level 2", beds: "Available", phone: "013 741 6000", dir: "Mbombela, on Government Boulevard", c: GREEN },
-    { name: "Mediclinic Nelspruit", dist: "5.8 km", time: "11 min", type: "Private · 24h Emergency", beds: "Available", phone: "013 753 1190", dir: "Nelspruit CBD, Bester Street", c: NAVY },
-    { name: "Life Cosmos Hospital", dist: "7.4 km", time: "14 min", type: "Private · 24h Emergency", beds: "Limited", phone: "013 750 8200", dir: "Mbombela, Madiba Drive", c: ORANGE },
-    { name: "UMP Campus Clinic", dist: "0.4 km", time: "1 min", type: "University Clinic · Hours: 08:00–17:00", beds: "Walk-in", phone: "+27 13 002 0200", dir: "Main campus, Building C", c: GOLD },
-  ];
-  function simulate() {
-    setSearching(true);
-    setTimeout(() => { setSearching(false); setFound(true); }, 1800);
-  }
-  return (
-    <div style={{ minHeight: "100vh", background: PAPER, fontFamily: "'IBM Plex Sans',sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');*{box-sizing:border-box;margin:0;padding:0;}`}</style>
-      <div style={{ background: NAVY, borderBottom: `3px solid ${RED}` }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 5%", height: 66, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <img src={LOGO} alt="UMP" style={{ height: 40, objectFit: "contain", mixBlendMode: "lighten" }} />
-            <div style={{ borderLeft: "1px solid rgba(255,255,255,0.15)", paddingLeft: 12 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: WHITE, letterSpacing: 1.8, textTransform: "uppercase", fontFamily: "'IBM Plex Sans',sans-serif" }}>UMP-CEIS</div>
-              <div style={{ fontSize: 8.5, color: "rgba(255,255,255,0.4)", fontFamily: "'IBM Plex Sans',sans-serif" }}>Hospital Finder — Phase 4</div>
-            </div>
-          </div>
-          <button onClick={() => setPage("landing")} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.7)", borderRadius: 4, padding: "7px 16px", fontSize: 12, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif" }}>← Back</button>
-        </div>
-      </div>
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 5% 60px" }}>
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 10.5, fontWeight: 700, color: MID, letterSpacing: 1.8, textTransform: "uppercase", fontFamily: "'IBM Plex Sans',sans-serif", marginBottom: 6 }}>Phase 4 · Real-Time Response Intelligence</div>
-          <h1 style={{ fontFamily: "'IBM Plex Serif',serif", fontSize: "clamp(22px,3vw,30px)", fontWeight: 700, color: NK, letterSpacing: -0.5, marginBottom: 8 }}>Nearest Hospital Detection</h1>
-          <p style={{ fontSize: 13.5, color: SL, fontFamily: "'IBM Plex Sans',sans-serif", lineHeight: 1.7, maxWidth: 580 }}>Phase 4 adds GPS-based hospital detection with estimated travel time, live traffic integration, and crowd prediction for facilities near UMP campus.</p>
-        </div>
-        {!found ? (
-          <div style={{ background: WHITE, border: `1px solid ${BD}`, borderRadius: 12, padding: "44px 36px", textAlign: "center" }}>
-            <div style={{ width: 64, height: 64, borderRadius: "50%", background: `${RED}10`, border: `2px solid ${RED}28`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", color: RED }}>
-              <IMap />
-            </div>
-            <h2 style={{ fontFamily: "'IBM Plex Serif',serif", fontSize: 22, fontWeight: 700, color: NK, marginBottom: 10 }}>Locate Nearest Hospitals</h2>
-            <p style={{ fontSize: 13.5, color: SL, fontFamily: "'IBM Plex Sans',sans-serif", lineHeight: 1.75, marginBottom: 28, maxWidth: 420, margin: "0 auto 28px" }}>Uses device GPS to identify the closest emergency facilities — sorted by distance and estimated drive time. Includes live traffic routing and bed availability indicators.</p>
-            <button onClick={simulate} disabled={searching} style={{ padding: "13px 34px", background: searching ? BD : RED, color: WHITE, border: "none", borderRadius: 6, fontSize: 14, fontWeight: 700, cursor: searching ? "not-allowed" : "pointer", fontFamily: "'IBM Plex Sans',sans-serif", display: "inline-flex", alignItems: "center", gap: 10, transition: "background .2s" }}>
-              {searching ? (
-                <><span style={{ width: 16, height: 16, borderRadius: "50%", border: `2.5px solid rgba(255,255,255,0.3)`, borderTop: `2.5px solid ${WHITE}`, display: "inline-block", animation: "spin 0.8s linear infinite" }} />Locating...</>
-              ) : <><ILocation />Detect My Location</>}
-            </button>
-            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-          </div>
-        ) : (
-          <div>
-            <div style={{ background: GREENL, border: `1px solid ${GREEN}28`, borderRadius: 8, padding: "11px 16px", marginBottom: 22, display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ color: GREEN }}><ILocation /></span>
-              <span style={{ fontSize: 13, color: "#1D5C24", fontWeight: 600, fontFamily: "'IBM Plex Sans',sans-serif" }}>Location detected: UMP Main Campus, Mbombela. Showing 4 nearest facilities.</span>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {hospitals.map((h, i) => (
-                <div key={i} style={{ background: WHITE, border: `1px solid ${BD}`, borderRadius: 10, overflow: "hidden", borderLeft: `4px solid ${h.c}` }}>
-                  <div style={{ padding: "18px 20px", display: "flex", gap: 16, alignItems: "flex-start" }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 9, background: `${h.c}10`, border: `1px solid ${h.c}24`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: h.c }}><IHospital /></div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: NK, fontFamily: "'IBM Plex Serif',serif", marginBottom: 3 }}>{h.name}</div>
-                          <div style={{ fontSize: 11.5, color: MID, fontFamily: "'IBM Plex Sans',sans-serif", marginBottom: 5 }}>{h.type} · {h.dir}</div>
-                          <div style={{ fontSize: 13, color: SL, fontFamily: "'IBM Plex Sans',sans-serif" }}>📞 {h.phone}</div>
-                        </div>
-                        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                          <div style={{ textAlign: "center", padding: "8px 14px", background: PAPER, borderRadius: 6, border: `1px solid ${BD}` }}>
-                            <div style={{ fontSize: 18, fontWeight: 800, color: h.c, fontFamily: "'IBM Plex Mono',monospace" }}>{h.dist}</div>
-                            <div style={{ fontSize: 9.5, color: MID, fontFamily: "'IBM Plex Sans',sans-serif" }}>DISTANCE</div>
-                          </div>
-                          <div style={{ textAlign: "center", padding: "8px 14px", background: PAPER, borderRadius: 6, border: `1px solid ${BD}` }}>
-                            <div style={{ fontSize: 18, fontWeight: 800, color: h.c, fontFamily: "'IBM Plex Mono',monospace" }}>{h.time}</div>
-                            <div style={{ fontSize: 9.5, color: MID, fontFamily: "'IBM Plex Sans',sans-serif" }}>DRIVE TIME</div>
-                          </div>
-                          <div style={{ textAlign: "center", padding: "8px 14px", background: h.beds === "Available" ? GREENL : GOLDL, borderRadius: 6, border: `1px solid ${h.beds === "Available" ? GREEN : GOLD}28` }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: h.beds === "Available" ? GREEN : "#8B6800", fontFamily: "'IBM Plex Sans',sans-serif" }}>{h.beds}</div>
-                            <div style={{ fontSize: 9.5, color: MID, fontFamily: "'IBM Plex Sans',sans-serif" }}>CAPACITY</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  {i === 0 && (
-                    <div style={{ background: `${GREEN}09`, borderTop: `1px solid ${GREEN}22`, padding: "7px 20px", display: "flex", gap: 8, alignItems: "center" }}>
-                      <span style={{ color: GREEN, fontSize: 11 }}>✓</span>
-                      <span style={{ fontSize: 11.5, color: "#1D5C24", fontWeight: 600, fontFamily: "'IBM Plex Sans',sans-serif" }}>Nearest facility — recommended for emergency routing</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div style={{ marginTop: 18, background: WHITE, border: `1px solid ${BD}`, borderRadius: 7, padding: "12px 16px" }}>
-              <p style={{ fontSize: 12, color: MID, fontFamily: "'IBM Plex Sans',sans-serif", lineHeight: 1.6 }}>
-                <strong style={{ color: NK }}>Phase 4 note:</strong> Drive times use live Google Traffic API data. Bed availability is refreshed every 10 minutes from hospital EMS integrations. Offline routing fallback activates when data signal drops below EDGE.
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /* ── APP ─────────────────────────────────────────────────────── */
 export default function LandingSite({ onAccessSystem }) {
   const [page, setPage] = useState("landing");
@@ -2693,9 +2258,7 @@ export default function LandingSite({ onAccessSystem }) {
   }
 
   if (page === "triage")    return <TriagePage setPage={goPage} />;
-  if (page === "analytics") return <AnalyticsPage setPage={goPage} />;
   if (page === "firstaid")  return <FirstAidPage setPage={goPage} />;
-  if (page === "hospitals") return <HospitalPage setPage={goPage} />;
   return (
     <div style={{ fontFamily: "'IBM Plex Sans','Segoe UI',sans-serif", background: PAPER, color: NK }}>
       <style>{`
@@ -2709,19 +2272,12 @@ export default function LandingSite({ onAccessSystem }) {
         @keyframes dotBounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${BD};border-radius:3px}
       `}</style>
-     <Navbar
-  setPage={setPage}
-  goPage={goPage}
-/>
-     <Hero
-  setPage={setPage}
-  goPage={goPage}
-/>
+      <Navbar goPage={goPage} />
+      <Hero goPage={goPage} />
       <WhatIsIt />
       <Features />
       <WhoFor />
       <Purpose />
-      <PhasesSection setPage={goPage} />
       <HowItWorks />
       <Contact />
       <Footer setPage={goPage} />

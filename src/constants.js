@@ -105,56 +105,6 @@ export const ZONE_COLORS = {
   wellness:"#10B981", sports:"#F59E0B", services:"#6B7280",
 };
 
-// ── MOCK DATABASE ───────────────────────────────────────────────
-export const STUDENT_DB = {
-  "20240001": { password:"UMP@2024!",  name:"Sipho Dlamini",     faculty:"ICT",         year:2, photo:"SD" },
-  "20240042": { password:"Campus#1!",  name:"Thandi Mokoena",    faculty:"Education",   year:3, photo:"TM" },
-  "20230158": { password:"UMP@2023$",  name:"Bongani Nkosi",     faculty:"Engineering", year:4, photo:"BN" },
-  "20241337": { password:"Learn@UMP1", name:"Lerato Sithole",    faculty:"Health",      year:1, photo:"LS" },
-};
-
-export const STAFF_DB = {
-  "STAFF001": { password:"Admin@2024!", name:"Dr. Nomsa Khumalo",   role:"administrator", dept:"ICT Services",      access:"full"     },
-  "ADM001":   { password:"Admin@UMP1!", name:"Mr. Petrus van Zyl",  role:"administrator", dept:"Administration",    access:"full"     },
-  "SEC001":   { password:"Guard@2024!", name:"Sgt. Themba Mthembu", role:"security",      dept:"Campus Security",   access:"security" },
-  "NUR001":   { password:"Nurse@UMP2!", name:"Sr. Zanele Mahlangu", role:"medical",       dept:"Health & Wellness", access:"medical"  },
-};
-
-// ── PASSWORD VALIDATION RULES ───────────────────────────────────
-export const PWD_RULES = [
-  { id:"len", label:"At least 8 characters",                    test: p => p.length >= 8 },
-  { id:"up",  label:"At least 1 uppercase letter (A–Z)",        test: p => /[A-Z]/.test(p) },
-  { id:"low", label:"At least 1 lowercase letter (a–z)",        test: p => /[a-z]/.test(p) },
-  { id:"num", label:"At least 1 number (0–9)",                  test: p => /[0-9]/.test(p) },
-  { id:"spc", label:"At least 1 special character (!@#$%^&*)",  test: p => /[!@#$%^&*()\-_+=[\]{}|;':",.<>?]/.test(p) },
-  { id:"nsp", label:"No spaces",                                test: p => !/\s/.test(p) },
-];
-
-export function validatePwd(p) {
-  return PWD_RULES.map(r => ({ ...r, pass: r.test(p) }));
-}
-export function pwdStrength(p) {
-  const pass = PWD_RULES.filter(r => r.test(p)).length;
-  if (pass <= 2) return { label:"Weak",   color:"#B83018", pct:20  };
-  if (pass <= 4) return { label:"Fair",   color:"#D97706", pct:55  };
-  if (pass <= 5) return { label:"Good",   color:"#D4960E", pct:80  };
-  return              { label:"Strong", color:"#2D7D35", pct:100 };
-}
-export function validateStudentNo(n) { return /^(?:UMP)?20(18|19|20|21|22|23|24|25|26)\d{4}$/i.test(n.trim()); }
-export function validateStaffNo(n)   { return /^(?:UMPSTAFF\d{3,5}|(?:STAFF|SEC|NUR|ADM|ENG|FAC)\d{2,4})$/i.test(n.trim().toUpperCase()); }
-
-// ── MOCK LIVE INCIDENTS ─────────────────────────────────────────
-export const INIT_INCIDENTS = [
-  { id:"INC-2024-001", type:"medical",    priority:"P1", building:"35", loc:"Health & Wellness Clinic",  desc:"Student collapsed — possible cardiac event",        status:"IN_RESPONSE",  time:"14:32", responder:"Sr. Mahlangu + EMS",      lat:-25.4348054, lng:30.9805793 },
-  { id:"INC-2024-002", type:"fire",       priority:"P1", building:"19", loc:"Chemistry Laboratory",      desc:"Smoke detected — automatic sensor triggered",        status:"DISPATCHED",   time:"14:28", responder:"Fire response + Security", lat:null, lng:null },
-  { id:"INC-2024-003", type:"security",   priority:"P2", building:"16", loc:"Student Centre",            desc:"Altercation between students — security required",    status:"ACKNOWLEDGED", time:"14:25", responder:"Sgt. Mthembu",            lat:null, lng:null },
-  { id:"INC-2024-004", type:"medical",    priority:"P2", building:"26", loc:"Third Year Hostel",         desc:"Student reports chest pain — ambulatory assessment",  status:"CONTAINED",    time:"13:58", responder:"Sr. Mahlangu",            lat:null, lng:null },
-  { id:"INC-2024-005", type:"suspicious", priority:"P3", building:"2",  loc:"Library & Lecture Venue",   desc:"Unidentified individual in restricted area",          status:"IN_RESPONSE",  time:"13:45", responder:"Security patrol",          lat:null, lng:null },
-  { id:"INC-2024-006", type:"infra",      priority:"P3", building:"18", loc:"Engineering Laboratory",    desc:"Electrical fault reported — lights out in Lab B",     status:"NEW",          time:"13:30", responder:"Unassigned",              lat:null, lng:null },
-  { id:"INC-2024-007", type:"crowd",      priority:"P4", building:"36", loc:"Multi-Purpose Hall",        desc:"Overcrowding concern at society event",               status:"RESOLVED",     time:"12:44", responder:"Student Support",          lat:-25.434787, lng:30.9800036 },
-  { id:"INC-2024-008", type:"medical",    priority:"P2", building:"5",  loc:"University Hall",           desc:"Allergic reaction — student administered EpiPen",    status:"RESOLVED",     time:"11:20", responder:"Nurse + Security",         lat:null, lng:null },
-];
-
 // ── SYMPTOM DATA (Triage Engine) ────────────────────────────────
 export const SYMPTOM_DATA = [
   { id:"chest_pain",   label:"Chest pain or tightness",        weight:36, category:"Cardiac"      },

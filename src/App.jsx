@@ -1,6 +1,7 @@
 import { useState } from "react";
 import LandingSite      from "./LandingSite.jsx";
 import CommandCenterApp from "./CommandCenter.jsx";
+import VerifyEmail from "./auth/VerifyEmail.jsx";
 
 /**
  * UMP CEIS — Unified Application Root
@@ -15,6 +16,8 @@ import CommandCenterApp from "./CommandCenter.jsx";
  */
 export default function App() {
   const [screen, setScreen] = useState("landing");
+
+  if (window.location.pathname === "/verify-email") return <VerifyEmail />;
 
   if (screen === "landing") {
     return (

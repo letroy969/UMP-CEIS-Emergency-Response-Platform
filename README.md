@@ -1,214 +1,39 @@
 # UMP-CEIS — Campus Emergency Intelligence System
 
-**University of Mpumalanga** · Mbombela Campus  
-Advanced Diploma in ICT Applications Development · Phase 2–4 Academic Project
+Campus safety reporting and incident management for the University of Mpumalanga.
 
----
+## Capabilities
 
-## Overview
+- Student and provisioned staff accounts with email verification.
+- Student incident reports, report history, and safety check-ins.
+- Staff review of incidents, status updates, and responder/team assignment records.
+- Campus map and general first-aid guidance.
 
-UMP-CEIS is an academic campus emergency response prototype built in React. It combines a public-facing landing site with a browser-based demonstration of the student portal and multi-role Command Centre.
+Incident reports, assignments, status changes, and safety check-ins are stored in Supabase. Assignments are records for staff coordination; the application does not send responder notifications or contact emergency services. The first-aid and symptom guidance is informational and is not a diagnosis.
 
-```
-Landing Site  ──→  Login Portal  ──→  Student Portal
-                              └──→  Admin / Security / Medical Command Centre
-```
+## Stack
 
----
+- React 18 and Vite
+- Supabase Auth and Postgres with row-level security
+- Vercel serverless functions for registration, verification, incident, and check-in APIs
+- Web Speech API for optional spoken first-aid guidance
 
-## Features
+## Setup
 
-### Public Landing Site
-- Institutional UMP branding with animated hero, feature sections, and chatbot
-- Phase roadmap (Phases 1–4) with live demo access
-- **First Aid Library** — 4 guides (CPR, Choking, Bleeding, Burns) with:
-  - Animated SVG simulations per step
-  - Voice Instructor Mode (Web Speech API)
-- **Emergency Aid Engine** — Triage + First Aid + Voice (Demo Mode):
-  - 18-symptom intake with custom situation text field
-  - Per-symptom detail collection
-  - Voice-guided step-by-step first aid with live animation
-  - Background risk scoring (P1–P4)
-  - Auto emergency alert overlay for P1/P2 incidents
-- **Hospital Finder** — GPS-simulated nearest facility detection
-- **Analytics Dashboard** — Incident trends, response times, location hotspots
+Requirements: Node.js 18+ and npm 9+.
 
-### Command Centre
-- **Two login portals**: Student (student number) and Staff/Admin (staff number)
-- **Input validation**: Format rules, password strength meter, forgot-password flow
-- **Academic demo identity flow**: browser-local student/staff registration, fictional directory matches, pending requests, and demo-admin review
-- **Student Portal**: Report incidents, safety check-in, campus map, report history
-- **Admin Command Centre** (6 views):
-  - Live dashboard with real-time KPIs
-  - Incident management with full lifecycle (NEW → CLOSED)
-  - Live SVG campus map (40 buildings, Mbombela)
-  - Dispatch engine with team assignment
-  - Analytics with intelligence feedback
-  - Input layer (operator logging + IoT sensor panel)
+1. Install dependencies with `npm install`.
+2. Run `supabase/schema.sql` in the Supabase SQL editor.
+3. Copy `.env.example` to `.env.local` and set the required values. Configure the same server variables in Vercel for deployment. Keep service and Resend secrets out of `VITE_` variables.
+4. Configure Supabase email/password authentication and a verified Resend sender. Set `APP_URL` to the site origin and `RESEND_FROM` to the verified sender.
+5. Start the local app with `npx vercel dev` or `npm run dev` for the Vite client alone.
 
----
+The `@ump.ac.za` email check confirms control of that mailbox; it does not verify enrolment or employment. Staff access must be provisioned through trusted Supabase `app_metadata.ceis_role` claims (`staff`, `admin`, `security`, or `medical`). Signup form input cannot grant staff roles.
 
-## Tech Stack
+## Database and API
 
-| Layer       | Technology                          |
-|-------------|-------------------------------------|
-| Framework   | React 18 + Vite 4                   |
-| Styling     | CSS-in-JS (inline styles + keyframes) |
-| Maps        | Custom SVG campus map (campus PDF data) |
-| Voice       | Web Speech API (SpeechSynthesisUtterance) |
-| Fonts       | IBM Plex Serif / Sans / Mono (Google Fonts) |
-| Build       | Vite with React plugin              |
-| Deployment  | Vercel / Netlify ready              |
+Run `supabase/schema.sql` before using incident and check-in features. The schema applies RLS policies to incidents and safety check-ins. `/api/incidents` and `/api/checkins` validate the caller's Supabase access token and make requests with that user's token so database policies remain in force. Registration and email verification use the server-only `SUPABASE_SECRET_KEY`; data APIs use `SUPABASE_ANON_KEY` and the caller's access token.
 
----
+## Emergency use
 
-## Project Structure
-
-```
-ump-ceis/
-├── public/
-│   └── favicon.svg
-├── src/
-│   ├── main.jsx            # Entry point
-│   ├── index.css           # Global CSS reset + keyframes
-│   ├── App.jsx             # Root router (landing ↔ command centre)
-│   ├── constants.js        # Shared tokens: colours, DB, buildings, symptoms
-│   ├── LandingSite.jsx     # Public marketing site + First Aid + Triage Engine
-│   └── CommandCenter.jsx   # Login portal + Student Portal + Admin Dashboard
-├── index.html
-├── package.json
-├── vite.config.js
-└── .gitignore
-```
-
----
-
-## Getting Started
-
-### Authentication demonstration
-
-The registration flow uses fictional sample records and `localStorage` in the current browser. Matching sample records become active immediately; other valid UMP-shaped demo IDs remain pending until approved from **Account Requests** by a pre-provisioned demo administrator. An inactive sample identity is denied. No email, OTP, UMP directory, or university identity service is contacted. Accounts and pending requests are not shared across browsers or devices.
-
-This is suitable only for an academic presentation. Browser storage and client-side role checks are not secure authentication or authorization. The existing pre-provisioned presentation credentials also remain in the client bundle. Before using this site for real users or sensitive incident data, replace this demo provider with a server-side identity provider and database, enforce roles on the server, configure institutional email/identity verification, and remove all demo credentials and records.
-
-### Prerequisites
-- Node.js 18+
-- npm 9+
-
-### Install & Run
-
-```bash
-# Clone the repo
-git clone https://github.com/YOUR_USERNAME/ump-ceis.git
-cd ump-ceis
-
-# Install dependencies
-npm install
-
-# Start dev server (opens at http://localhost:5173)
-npm run dev
-```
-
-### Build for Production
-
-```bash
-npm run build
-# Output in dist/ — ready for Vercel, Netlify, or any static host
-```
-
-### Preview Production Build
-
-```bash
-npm run preview
-```
-
----
-
-## Demo Credentials
-
-### Student Portal
-| Student Number | Password    | Name           |
-|----------------|-------------|----------------|
-| `20240001`     | `UMP@2024!` | Sipho Dlamini  |
-| `20230158`     | `UMP@2023$` | Bongani Nkosi  |
-
-### Staff / Admin Command Centre
-| Staff Number | Password      | Role          | Department       |
-|--------------|---------------|---------------|------------------|
-| `STAFF001`   | `Admin@2024!` | Administrator | ICT Services     |
-| `ADM001`     | `Admin@UMP1!` | Administrator | Administration   |
-| `SEC001`     | `Guard@2024!` | Security      | Campus Security  |
-| `NUR001`     | `Nurse@UMP2!` | Medical       | Health & Wellness|
-
-> **Note:** These are development mock credentials. In production, authentication will connect to the UMP institutional database via secure API.
-
----
-
-## Architecture
-
-```
-Input Layer (L1)
-  Student / Staff Portal  ──┐
-  Sensor / IoT Triggers   ──┤──→ Event Processing Engine
-  Security Operator Input ──┘         ↓
-                                AI Classification (L2)
-                                      ↓
-                              Priority Assignment P1–P4 (L3)
-                                      ↓
-                              Dispatch Engine (L4)
-                                      ↓
-                          Live Monitoring Dashboard (L5)
-                                      ↓
-                         Analytics & Intelligence Feedback (L6)
-                              GET /analytics/incident-trends
-                              GET /analytics/response-times
-                              GET /analytics/location-hotspots
-```
-
----
-
-## Deployment to Vercel
-
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy
-vercel
-```
-
-Or connect your GitHub repo at [vercel.com](https://vercel.com) for automatic deployments on every push.
-
----
-
-## Roadmap
-
-- [ ] **Phase 5**: Backend API (Node.js / Express + MongoDB)
-- [ ] **Phase 6**: UMP database integration (live student/staff authentication)
-- [ ] **Phase 7**: Push notifications (Firebase FCM)
-- [ ] **Phase 8**: Native mobile app (React Native)
-- [ ] **Phase 9**: IoT sensor integration (MQTT broker)
-- [ ] **Phase 10**: AI risk prediction model deployment
-
----
-
-## Academic Context
-
-This project is developed as part of the **DICT421 / DICT431** module requirements for the Advanced Diploma in ICT Applications Development at the University of Mpumalanga. It demonstrates:
-
-- Full-stack React application architecture
-- Multi-role authentication and access control
-- Real-time data visualisation and campus geolocation
-- Emergency response system design patterns
-- Phase-driven academic presentation framework
-
----
-
-## Author
-
-**Sihle Dladla** · Student No. 20241337  
-University of Mpumalanga · ICT Applications Development  
-
----
-
-*UMP-CEIS is a demo/academic system. In emergencies, always call 10177 (SA EMS) or +27 13 002 0010 (UMP Campus Security).*
+The application does not automatically notify responders. For urgent assistance, call 10177 (SA EMS) or UMP Campus Security at +27 13 002 0010.

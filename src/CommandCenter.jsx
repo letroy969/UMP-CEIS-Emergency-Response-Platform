@@ -1,25 +1,17 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   NAVY, NAVY2, NAVY3, NAVYL, RED, REDL, ORANGE, ORANGEL, GREEN, GREENL,
-  GOLD, GOLDL, WHITE, PAPER, PAPER2, BD, NK, SL, MID,
+  GOLD, WHITE, PAPER, PAPER2, BD, NK, SL, MID,
   LOGO,
-  PWD_RULES, validatePwd, pwdStrength,
-  validateStudentNo, validateStaffNo,
-  INIT_INCIDENTS, INC_TYPES, PRIORITY, STATUS_FLOW, STATUS_LABEL,
+  INC_TYPES, PRIORITY, STATUS_FLOW, STATUS_LABEL,
   MBOMBELA_BUILDINGS, ZONE_COLORS,
 } from "./constants.js";
 import CampusMap from "./components/CampusMap.jsx";
 import { MAPPED_BUILDINGS } from "./maps/campusBuildings.js";
 import { checkCampusLocation, getCurrentLocation } from "./maps/location.js";
-import {
-  authenticateDemoAccount,
-  clearDemoSession,
-  listPendingDemoAccounts,
-  readDemoSession,
-  registerDemoAccount,
-  setDemoAccountStatus,
-  writeDemoSession,
-} from "./auth/demoIdentityProvider.js";
+import Signup from "./auth/Signup.jsx";
+import { clearAuthSession, readAuthSession, writeAuthSession } from "./auth/session.js";
+import { createCheckin, createIncident, getCheckin, listIncidents, updateIncident } from "./incidentApi.js";
 
 
 /* ── GLOBAL STYLES ────────────────────────────────────────────── */
@@ -42,270 +34,83 @@ const STYLES = `
 function LoginPage({ onLogin, onBack }) {
   const [portal, setPortal]       = useState(null);  // "student" | "staff"
   const [authView, setAuthView]   = useState("portal");
-  const [registrationType, setRegistrationType] = useState("student");
-  const [registration, setRegistration] = useState({ id:"", email:"", name:"", password:"", confirm:"" });
-  const [registrationError, setRegistrationError] = useState("");
-  const [registrationResult, setRegistrationResult] = useState(null);
   // onBack goes back to the public landing site
-  const [idVal, setIdVal]         = useState("");
+  const [emailVal, setEmailVal]   = useState("");
   const [pwdVal, setPwdVal]       = useState("");
   const [showPwd, setShowPwd]     = useState(false);
-  const [idErr, setIdErr]         = useState("");
-  const [pwdErr, setPwdErr]       = useState("");
-  const [showRules, setShowRules] = useState(false);
-  const [forgotMode, setForgotMode] = useState(false);
-  const [forgotId, setForgotId]   = useState("");
-  const [forgotMsg, setForgotMsg] = useState("");
+  const [loginError, setLoginError] = useState("");
   const [loading, setLoading]     = useState(false);
   const [shake, setShake]         = useState(false);
 
-  const rules = validatePwd(pwdVal);
-  const allPass = rules.every(r => r.pass);
-  const strength = pwdStrength(pwdVal);
-  const registrationRules = validatePwd(registration.password);
-
-  function validateId(v) {
-    if (!v) return "This field is required";
-    if (portal === "student") {
-      if (!validateStudentNo(v)) return "Enter a valid student number (for example, UMP20260001).";
-    } else {
-      if (!validateStaffNo(v)) return "Enter a valid staff number (for example, UMPSTAFF001).";
-    }
-    return "";
-  }
-
   async function handleSubmit() {
-    const iErr = validateId(idVal);
-    setIdErr(iErr);
-    if (iErr) return;
-    if (!pwdVal) { setPwdErr("Password is required"); return; }
-    setPwdErr("");
+    if (!/^\S+@ump\.ac\.za$/i.test(emailVal.trim()) || !pwdVal) {
+      setLoginError("Enter your @ump.ac.za email address and password.");
+      return;
+    }
+    setLoginError("");
     setLoading(true);
     try {
-      const result = await authenticateDemoAccount(portal, idVal, pwdVal);
-      setLoading(false);
-      if (result.status === "pending") {
-        setPwdErr("This account is awaiting CEIS administrator review. You can sign in after it is approved.");
-      } else if (result.status !== "active") {
-        setShake(true);
-        setTimeout(()=>setShake(false),600);
-        setPwdErr("We could not sign you in with those details. Check your portal, ID, and password.");
+      const response = await fetch("/api/login", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ email:emailVal, password:pwdVal }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Sign-in failed.");
+      const isStaff = result.user.portal === "staff";
+      if ((portal === "staff") !== isStaff) {
+        setLoginError(portal === "staff" ? "This account is not provisioned for staff access." : "Use the Command Centre portal for this account.");
       } else {
-        onLogin(result.user);
+        onLogin(result);
       }
-    } catch {
+    } catch (error) {
+      setLoginError(error.message || "We could not sign you in. Check your details and verify your email address.");
+      setShake(true);
+      setTimeout(()=>setShake(false),600);
+    } finally {
       setLoading(false);
-      setPwdErr("Demo sign-in is unavailable in this browser. Please try again.");
     }
-  }
-
-  async function handleRegistration() {
-    setRegistrationError("");
-    const validId = registrationType === "student" ? validateStudentNo(registration.id) : validateStaffNo(registration.id);
-    if (!registration.name.trim() || !validId || !/^\S+@ump\.ac\.za$/i.test(registration.email.trim())) {
-      setRegistrationError("Enter your name, a valid student or staff number, and an @ump.ac.za email address.");
-      return;
-    }
-    const validPassword = validatePwd(registration.password).every(rule => rule.pass);
-    if (!validPassword) {
-      setRegistrationError("Choose a password that meets all the listed requirements.");
-      return;
-    }
-    if (registration.password !== registration.confirm) {
-      setRegistrationError("The passwords do not match.");
-      return;
-    }
-    setLoading(true);
-    try {
-      const result = await registerDemoAccount({ ...registration, type:registrationType });
-      setLoading(false);
-      if (result.status === "active" || result.status === "pending") {
-        setRegistrationResult(result);
-        setAuthView("registration-result");
-        setPortal(registrationType);
-      } else {
-        setRegistrationError(result.message || "We could not verify your eligibility for CEIS. Check your details or contact the CEIS administrator.");
-      }
-    } catch {
-      setLoading(false);
-      setRegistrationError("Demo registration is unavailable in this browser. Please try again.");
-    }
-  }
-
-  function handleForgot() {
-    if (!forgotId) { setForgotMsg("Please enter your student or staff number."); return; }
-    const isS = portal === "student";
-    const valid = isS ? validateStudentNo(forgotId) : validateStaffNo(forgotId.toUpperCase());
-    if (!valid) { setForgotMsg("Invalid number format. Please check and try again."); return; }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setForgotMsg("Password reset email is not configured in this academic demo. No email was sent; contact the CEIS administrator for help.");
-    }, 1200);
   }
 
   const BG = (
     <div style={{position:"fixed",inset:0,background:`linear-gradient(135deg, ${NAVY3} 0%, ${NAVY} 50%, ${NAVY2} 100%)`,zIndex:0}}>
       <div style={{position:"absolute",inset:0,backgroundImage:`radial-gradient(circle at 20% 20%, ${NAVYL}18 0%, transparent 50%), radial-gradient(circle at 80% 80%, ${GOLD}10 0%, transparent 50%)`}}/>
-      {/* Grid pattern */}
-      <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.04}} xmlns="http://www.w3.org/2000/svg">
-        <defs><pattern id="g" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M0 40L40 0M-10 10L10-10M30 50L50 30" stroke={WHITE} strokeWidth="0.5"/></pattern></defs>
-        <rect width="100%" height="100%" fill="url(#g)"/>
-      </svg>
-    </div>
-  );
-
-  if (forgotMode) return (
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",fontFamily:"'IBM Plex Sans',sans-serif"}}>
-      <style>{STYLES}</style>
-      {BG}
-      <div style={{position:"relative",zIndex:1,width:"100%",maxWidth:440,margin:"0 20px",animation:"fadeIn .4s ease"}}>
-        <div style={{background:WHITE,borderRadius:16,overflow:"hidden",boxShadow:"0 24px 80px rgba(0,0,0,0.4)"}}>
-          <div style={{background:NAVY,padding:"24px 28px",borderBottom:`3px solid ${GOLD}`}}>
-            <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:2,textTransform:"uppercase",marginBottom:6}}>Password Reset</div>
-            <div style={{fontSize:20,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>Forgot your password?</div>
-          </div>
-          <div style={{padding:"28px"}}>
-            <p style={{fontSize:13.5,color:SL,lineHeight:1.7,marginBottom:20}}>Password reset email is not available in this academic demo. Contact the CEIS administrator for help.</p>
-            <div style={{marginBottom:16}}>
-              <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:7}}>Student / Staff Number</label>
-              <input value={forgotId} onChange={e=>setForgotId(e.target.value)} placeholder="e.g. 20240001 or STAFF001"
-                style={{width:"100%",padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,fontFamily:"'IBM Plex Mono',monospace",outline:"none",color:NK}}/>
-            </div>
-            {forgotMsg && <div style={{padding:"11px 14px",background:REDL,border:`1px solid ${RED}28`,borderRadius:7,fontSize:13,color:RED,marginBottom:16,lineHeight:1.65}}>{forgotMsg}</div>}
-            <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>{setForgotMode(false);setForgotMsg("");}} style={{padding:"11px 18px",background:WHITE,border:`1.5px solid ${BD}`,borderRadius:7,fontSize:13,fontWeight:600,color:NK,cursor:"pointer"}}>← Back</button>
-              <button onClick={handleForgot} disabled={loading} style={{flex:1,padding:"11px",background:NAVY,color:WHITE,border:"none",borderRadius:7,fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                {loading?<><span style={{width:14,height:14,border:`2px solid rgba(255,255,255,0.3)`,borderTop:`2px solid ${WHITE}`,borderRadius:"50%",animation:"spin 1s linear infinite"}}/>Checking…</>:"Get Help"}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.04}} xmlns="http://www.w3.org/2000/svg"><defs><pattern id="g" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M0 40L40 0M-10 10L10-10M30 50L50 30" stroke={WHITE} strokeWidth="0.5"/></pattern></defs><rect width="100%" height="100%" fill="url(#g)"/></svg>
     </div>
   );
 
   return (
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",fontFamily:"'IBM Plex Sans',sans-serif"}}>
-      <style>{STYLES}</style>
-      {BG}
+      <style>{STYLES}</style>{BG}
       <div style={{position:"relative",zIndex:1,width:"100%",maxWidth:460,margin:"0 20px"}}>
-        {/* UMP Header */}
         <div style={{textAlign:"center",marginBottom:28,animation:"fadeIn .5s ease"}}>
           <img src={LOGO} alt="University of Mpumalanga" style={{height:52,objectFit:"contain",mixBlendMode:"lighten",marginBottom:14}}/>
-          <div style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.55)",letterSpacing:3,textTransform:"uppercase",marginBottom:8}}>University of Mpumalanga</div>
-          <div style={{fontSize:26,fontWeight:800,color:WHITE,fontFamily:"'IBM Plex Serif',serif",letterSpacing:-0.5}}>CEIS Command Centre</div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:4,fontFamily:"'IBM Plex Mono',monospace"}}>Campus Emergency Intelligence System</div>
+          <div style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,.55)",letterSpacing:3,textTransform:"uppercase",marginBottom:8}}>University of Mpumalanga</div>
+          <div style={{fontSize:26,fontWeight:800,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>CEIS Command Centre</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,.4)",marginTop:4}}>Campus Emergency Intelligence System</div>
         </div>
-
-        {authView === "registration-result" ? (
-          <div style={{background:WHITE,borderRadius:16,padding:28,boxShadow:"0 24px 80px rgba(0,0,0,0.4)",animation:"fadeIn .35s ease"}}>
-            <div style={{fontSize:11,fontWeight:700,color:MID,letterSpacing:1.4,textTransform:"uppercase",marginBottom:8}}>Academic demo account</div>
-            <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:22,color:NAVY,marginBottom:10}}>{registrationResult?.status === "active" ? "Demo identity verified" : "Verification pending"}</h2>
-            <p style={{fontSize:13.5,color:SL,lineHeight:1.7,marginBottom:18}}>{registrationResult?.status === "active" ? "The fictional demo directory matched your details. This account is active in this browser; no email verification was sent." : "This fictional identity is awaiting approval by a demo administrator. The request is stored only in this browser; no email was sent."}</p>
-            <div style={{padding:14,background:PAPER,borderRadius:8,fontSize:13,color:NK,marginBottom:18}}><strong>{registrationResult?.name}</strong><br/>{registrationResult?.id} · {registrationType === "student" ? "Student" : "Staff"}</div>
-            <button onClick={()=>{setIdVal(registrationResult?.id || "");setPwdVal("");setPwdErr("");setAuthView("portal");setPortal(registrationType);setRegistrationResult(null);}} style={{width:"100%",padding:12,background:NAVY,color:WHITE,border:0,borderRadius:7,fontSize:14,fontWeight:700,cursor:"pointer"}}>Continue to sign in</button>
-          </div>
-        ) : authView === "register" ? (
-          <div style={{background:WHITE,borderRadius:16,overflow:"hidden",boxShadow:"0 24px 80px rgba(0,0,0,0.4)",animation:"fadeIn .35s ease"}}>
-            <div style={{background:NAVY,padding:"20px 26px",borderBottom:`3px solid ${GOLD}`}}><button onClick={()=>{setAuthView("portal");setRegistrationError("");}} style={{background:"none",border:0,color:"rgba(255,255,255,.7)",cursor:"pointer",marginBottom:8}}>← Back</button><h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:21,color:WHITE}}>Create demo account</h2><p style={{fontSize:12,color:"rgba(255,255,255,.65)",marginTop:5}}>Academic presentation mode · No email is sent</p></div>
-            <div style={{padding:"22px 26px",maxHeight:"65vh",overflowY:"auto"}}>
-              <div style={{display:"flex",gap:8,marginBottom:16}}>{[["student","Student"],["staff","Staff"]].map(([type,label])=><button key={type} onClick={()=>{setRegistrationType(type);setRegistrationError("");}} style={{flex:1,padding:9,border:`1px solid ${registrationType===type?NAVY:BD}`,borderRadius:6,background:registrationType===type?`${NAVY}0d`:WHITE,color:registrationType===type?NAVY:MID,fontWeight:700,cursor:"pointer"}}>{label}</button>)}</div>
-              {[["Full name","name","e.g. Alex Mokoena"],[registrationType==="student"?"Student number":"Staff number","id",registrationType==="student"?"UMP20260001":"UMPSTAFF001"],["UMP email","email","name@ump.ac.za"]].map(([label,key,placeholder])=><label key={key} style={{display:"block",fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:.6,marginBottom:11}}>{label}<input value={registration[key]} onChange={e=>setRegistration(v=>({...v,[key]:e.target.value}))} placeholder={placeholder} style={{display:"block",width:"100%",marginTop:6,padding:"10px 12px",border:`1px solid ${BD}`,borderRadius:6,fontSize:13,color:NK,outline:"none",textTransform:key==="id"?"uppercase":"none"}}/></label>)}
-              <label style={{display:"block",fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:.6,marginBottom:11}}>Password<input type="password" value={registration.password} onChange={e=>setRegistration(v=>({...v,password:e.target.value}))} style={{display:"block",width:"100%",marginTop:6,padding:"10px 12px",border:`1px solid ${BD}`,borderRadius:6,fontSize:13}}/></label>
-              <div style={{fontSize:11,lineHeight:1.6,color:SL,margin:"-4px 0 12px"}}>{PWD_RULES.map(rule=><div key={rule.label} style={{color:registrationRules.find(r=>r.label===rule.label)?.pass?GREEN:MID}}>· {rule.label}</div>)}</div>
-              <label style={{display:"block",fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:.6,marginBottom:14}}>Confirm password<input type="password" value={registration.confirm} onChange={e=>setRegistration(v=>({...v,confirm:e.target.value}))} style={{display:"block",width:"100%",marginTop:6,padding:"10px 12px",border:`1px solid ${BD}`,borderRadius:6,fontSize:13}}/></label>
-              {registrationError&&<div style={{background:REDL,color:RED,padding:10,borderRadius:6,fontSize:12,marginBottom:12,lineHeight:1.5}}>{registrationError}</div>}
-              <button onClick={handleRegistration} disabled={loading} style={{width:"100%",padding:12,background:NAVY,color:WHITE,border:0,borderRadius:7,fontSize:14,fontWeight:700,cursor:loading?"wait":"pointer"}}>{loading?"Creating demo account…":"Create account"}</button>
-              <div style={{marginTop:14,padding:12,background:PAPER,borderRadius:7,fontSize:11,color:SL,lineHeight:1.7}}><strong>Fictional demo directory records</strong><br/>Active student: UMP20260001 / thabo@ump.ac.za<br/>Inactive student: UMP20260003 / sipho@ump.ac.za<br/>Active staff: UMPSTAFF001 / example@ump.ac.za<br/>Other valid demo IDs are sent for local administrator review.</div>
-            </div>
-          </div>
-        ) : !portal ? (
-          /* Portal selection */
+        {authView === "register" ? <Signup onBack={()=>setAuthView("portal")}/> : !portal ? (
           <div style={{animation:"fadeIn .4s ease"}}>
-            <div style={{background:"rgba(255,255,255,0.06)",backdropFilter:"blur(12px)",borderRadius:16,border:"1px solid rgba(255,255,255,0.12)",overflow:"hidden"}}>
-              <div style={{padding:"22px 28px 14px",textAlign:"center"}}>
-                <div style={{fontSize:13,color:"rgba(255,255,255,0.6)"}}>Select your access portal to continue</div>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,padding:"14px 24px 28px"}}>
-                {[
-                  { key:"student", title:"Student Portal", sub:"Report incidents, check in, view safety status", icon:"🎓", badge:"Student Number" },
-                  { key:"staff",   title:"Command Centre", sub:"Admin, Security & Medical staff access", icon:"🛡️", badge:"Staff Number" },
-                ].map(p=>(
-                  <button key={p.key} onClick={()=>setPortal(p.key)} style={{background:"rgba(255,255,255,0.08)",border:"1.5px solid rgba(255,255,255,0.14)",borderRadius:12,padding:"22px 16px",cursor:"pointer",textAlign:"center",transition:"all .2s",color:WHITE}}>
-                    <div style={{fontSize:32,marginBottom:10}}>{p.icon}</div>
-                    <div style={{fontSize:14,fontWeight:700,marginBottom:5,fontFamily:"'IBM Plex Serif',serif"}}>{p.title}</div>
-                    <div style={{fontSize:11.5,color:"rgba(255,255,255,0.5)",lineHeight:1.5}}>{p.sub}</div>
-                    <div style={{marginTop:12,padding:"3px 10px",background:"rgba(255,255,255,0.1)",borderRadius:20,display:"inline-block",fontSize:10.5,fontFamily:"'IBM Plex Mono',monospace",color:"rgba(255,255,255,0.7)"}}>{p.badge}</div>
-                  </button>
-                ))}
-              </div>
+            <div style={{background:"rgba(255,255,255,.06)",backdropFilter:"blur(12px)",borderRadius:16,border:"1px solid rgba(255,255,255,.12)",overflow:"hidden"}}>
+              <div style={{padding:"22px 28px 14px",textAlign:"center",color:"rgba(255,255,255,.65)",fontSize:13}}>Select your access portal to continue</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,padding:"14px 24px 28px"}}>{[
+                {key:"student",title:"Student Portal",sub:"Report incidents, check in, view safety status",icon:"🎓"},
+                {key:"staff",title:"Command Centre",sub:"Provisioned staff access",icon:"🛡️"},
+              ].map(item=><button key={item.key} onClick={()=>setPortal(item.key)} style={{background:"rgba(255,255,255,.08)",border:"1.5px solid rgba(255,255,255,.14)",borderRadius:12,padding:"22px 16px",cursor:"pointer",textAlign:"center",color:WHITE}}><div style={{fontSize:32,marginBottom:10}}>{item.icon}</div><div style={{fontSize:14,fontWeight:700,marginBottom:5}}>{item.title}</div><div style={{fontSize:11.5,color:"rgba(255,255,255,.58)",lineHeight:1.5}}>{item.sub}</div></button>)}</div>
             </div>
-            <div style={{textAlign:"center",marginTop:20}}>
-              <button onClick={()=>setAuthView("register")} style={{display:"block",margin:"0 auto 14px",background:"none",border:"1px solid rgba(255,255,255,.24)",borderRadius:7,padding:"10px 18px",color:WHITE,fontWeight:600,cursor:"pointer"}}>Create student or staff demo account</button>
-              {onBack && <button onClick={onBack} style={{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.6)",borderRadius:6,padding:"8px 16px",fontSize:12,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif",marginBottom:12}}>← Back to Landing</button>}
-              <div style={{fontSize:11,color:"rgba(255,255,255,0.55)",fontFamily:"'IBM Plex Mono',monospace"}}>Academic demo identity mode · Browser-local accounts · No email verification</div>
-            </div>
+            <div style={{textAlign:"center",marginTop:18}}><button onClick={()=>setAuthView("register")} style={{background:"none",border:"1px solid rgba(255,255,255,.28)",borderRadius:7,padding:"10px 18px",color:WHITE,fontWeight:600,cursor:"pointer"}}>Create student account</button>{onBack&&<div><button onClick={onBack} style={{marginTop:12,background:"none",border:0,color:"rgba(255,255,255,.6)",cursor:"pointer"}}>← Back to Landing</button></div>}</div>
           </div>
         ) : (
-          /* Login form */
-          <div style={{animation:"fadeIn .35s ease"}}>
-            <div style={{
-              background:WHITE, borderRadius:16, overflow:"hidden",
-              boxShadow:"0 24px 80px rgba(0,0,0,0.45)",
-              transform:shake?"translateX(0)":"none",
-              animation:shake?"none":"slideIn .35s ease"
-            }}>
-              <div style={{background:`linear-gradient(135deg,${NAVY},${NAVY2})`,padding:"22px 28px",borderBottom:`3px solid ${portal==="student"?GOLD:RED}`}}>
-                <button onClick={()=>{setPortal(null);setIdVal("");setPwdVal("");setIdErr("");setPwdErr("");}} style={{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.14)",color:"rgba(255,255,255,0.6)",borderRadius:4,padding:"4px 10px",fontSize:11,cursor:"pointer",marginBottom:10}}>← Change portal</button>
-                <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:2,textTransform:"uppercase",marginBottom:5}}>{portal==="student"?"Student Portal":"Command Centre Access"}</div>
-                <div style={{fontSize:20,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>Sign In</div>
-                <div style={{fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:4,fontFamily:"'IBM Plex Mono',monospace"}}>
-                  {portal==="student"?"Academic demo account sign-in":"Academic demo staff sign-in"}
-                </div>
-              </div>
-              <div style={{padding:"26px 28px"}}>
-                {/* ID field */}
-                <div style={{marginBottom:18}}>
-                  <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:7}}>
-                    {portal==="student"?"Student Number":"Staff Number"}
-                  </label>
-                  <input value={idVal}
-                    onChange={e=>{setIdVal(e.target.value);if(idErr)setIdErr(validateId(e.target.value));}}
-                    onBlur={e=>setIdErr(validateId(e.target.value))}
-                    placeholder={portal==="student"?"e.g. UMP20260001":"e.g. UMPSTAFF001"}
-                    style={{width:"100%",padding:"11px 14px",border:`1.5px solid ${idErr?RED:BD}`,borderRadius:7,fontSize:14,fontFamily:"'IBM Plex Mono',monospace",outline:"none",color:NK,background:idErr?REDL:WHITE,transition:"all .2s"}}/>
-                  {idErr&&<div style={{fontSize:12,color:RED,marginTop:5,display:"flex",gap:5,alignItems:"center"}}>⚠ {idErr}</div>}
-                </div>
-                {/* Password field */}
-                <div style={{marginBottom:6}}>
-                  <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:7}}>Password</label>
-                  <div style={{position:"relative"}}>
-                    <input value={pwdVal} type={showPwd?"text":"password"}
-                      onChange={e=>{setPwdVal(e.target.value);if(pwdErr)setPwdErr("");setShowRules(e.target.value.length>0);}}
-                      onFocus={()=>pwdVal.length>0&&setShowRules(true)}
-                      placeholder="Enter your password"
-                      style={{width:"100%",padding:"11px 42px 11px 14px",border:`1.5px solid ${pwdErr?RED:BD}`,borderRadius:7,fontSize:14,fontFamily:"'IBM Plex Sans',sans-serif",outline:"none",color:NK,background:pwdErr?REDL:WHITE,transition:"all .2s"}}/>
-                    <button onClick={()=>setShowPwd(s=>!s)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:16,opacity:0.5}}>
-                      {showPwd?"🙈":"👁"}
-                    </button>
-                  </div>
-                  {pwdErr&&<div style={{fontSize:12,color:RED,marginTop:5}}>⚠ {pwdErr}</div>}
-                </div>
-                {/* Submit */}
-                <button onClick={handleSubmit} disabled={loading}
-                  style={{width:"100%",padding:"13px",background:portal==="student"?NAVY:RED,color:WHITE,border:"none",borderRadius:7,fontSize:15,fontWeight:700,cursor:loading?"not-allowed":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:9,marginBottom:14,opacity:loading?0.8:1,transition:"opacity .2s",fontFamily:"'IBM Plex Sans',sans-serif"}}>
-                  {loading?<><span style={{width:16,height:16,border:`2px solid rgba(255,255,255,0.3)`,borderTop:`2px solid ${WHITE}`,borderRadius:"50%",animation:"spin 1s linear infinite"}}/>Authenticating…</>:`Sign In to ${portal==="student"?"Student Portal":"Command Centre"}`}
-                </button>
-                <div style={{textAlign:"center"}}>
-                  <button onClick={()=>setAuthView("register")} style={{display:"block",margin:"0 auto 10px",background:"none",border:"none",color:NAVY,fontSize:13,cursor:"pointer",textDecoration:"underline",fontFamily:"'IBM Plex Sans',sans-serif"}}>Create demo account</button>
-                  <button onClick={()=>setForgotMode(true)} style={{background:"none",border:"none",color:NAVY,fontSize:13,cursor:"pointer",textDecoration:"underline",fontFamily:"'IBM Plex Sans',sans-serif"}}>Forgot password?</button>
-                </div>
-              </div>
+          <div style={{background:WHITE,borderRadius:16,overflow:"hidden",boxShadow:"0 24px 80px rgba(0,0,0,.45)",animation:shake?"shake .3s":"slideIn .35s ease"}}>
+            <div style={{background:`linear-gradient(135deg,${NAVY},${NAVY2})`,padding:"22px 28px",borderBottom:`3px solid ${portal==="student"?GOLD:RED}`}}>
+              <button onClick={()=>{setPortal(null);setEmailVal("");setPwdVal("");setLoginError("");}} style={{background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.14)",color:"rgba(255,255,255,.7)",borderRadius:4,padding:"4px 10px",fontSize:11,cursor:"pointer",marginBottom:10}}>← Change portal</button>
+              <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,.55)",letterSpacing:2,textTransform:"uppercase",marginBottom:5}}>{portal==="student"?"Student Portal":"Command Centre Access"}</div><div style={{fontSize:20,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>Sign In</div>
             </div>
-            <div style={{textAlign:"center",marginTop:16,fontSize:11,color:"rgba(255,255,255,0.25)",fontFamily:"'IBM Plex Mono',monospace"}}>
-              Academic demo mode · This browser stores demo accounts locally
-            </div>
+            <form onSubmit={event=>{event.preventDefault();handleSubmit();}} style={{padding:"26px 28px"}}>
+              <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:15}}>UMP email address<input type="email" autoComplete="username" value={emailVal} onChange={event=>setEmailVal(event.target.value)} required placeholder="name@ump.ac.za" style={{display:"block",width:"100%",marginTop:7,padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/></label>
+              <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:6}}>Password<div style={{position:"relative",marginTop:7}}><input type={showPwd?"text":"password"} autoComplete="current-password" value={pwdVal} onChange={event=>setPwdVal(event.target.value)} required style={{width:"100%",padding:"11px 42px 11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/><button type="button" onClick={()=>setShowPwd(value=>!value)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:0,cursor:"pointer"}}>{showPwd?"🙈":"👁"}</button></div></label>
+              {loginError&&<div role="status" style={{fontSize:12,color:RED,background:REDL,borderRadius:6,padding:10,margin:"10px 0 14px"}}>{loginError}</div>}
+              <button type="submit" disabled={loading} style={{width:"100%",padding:13,marginTop:13,background:portal==="student"?NAVY:RED,color:WHITE,border:0,borderRadius:7,fontSize:15,fontWeight:700,cursor:loading?"wait":"pointer"}}>{loading?"Signing in…":"Sign in"}</button>
+            </form>
           </div>
         )}
       </div>
@@ -316,19 +121,27 @@ function LoginPage({ onLogin, onBack }) {
 /* ══════════════════════════════════════════════════════════════
    STUDENT PORTAL
    ══════════════════════════════════════════════════════════════ */
-function StudentPortal({ user, onLogout }) {
+function StudentPortal({ user, accessToken, onLogout }) {
   const [view, setView]         = useState("home");
-  const [incidents, setIncidents] = useState(INIT_INCIDENTS);
+  const [incidents, setIncidents] = useState([]);
   const [form, setForm]         = useState({ type:"medical", building:"", desc:"", priority:"P3", photo:null });
   const [reportLocation, setReportLocation] = useState(null);
   const [submitted, setSubmitted] = useState(false);
   const [safeStatus, setSafeStatus] = useState(null);
   const [myReports, setMyReports] = useState([]);
   const [selectedBldg, setSelectedBldg] = useState(null);
-  const [mapModal, setMapModal]  = useState(false);
   const [locationState, setLocationState] = useState("");
   const [locating, setLocating] = useState(false);
+  const [dataError, setDataError] = useState("");
   const submittingReport = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([listIncidents(accessToken), getCheckin(accessToken)])
+      .then(([rows, checkin]) => { if (active) { setIncidents(rows); setMyReports(rows.filter(row => row.reportedBy === user.id)); setSafeStatus(checkin?.status || null); } })
+      .catch(error => { if (active) setDataError(error.message); });
+    return () => { active = false; };
+  }, [accessToken, user.id]);
 
   async function captureReportLocation() {
     setLocating(true);
@@ -344,7 +157,7 @@ function StudentPortal({ user, onLogout }) {
     }
   }
 
-  function submitReport() {
+  async function submitReport() {
     if (submittingReport.current || !form.building || !form.desc) return;
     submittingReport.current = true;
     const mappedBuilding = MAPPED_BUILDINGS.find((building) => building.id === form.building);
@@ -356,23 +169,17 @@ function StudentPortal({ user, onLogout }) {
       source: "mapped-building",
     } : null);
     const campusCheck = location ? checkCampusLocation(location) : "unknown";
-    const newInc = {
-      id:`INC-STUD-${Date.now().toString().slice(-5)}`,
-      type:form.type, priority:form.priority,
-      building:form.building,
-      loc:MBOMBELA_BUILDINGS.find(b=>b.id===form.building)?.name||`Building ${form.building}`,
-      desc:form.desc, status:"NEW",
-      time:new Date().toLocaleTimeString("en-ZA",{hour:"2-digit",minute:"2-digit"}),
-      responder:"Not dispatched — demo mode",
-      deliveryStatus:"Stored locally in this demo session; not sent to responders.",
-      lat:location?.latitude ?? null,
-      lng:location?.longitude ?? null,
-      accuracy:location?.accuracyMeters ?? null,
-      locationCapturedAt:location?.capturedAt ?? null,
-      locationSource:location?.source ?? null,
-      campusVerified:campusCheck === "inside" ? true : campusCheck === "outside" ? false : null,
-      reportedBy: user.id
-    };
+    let newInc;
+    try {
+      newInc = await createIncident(accessToken, {
+        type:form.type, priority:form.priority, building:form.building, desc:form.desc,
+        lat:location?.latitude ?? null, lng:location?.longitude ?? null,
+        accuracy:location?.accuracyMeters ?? null, locationCapturedAt:location?.capturedAt ?? null,
+        locationSource:location?.source ?? null,
+        campusVerified:campusCheck === "inside" ? true : campusCheck === "outside" ? false : null,
+      });
+    } catch (error) { setDataError(error.message); submittingReport.current=false; return; }
+    setDataError("");
     setIncidents(p=>[newInc,...p]);
     setMyReports(p=>[newInc,...p]);
     setSubmitted(true);
@@ -496,12 +303,13 @@ function StudentPortal({ user, onLogout }) {
         {view==="report"&&(
           <div style={{maxWidth:620,animation:"fadeIn .35s ease"}}>
             <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,fontWeight:700,color:NK,marginBottom:6}}>Report an Incident</h2>
-            <p style={{fontSize:14,color:SL,marginBottom:24}}>Incident reports are stored only in this browser session; no dispatch or responder notification is configured. For life-threatening emergencies, call 10177 directly.</p>
+            <p style={{fontSize:14,color:SL,marginBottom:24}}>Reports are saved to the campus incident database for authorized staff review. The system does not notify responders automatically. For life-threatening emergencies, call 10177 directly.</p>
+            {dataError&&<div role="alert" style={{background:REDL,color:RED,padding:12,borderRadius:7,marginBottom:16}}>{dataError}</div>}
             {submitted?(
               <div style={{background:GREENL,border:`1.5px solid ${GREEN}`,borderRadius:10,padding:"24px",textAlign:"center",animation:"fadeIn .4s ease"}}>
                 <div style={{fontSize:40,marginBottom:12}}>✅</div>
-                <h3 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:20,color:GREEN,marginBottom:8}}>Saved in this demo session</h3>
-                <p style={{fontSize:14,color:SL}}>This report is visible in the current portal session only. No responder was notified and no emergency dispatch was made.</p>
+                <h3 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:20,color:GREEN,marginBottom:8}}>Report saved</h3>
+                <p style={{fontSize:14,color:SL}}>Your report is available to authorized campus staff. No responder was notified automatically.</p>
               </div>
             ):(
               <div style={{background:WHITE,borderRadius:12,border:`1px solid ${BD}`,padding:"26px"}}>
@@ -635,18 +443,18 @@ function StudentPortal({ user, onLogout }) {
                 <div style={{background:safeStatus==="safe"?GREENL:REDL,border:`1.5px solid ${safeStatus==="safe"?GREEN:RED}`,borderRadius:10,padding:"16px",textAlign:"center",marginBottom:20}}>
                   <div style={{fontSize:32,marginBottom:8}}>{safeStatus==="safe"?"✅":"🆘"}</div>
                   <div style={{fontSize:16,fontWeight:700,color:safeStatus==="safe"?GREEN:RED,fontFamily:"'IBM Plex Serif',serif"}}>
-                    {safeStatus==="safe"?"You are marked as SAFE":"ASSISTANCE REQUESTED — Security has been notified"}
+                    {safeStatus==="safe"?"You are marked as SAFE":"ASSISTANCE REQUEST SAVED — Call Security for immediate help"}
                   </div>
                   <div style={{fontSize:12,color:SL,marginTop:6}}>Last updated: {new Date().toLocaleTimeString("en-ZA")}</div>
                 </div>
               )}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-                <button onClick={()=>setSafeStatus("safe")} style={{padding:"22px",background:safeStatus==="safe"?GREENL:WHITE,border:`2px solid ${safeStatus==="safe"?GREEN:BD}`,borderRadius:10,cursor:"pointer",textAlign:"center",transition:"all .2s"}}>
+                <button onClick={async()=>{try{await createCheckin(accessToken,{status:"safe"});setSafeStatus("safe");setDataError("");}catch(error){setDataError(error.message);}}} style={{padding:"22px",background:safeStatus==="safe"?GREENL:WHITE,border:`2px solid ${safeStatus==="safe"?GREEN:BD}`,borderRadius:10,cursor:"pointer",textAlign:"center",transition:"all .2s"}}>
                   <div style={{fontSize:36,marginBottom:8}}>✅</div>
                   <div style={{fontSize:15,fontWeight:700,color:GREEN}}>I am SAFE</div>
                   <div style={{fontSize:12,color:SL,marginTop:4}}>I am in a safe location</div>
                 </button>
-                <button onClick={()=>setSafeStatus("help")} style={{padding:"22px",background:safeStatus==="help"?REDL:WHITE,border:`2px solid ${safeStatus==="help"?RED:BD}`,borderRadius:10,cursor:"pointer",textAlign:"center",transition:"all .2s"}}>
+                <button onClick={async()=>{try{await createCheckin(accessToken,{status:"help"});setSafeStatus("help");setDataError("");}catch(error){setDataError(error.message);}}} style={{padding:"22px",background:safeStatus==="help"?REDL:WHITE,border:`2px solid ${safeStatus==="help"?RED:BD}`,borderRadius:10,cursor:"pointer",textAlign:"center",transition:"all .2s"}}>
                   <div style={{fontSize:36,marginBottom:8}}>🆘</div>
                   <div style={{fontSize:15,fontWeight:700,color:RED}}>Need HELP</div>
                   <div style={{fontSize:12,color:SL,marginTop:4}}>I need emergency assistance</div>
@@ -682,31 +490,35 @@ function StudentPortal({ user, onLogout }) {
 /* ══════════════════════════════════════════════════════════════
    ADMIN COMMAND CENTRE
    ══════════════════════════════════════════════════════════════ */
-function CommandCentre({ user, onLogout }) {
+function CommandCentre({ user, accessToken, onLogout }) {
   const [view, setView]             = useState(user.access === "staff" ? "input" : "dashboard");
-  const [pendingAccounts, setPendingAccounts] = useState(() => listPendingDemoAccounts());
-  const [incidents, setIncidents]   = useState(INIT_INCIDENTS);
+  const [incidents, setIncidents]   = useState([]);
   const [selectedInc, setSelectedInc] = useState(null);
   const [selectedBldg, setSelectedBldg] = useState(null);
-  const [newAlert, setNewAlert]     = useState(null);
   const [filterType, setFilterType] = useState("all");
   const [filterPri, setFilterPri]   = useState("all");
   const [dispatchMsg, setDispatchMsg] = useState("");
-  const [tick, setTick]             = useState(0);
-
-  // Simulate live updates every 30s
+  const [dataError, setDataError] = useState("");
   useEffect(() => {
-    const t = setInterval(() => setTick(n=>n+1), 30000);
-    return () => clearInterval(t);
-  }, []);
-
-  function updateStatus(id, status) {
-    setIncidents(prev => prev.map(i => i.id===id ? {...i,status} : i));
-    if (selectedInc?.id===id) setSelectedInc(s=>({...s,status}));
+    let active = true;
+    listIncidents(accessToken).then(rows => { if (active) setIncidents(rows); }).catch(error => { if (active) setDataError(error.message); });
+    return () => { active = false; };
+  }, [accessToken]);
+  async function updateStatus(id, status) {
+    try {
+      const updated = await updateIncident(accessToken, { id, status });
+      setIncidents(prev => prev.map(i => i.id===id ? updated : i));
+      if (selectedInc?.id===id) setSelectedInc(updated);
+      setDataError("");
+    } catch (error) { setDataError(error.message); }
   }
-  function assignResponder(id, responder) {
-    setIncidents(prev => prev.map(i => i.id===id ? {...i,responder,status:"TEAM_DISPATCHED"} : i));
-    if (selectedInc?.id===id) setSelectedInc(s=>({...s,responder,status:"TEAM_DISPATCHED"}));
+  async function assignResponder(id, responder) {
+    try {
+      const updated = await updateIncident(accessToken, { id, responder, status:"TEAM_DISPATCHED" });
+      setIncidents(prev => prev.map(i => i.id===id ? updated : i));
+      if (selectedInc?.id===id) setSelectedInc(updated);
+      setDataError("");
+    } catch (error) { setDataError(error.message); return; }
     setDispatchMsg(`Team dispatched: ${responder}`);
     setTimeout(()=>setDispatchMsg(""),3000);
   }
@@ -717,13 +529,10 @@ function CommandCentre({ user, onLogout }) {
 
   const NAVITEMS = [
     ["dashboard","📡","Dashboard"],["incidents","🚨","Incidents"],["map","🗺","Live Map"],
-    ["dispatch","⚡","Dispatch"],["analytics","📊","Analytics"],["input","📥","Report Input"],
-    ...(user.access === "full" ? [["users","👤","Account Requests"]] : []),
+    ["dispatch","⚡","Assignments"],["input","📥","Report Input"],
   ];
   const canAccess = (view) => {
     if (user.access === "staff") return view === "input";
-    if (view === "users") return user.access === "full";
-    if (user.access==="security" && ["analytics"].includes(view)) return false;
     if (user.access==="medical"  && ["dispatch"].includes(view)) return false;
     return true;
   };
@@ -768,14 +577,15 @@ function CommandCentre({ user, onLogout }) {
       <div style={{background:WHITE,borderBottom:`1px solid ${BD}`,position:"sticky",top:p1count>0?96:60,zIndex:99}}>
         <div style={{maxWidth:1400,margin:"0 auto",padding:"0 3%",display:"flex",gap:0}}>
           {NAVITEMS.filter(([k])=>canAccess(k)).map(([k,ico,lbl])=>(
-            <button key={k} onClick={()=>{setView(k);if(k==="users")setPendingAccounts(listPendingDemoAccounts());}} style={{padding:"11px 18px",background:"none",border:"none",borderBottom:`2px solid ${view===k?RED:"transparent"}`,color:view===k?RED:MID,fontSize:12.5,fontWeight:view===k?700:500,cursor:"pointer",display:"flex",alignItems:"center",gap:6,marginBottom:-1,transition:"all .2s"}}>
-              <span>{ico}</span>{lbl}{k==="users"&&pendingAccounts.length>0&&<span style={{fontSize:10,background:RED,color:WHITE,borderRadius:12,padding:"2px 6px"}}>{pendingAccounts.length}</span>}
+            <button key={k} onClick={()=>setView(k)} style={{padding:"11px 18px",background:"none",border:"none",borderBottom:`2px solid ${view===k?RED:"transparent"}`,color:view===k?RED:MID,fontSize:12.5,fontWeight:view===k?700:500,cursor:"pointer",display:"flex",alignItems:"center",gap:6,marginBottom:-1,transition:"all .2s"}}>
+              <span>{ico}</span>{lbl}
             </button>
           ))}
         </div>
       </div>
 
       <div style={{maxWidth:1400,margin:"0 auto",padding:"20px 3% 60px"}}>
+        {dataError&&<div role="alert" style={{background:REDL,color:RED,padding:12,borderRadius:7,marginBottom:16}}>{dataError}</div>}
 
         {/* ── DASHBOARD ── */}
         {view==="dashboard"&&(
@@ -1062,103 +872,13 @@ function CommandCentre({ user, onLogout }) {
           </div>
         )}
 
-        {/* ── ANALYTICS ── */}
-        {view==="analytics"&&(
-          <div style={{animation:"fadeIn .35s ease"}}>
-            <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,fontWeight:700,color:NK,marginBottom:6}}>Analytics &amp; Intelligence</h2>
-            <p style={{fontSize:14,color:SL,marginBottom:20,fontFamily:"'IBM Plex Mono',monospace"}}>GET /analytics/incident-trends · GET /analytics/response-times · GET /analytics/location-hotspots</p>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:22}}>
-              {[
-                { label:"Total Incidents",   value:incidents.length,  color:NAVY,   sub:"all time" },
-                { label:"Avg Response",      value:"4.2 min",          color:GREEN,  sub:"from alert to arrival" },
-                { label:"Critical Resolved", value:incidents.filter(i=>i.priority==="P1"&&i.status==="RESOLVED").length, color:RED, sub:"P1 incidents closed" },
-                { label:"Hotspot",           value:"Block 35",         color:ORANGE, sub:"highest frequency zone" },
-              ].map((k,i)=>(
-                <div key={i} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:9,borderTop:`3px solid ${k.color}`,padding:"14px 16px"}}>
-                  <div style={{fontSize:9.5,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1.2,marginBottom:6}}>{k.label}</div>
-                  <div style={{fontSize:26,fontWeight:800,color:k.color,fontFamily:"'IBM Plex Mono',monospace",lineHeight:1}}>{k.value}</div>
-                  <div style={{fontSize:10.5,color:MID,marginTop:4}}>{k.sub}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:18}}>
-              {/* Incident trends */}
-              <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:10,overflow:"hidden"}}>
-                <div style={{padding:"13px 18px",borderBottom:`1px solid ${BD}`}}>
-                  <div style={{fontSize:9.5,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1.2}}>Incident Trends — /analytics/incident-trends</div>
-                  <div style={{fontSize:14,fontWeight:700,color:NK,fontFamily:"'IBM Plex Serif',serif",marginTop:3}}>By Type &amp; Priority</div>
-                </div>
-                <div style={{padding:"18px"}}>
-                  {Object.entries(INC_TYPES).filter(([k])=>incidents.some(i=>i.type===k)).map(([k,v])=>{
-                    const cnt=incidents.filter(i=>i.type===k).length;
-                    const pct=Math.round(cnt/incidents.length*100);
-                    return <div key={k} style={{marginBottom:12}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{fontSize:12.5,color:NK,display:"flex",gap:6,alignItems:"center"}}><span>{v.icon}</span>{v.label}</span><span style={{fontSize:12,color:MID,fontFamily:"'IBM Plex Mono',monospace"}}>{cnt} ({pct}%)</span></div><div style={{height:7,background:PAPER2,borderRadius:3}}><div style={{width:`${pct}%`,height:"100%",background:v.color,borderRadius:3}}/></div></div>;
-                  })}
-                </div>
-              </div>
-              {/* Response times */}
-              <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:10,overflow:"hidden"}}>
-                <div style={{padding:"13px 18px",borderBottom:`1px solid ${BD}`}}>
-                  <div style={{fontSize:9.5,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1.2}}>Response Times — /analytics/response-times</div>
-                  <div style={{fontSize:14,fontWeight:700,color:NK,fontFamily:"'IBM Plex Serif',serif",marginTop:3}}>By Priority Level</div>
-                </div>
-                <div style={{padding:"18px"}}>
-                  {[["P1 Critical","2.8 min",RED],["P2 High","5.1 min",ORANGE],["P3 Medium","9.4 min",GOLD],["P4 Low","18.2 min",GREEN]].map(([p,t,c])=>(
-                    <div key={p} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 12px",background:PAPER,borderRadius:6,marginBottom:8}}>
-                      <span style={{fontSize:13,color:NK,fontWeight:600}}>{p}</span>
-                      <span style={{fontSize:15,fontWeight:800,color:c,fontFamily:"'IBM Plex Mono',monospace"}}>{t}</span>
-                    </div>
-                  ))}
-                  <div style={{padding:"8px 12px",background:GREENL,border:`1px solid ${GREEN}28`,borderRadius:6,marginTop:4}}>
-                    <span style={{fontSize:11.5,color:"#1D5C24",fontWeight:600}}>Target: P1 ≤ 3 min · P2 ≤ 7 min</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            {/* Location hotspots */}
-            <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:10,overflow:"hidden",marginBottom:18}}>
-              <div style={{padding:"13px 18px",borderBottom:`1px solid ${BD}`}}>
-                <div style={{fontSize:9.5,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1.2}}>Location Hotspots — /analytics/location-hotspots</div>
-                <div style={{fontSize:14,fontWeight:700,color:NK,fontFamily:"'IBM Plex Serif',serif",marginTop:3}}>Incident Frequency by Campus Zone</div>
-              </div>
-              <div style={{padding:"18px",display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10}}>
-                {[["Building 35","Health & Wellness",4,RED],["Building 16","Student Centre",3,ORANGE],["Building 19","Chem Lab",2,GOLD],["Hostels","26–34 Residential",2,"#8B5CF6"],["Building 5","University Hall",2,GREEN]].map(([id,name,cnt,c])=>(
-                  <div key={id} style={{textAlign:"center",padding:"14px 10px",background:`${c}10`,border:`1px solid ${c}30`,borderRadius:8}}>
-                    <div style={{fontSize:22,fontWeight:800,color:c,fontFamily:"'IBM Plex Mono',monospace"}}>{cnt}</div>
-                    <div style={{fontSize:11,fontWeight:700,color:NK,marginTop:4}}>{id}</div>
-                    <div style={{fontSize:10,color:SL,lineHeight:1.4,marginTop:2}}>{name}</div>
-                    <div style={{width:"100%",height:4,background:`${c}20`,borderRadius:2,marginTop:8}}><div style={{width:`${cnt*22}%`,height:"100%",background:c,borderRadius:2}}/></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* Intelligence feedback */}
-            <div style={{background:`linear-gradient(135deg,${NAVY},${NAVY2})`,borderRadius:10,padding:"20px 24px"}}>
-              <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:1.8,textTransform:"uppercase",marginBottom:10}}>Intelligence Feedback — /analytics/predict</div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
-                {[
-                  { icon:"🔥",title:"High Fire Risk",   body:"Chemistry Lab (B19) — recurring incidents detected. Recommend preventive inspection.",   color:RED },
-                  { icon:"👥",title:"Crowd Risk",       body:"Multi-Purpose Hall (B36) has 3 crowd incidents this month. Recommend capacity monitoring.", color:ORANGE },
-                  { icon:"🏥",title:"Medical Demand",  body:"Health & Wellness Clinic is highest-demand responder. Recommend supplementary first aider.", color:GREEN },
-                ].map((r,i)=>(
-                  <div key={i} style={{background:"rgba(255,255,255,0.07)",border:`1px solid rgba(255,255,255,0.1)`,borderRadius:8,padding:"14px 16px"}}>
-                    <div style={{fontSize:24,marginBottom:8}}>{r.icon}</div>
-                    <div style={{fontSize:13,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Serif',serif",marginBottom:5}}>{r.title}</div>
-                    <div style={{fontSize:12,color:"rgba(255,255,255,0.55)",lineHeight:1.6}}>{r.body}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* ── REPORT INPUT (Layer 1) ── */}
         {view==="input"&&(
           <div style={{animation:"fadeIn .35s ease"}}>
             <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,fontWeight:700,color:NK,marginBottom:6}}>Input Layer — Incident Intake</h2>
             <p style={{fontSize:14,color:SL,marginBottom:22}}>Layer 1 of 6 — Manual incident logging by security or admin staff. All inputs are processed by the detection engine.</p>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
-              <OperatorIncidentForm incidents={incidents} setIncidents={setIncidents}/>
+              <OperatorIncidentForm incidents={incidents} setIncidents={setIncidents} accessToken={accessToken}/>
               {/* IoT / Sensor inputs */}
               <div>
                 <div style={{background:WHITE,borderRadius:10,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:14}}>
@@ -1193,28 +913,17 @@ function CommandCentre({ user, onLogout }) {
           </div>
         )}
 
-        {view==="users"&&user.access==="full"&&(
-          <div style={{animation:"fadeIn .35s ease"}}>
-            <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,color:NK,marginBottom:6}}>Demo account requests</h2>
-            <p style={{fontSize:13,color:SL,lineHeight:1.6,marginBottom:18}}>Academic demo only. These requests are stored in this browser and approvals do not verify real UMP identities or grant production access.</p>
-            {pendingAccounts.length===0?<div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:9,padding:24,color:MID}}>No pending requests.</div>:pendingAccounts.map(account=>(
-              <div key={account.id} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:9,padding:18,marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center",gap:16,flexWrap:"wrap"}}>
-                <div><div style={{fontSize:14,fontWeight:700,color:NK}}>{account.name} · {account.type}</div><div style={{fontSize:12,color:SL,marginTop:4}}>{account.id} · {account.email}</div><div style={{fontSize:11,color:MID,marginTop:3}}>Requested {new Date(account.createdAt).toLocaleString()}</div></div>
-                <div style={{display:"flex",gap:8}}><button onClick={()=>{setDemoAccountStatus(account.id,"ACTIVE");setPendingAccounts(listPendingDemoAccounts());}} style={{padding:"8px 13px",background:GREEN,color:WHITE,border:0,borderRadius:6,fontWeight:700,cursor:"pointer"}}>Approve demo</button><button onClick={()=>{setDemoAccountStatus(account.id,"REJECTED");setPendingAccounts(listPendingDemoAccounts());}} style={{padding:"8px 13px",background:WHITE,color:RED,border:`1px solid ${RED}55`,borderRadius:6,fontWeight:700,cursor:"pointer"}}>Reject</button></div>
-              </div>
-            ))}
-          </div>
-        )}
+
       </div>
     </div>
   );
 }
 
 /* Operator form sub-component */
-function OperatorIncidentForm({ incidents, setIncidents }) {
+function OperatorIncidentForm({ incidents, setIncidents, accessToken }) {
   const [form, setForm] = useState({ type:"security", building:"", priority:"P2", desc:"", reporter:"", location:null });
   const [done, setDone] = useState(false);
-  function submit() {
+  async function submit() {
     if (!form.building||!form.desc) return;
     const mappedBuilding = MAPPED_BUILDINGS.find((building) => building.id === form.building);
     const location = form.location || (mappedBuilding ? {
@@ -1225,15 +934,13 @@ function OperatorIncidentForm({ incidents, setIncidents }) {
       source: "mapped-building",
     } : null);
     const campusCheck = location ? checkCampusLocation(location) : "unknown";
-    const incidentDetails = { ...form };
-    delete incidentDetails.location;
-    const inc = { id:`INC-OPS-${Date.now().toString().slice(-5)}`, ...incidentDetails,
-      loc:MBOMBELA_BUILDINGS.find(b=>b.id===form.building)?.name||`Building ${form.building}`,
-      status:"NEW", time:new Date().toLocaleTimeString("en-ZA",{hour:"2-digit",minute:"2-digit"}),
-      responder:"Pending assignment", lat:location?.latitude ?? null, lng:location?.longitude ?? null,
-      accuracy:location?.accuracyMeters ?? null, locationCapturedAt:location?.capturedAt ?? null,
-      locationSource:location?.source ?? null,
-      campusVerified:campusCheck === "inside" ? true : campusCheck === "outside" ? false : null };
+    let inc;
+    try {
+      inc = await createIncident(accessToken, { type:form.type, priority:form.priority, building:form.building, desc:form.desc,
+        lat:location?.latitude ?? null, lng:location?.longitude ?? null, accuracy:location?.accuracyMeters ?? null,
+        locationCapturedAt:location?.capturedAt ?? null, locationSource:location?.source ?? null,
+        campusVerified:campusCheck === "inside" ? true : campusCheck === "outside" ? false : null, reporter:form.reporter });
+    } catch (error) { setDone(false); window.alert(error.message); return; }
     setIncidents(p=>[inc,...p]);
     setDone(true);
     setTimeout(()=>{setDone(false);setForm({type:"security",building:"",priority:"P2",desc:"",reporter:"",location:null});},2500);
@@ -1271,20 +978,49 @@ function OperatorIncidentForm({ incidents, setIncidents }) {
    APP ROUTER
    ══════════════════════════════════════════════════════════════ */
 export default function CommandCenterApp({ onBack }) {
-  const [user, setUser] = useState(() => readDemoSession());
+  const [session, setSession] = useState(() => readAuthSession());
 
-  function handleLogin(nextUser) {
-    writeDemoSession(nextUser);
-    setUser(nextUser);
+  useEffect(() => {
+    if (!session?.refreshToken || !session?.expiresAt) return undefined;
+    const delay = Math.max(0, session.expiresAt - Date.now() - 60_000);
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch("/api/login", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ action:"refresh", refreshToken:session.refreshToken }) });
+        const refreshed = await response.json();
+        if (!response.ok) throw new Error("Session refresh failed");
+        const nextSession = { ...refreshed, user:session.user, expiresAt:Date.now() + refreshed.expiresIn * 1000 };
+        writeAuthSession(nextSession);
+        setSession(nextSession);
+      } catch {
+        clearAuthSession();
+        setSession(null);
+      }
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [session?.refreshToken, session?.expiresAt, session?.user]);
+
+  function handleLogin(authResult) {
+    const nextSession = { ...authResult, expiresAt:Date.now() + authResult.expiresIn * 1000 };
+    writeAuthSession(nextSession);
+    setSession(nextSession);
   }
 
-  function handleLogout() {
-    clearDemoSession();
-    setUser(null);
+  async function handleLogout() {
+    if (session?.accessToken) {
+      try {
+        await fetch("/api/logout", {
+          method:"POST", headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({ accessToken:session.accessToken }),
+        });
+      } catch { /* Local sign-out still clears this browser's session. */ }
+    }
+    clearAuthSession();
+    setSession(null);
     if (onBack) onBack();
   }
 
+  const user = session?.user;
   if (!user) return <LoginPage onLogin={handleLogin} onBack={onBack} />;
-  if (user.portal==="student") return <StudentPortal user={user} onLogout={handleLogout} />;
-  return <CommandCentre user={user} onLogout={handleLogout} />;
+  if (user.portal==="student") return <StudentPortal user={user} accessToken={session.accessToken} onLogout={handleLogout} />;
+  return <CommandCentre user={user} accessToken={session.accessToken} onLogout={handleLogout} />;
 }
