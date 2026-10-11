@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  NAVY, NAVY2, NAVYL, RED, REDL, ORANGE, ORANGEL, GREEN, GREENL,
+  NAVY, NAVY2, NAVY3, NAVYL, RED, REDL, ORANGE, ORANGEL, GREEN, GREENL,
   GOLD, GOLDL, WHITE, PAPER, PAPER2, BD, NK, SL, MID,
   LOGO,
   STUDENT_DB, STAFF_DB, PWD_RULES, validatePwd, pwdStrength,
@@ -8,92 +8,10 @@ import {
   INIT_INCIDENTS, INC_TYPES, PRIORITY, STATUS_FLOW, STATUS_LABEL,
   MBOMBELA_BUILDINGS, ZONE_COLORS,
 } from "./constants.js";
+import CampusMap from "./components/CampusMap.jsx";
+import { MAPPED_BUILDINGS } from "./maps/campusBuildings.js";
+import { checkCampusLocation, getCurrentLocation } from "./maps/location.js";
 
-
-/* ── CAMPUS MAP SVG ───────────────────────────────────────────── */
-function CampusMap({ incidents, selectedBuilding, onBuildingClick, compact=false }) {
-  const [hovered, setHovered] = useState(null);
-  const H = compact ? 240 : 380, W = compact ? 560 : 620;
-  const scaleX = W/560, scaleY = H/400;
-
-  function getIncidentForBuilding(bid) {
-    return incidents?.filter(i => i.building === bid && i.status !== "RESOLVED" && i.status !== "CLOSED") || [];
-  }
-  function getBuildingColor(b) {
-    const incs = getIncidentForBuilding(b.id);
-    if (incs.some(i => i.priority === "P1")) return RED;
-    if (incs.some(i => i.priority === "P2")) return ORANGE;
-    if (incs.some(i => i.priority === "P3")) return GOLD;
-    return ZONE_COLORS[b.z] || MID;
-  }
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H+20}`} style={{width:"100%",background:"#F0F4FA",borderRadius:8,display:"block"}}>
-      {/* Zone backgrounds */}
-      <rect x={155*scaleX} y={140*scaleY} width={210*scaleX} height={175*scaleY} rx={8} fill="#EEF2FF" stroke="#C7D2FE" strokeWidth={1}/>
-      <text x={160*scaleX} y={135*scaleY} fontSize={compact?7:9} fill="#4338CA" fontFamily="monospace" fontWeight="bold">ACADEMIC &amp; ADMIN</text>
-      <rect x={400*scaleX} y={180*scaleY} width={100*scaleX} height={100*scaleY} rx={8} fill="#EDE9FE" stroke="#C4B5FD" strokeWidth={1}/>
-      <text x={402*scaleX} y={176*scaleY} fontSize={compact?7:9} fill="#6D28D9" fontFamily="monospace" fontWeight="bold">RESIDENTIAL</text>
-      <rect x={375*scaleX} y={295*scaleY} width={120*scaleX} height={90*scaleY} rx={8} fill="#ECFDF5" stroke="#A7F3D0" strokeWidth={1}/>
-      <text x={378*scaleX} y={292*scaleY} fontSize={compact?7:9} fill="#065F46" fontFamily="monospace" fontWeight="bold">SPORTS &amp; WELLNESS</text>
-
-      {/* Roads */}
-      <path d={`M ${135*scaleX} ${300*scaleY} L ${560*scaleX} ${300*scaleY}`} stroke="#D1D5DB" strokeWidth={compact?6:10} strokeLinecap="round"/>
-      <path d={`M ${380*scaleX} ${140*scaleY} L ${380*scaleX} ${395*scaleY}`} stroke="#D1D5DB" strokeWidth={compact?6:10} strokeLinecap="round"/>
-      <text x={170*scaleX} y={308*scaleY} fontSize={7} fill="#9CA3AF" fontFamily="monospace">D725 MAIN ROAD</text>
-      {/* Entry/Exit markers */}
-      {[{x:135,y:300,l:"E"}].map((e,i)=><g key={i}><circle cx={e.x*scaleX} cy={e.y*scaleY} r={compact?6:9} fill="#059669"/><text x={e.x*scaleX} y={e.y*scaleY+3} textAnchor="middle" fontSize={compact?7:9} fill={WHITE} fontWeight="bold">{e.l}</text></g>)}
-
-      {/* Buildings */}
-      {MBOMBELA_BUILDINGS.map(b => {
-        const incs = getIncidentForBuilding(b.id);
-        const col = getBuildingColor(b);
-        const isActive = incs.length > 0;
-        const isSelected = selectedBuilding === b.id;
-        const isHov = hovered === b.id;
-        const r = compact ? 7 : 10;
-        return (
-          <g key={b.id} style={{cursor:"pointer"}} onClick={()=>onBuildingClick?.(b)}
-            onMouseEnter={()=>setHovered(b.id)} onMouseLeave={()=>setHovered(null)}>
-            <circle cx={b.x*scaleX} cy={b.y*scaleY} r={isActive?r+3:r} fill={isSelected?"#1A2766":col}
-              stroke={isSelected?GOLD:WHITE} strokeWidth={isSelected?2.5:1.5}
-              opacity={isHov?0.9:1}/>
-            {isActive && <circle cx={b.x*scaleX} cy={b.y*scaleY} r={r+6} fill={col} opacity={0.2}
-              style={{animation:`pulse 1.5s ease-in-out infinite`}}/>}
-            <text x={b.x*scaleX} y={b.y*scaleY+3.5} textAnchor="middle" fontSize={compact?6:8}
-              fill={isSelected?GOLD:WHITE} fontWeight="bold" fontFamily="monospace">{b.id}</text>
-            {/* Tooltip */}
-            {isHov && !compact && (
-              <g>
-                <rect x={b.x*scaleX-50} y={b.y*scaleY-36} width={100} height={28} rx={4} fill={NK} opacity={0.92}/>
-                <text x={b.x*scaleX} y={b.y*scaleY-22} textAnchor="middle" fontSize={8} fill={WHITE} fontFamily="sans-serif">{b.id}: {b.name.slice(0,22)}</text>
-                {incs.length>0&&<text x={b.x*scaleX} y={b.y*scaleY-12} textAnchor="middle" fontSize={8} fill={col} fontFamily="monospace">{incs.length} active incident{incs.length>1?"s":""}</text>}
-              </g>
-            )}
-            {/* Incident count badge */}
-            {incs.length > 0 && (
-              <g>
-                <circle cx={b.x*scaleX+8} cy={b.y*scaleY-8} r={compact?4.5:6} fill={RED}/>
-                <text x={b.x*scaleX+8} y={b.y*scaleY+(compact?-5:-4)} textAnchor="middle" fontSize={compact?5:7} fill={WHITE} fontWeight="bold">{incs.length}</text>
-              </g>
-            )}
-          </g>
-        );
-      })}
-      {/* Legend */}
-      {!compact && (
-        <g>
-          {[["Active P1",RED],["Active P2",ORANGE],["Academic","#3B82F6"],["Residential","#8B5CF6"],["Sports","#F59E0B"]].map(([l,c],i)=>(
-            <g key={i}>
-              <circle cx={165+(i*90)} cy={H+12} r={5} fill={c}/>
-              <text x={172+(i*90)} y={H+16} fontSize={8} fill={SL} fontFamily="monospace">{l}</text>
-            </g>
-          ))}
-        </g>
-      )}
-    </svg>
-  );
-}
 
 /* ── GLOBAL STYLES ────────────────────────────────────────────── */
 const STYLES = `
@@ -223,12 +141,6 @@ function LoginPage({ onLogin, onBack }) {
       <style>{STYLES}</style>
       {BG}
       <div style={{position:"relative",zIndex:1,width:"100%",maxWidth:460,margin:"0 20px"}}>
-        {/* Back to Landing Button */}
-        {onBack && <button onClick={onBack} style={{position:"absolute",top:"-50px",left:0,background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:6,padding:"8px 12px",fontSize:12,color:"rgba(255,255,255,0.7)",cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif",transition:"all .2s"}}
-          onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.15)";e.currentTarget.style.borderColor="rgba(255,255,255,0.4)"}}
-          onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.1)";e.currentTarget.style.borderColor="rgba(255,255,255,0.2)"}}>
-          ← Back to Landing
-        </button>}
         {/* UMP Header */}
         <div style={{textAlign:"center",marginBottom:28,animation:"fadeIn .5s ease"}}>
           <img src={LOGO} alt="University of Mpumalanga" style={{height:52,objectFit:"contain",mixBlendMode:"lighten",marginBottom:14}}/>
@@ -258,7 +170,10 @@ function LoginPage({ onLogin, onBack }) {
                 ))}
               </div>
             </div>
-            <div style={{textAlign:"center",marginTop:20,fontSize:11,color:"rgba(255,255,255,0.25)",fontFamily:"'IBM Plex Mono',monospace"}}>UMP-CEIS v2.0 · Secure Connection · TLS 1.3</div>
+            <div style={{textAlign:"center",marginTop:20}}>
+              {onBack && <button onClick={onBack} style={{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.6)",borderRadius:6,padding:"8px 16px",fontSize:12,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif",marginBottom:12}}>← Back to Landing</button>}
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.25)",fontFamily:"'IBM Plex Mono',monospace"}}>UMP-CEIS v2.0 · Secure Connection · TLS 1.3</div>
+            </div>
           </div>
         ) : (
           /* Login form */
@@ -332,14 +247,42 @@ function StudentPortal({ user, onLogout }) {
   const [view, setView]         = useState("home");
   const [incidents, setIncidents] = useState(INIT_INCIDENTS);
   const [form, setForm]         = useState({ type:"medical", building:"", desc:"", priority:"P3", photo:null });
+  const [reportLocation, setReportLocation] = useState(null);
   const [submitted, setSubmitted] = useState(false);
   const [safeStatus, setSafeStatus] = useState(null);
   const [myReports, setMyReports] = useState([]);
   const [selectedBldg, setSelectedBldg] = useState(null);
   const [mapModal, setMapModal]  = useState(false);
+  const [locationState, setLocationState] = useState("");
+  const [locating, setLocating] = useState(false);
+  const submittingReport = useRef(false);
+
+  async function captureReportLocation() {
+    setLocating(true);
+    setLocationState("Requesting device location…");
+    try {
+      const location = await getCurrentLocation();
+      setReportLocation(location);
+      setLocationState(`Approximate device location captured (±${Math.round(location.accuracyMeters)} m). Confirm or adjust the pin on the map.`);
+    } catch (error) {
+      setLocationState(error.message || "Location is unavailable. You can choose a building or pin the location on the map.");
+    } finally {
+      setLocating(false);
+    }
+  }
 
   function submitReport() {
-    if (!form.building || !form.desc) return;
+    if (submittingReport.current || !form.building || !form.desc) return;
+    submittingReport.current = true;
+    const mappedBuilding = MAPPED_BUILDINGS.find((building) => building.id === form.building);
+    const location = reportLocation || (mappedBuilding ? {
+      latitude: mappedBuilding.lat,
+      longitude: mappedBuilding.lng,
+      accuracyMeters: null,
+      capturedAt: new Date().toISOString(),
+      source: "mapped-building",
+    } : null);
+    const campusCheck = location ? checkCampusLocation(location) : "unknown";
     const newInc = {
       id:`INC-STUD-${Date.now().toString().slice(-5)}`,
       type:form.type, priority:form.priority,
@@ -347,13 +290,20 @@ function StudentPortal({ user, onLogout }) {
       loc:MBOMBELA_BUILDINGS.find(b=>b.id===form.building)?.name||`Building ${form.building}`,
       desc:form.desc, status:"NEW",
       time:new Date().toLocaleTimeString("en-ZA",{hour:"2-digit",minute:"2-digit"}),
-      responder:"Pending assignment", lat:200, lng:200,
+      responder:"Not dispatched — demo mode",
+      deliveryStatus:"Stored locally in this demo session; not sent to responders.",
+      lat:location?.latitude ?? null,
+      lng:location?.longitude ?? null,
+      accuracy:location?.accuracyMeters ?? null,
+      locationCapturedAt:location?.capturedAt ?? null,
+      locationSource:location?.source ?? null,
+      campusVerified:campusCheck === "inside" ? true : campusCheck === "outside" ? false : null,
       reportedBy: user.id
     };
     setIncidents(p=>[newInc,...p]);
     setMyReports(p=>[newInc,...p]);
     setSubmitted(true);
-    setTimeout(()=>{setSubmitted(false);setForm({type:"medical",building:"",desc:"",priority:"P3",photo:null});setView("home");},3000);
+    setTimeout(()=>{setSubmitted(false);setForm({type:"medical",building:"",desc:"",priority:"P3",photo:null});setReportLocation(null);setLocationState("");submittingReport.current=false;setView("home");},5000);
   }
 
   const NAVITEMS = [
@@ -473,15 +423,26 @@ function StudentPortal({ user, onLogout }) {
         {view==="report"&&(
           <div style={{maxWidth:620,animation:"fadeIn .35s ease"}}>
             <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,fontWeight:700,color:NK,marginBottom:6}}>Report an Incident</h2>
-            <p style={{fontSize:14,color:SL,marginBottom:24}}>Your report will be immediately sent to the appropriate response team. For life-threatening emergencies, call 10177 directly.</p>
+            <p style={{fontSize:14,color:SL,marginBottom:24}}>Incident reports are stored only in this browser session; no dispatch or responder notification is configured. For life-threatening emergencies, call 10177 directly.</p>
             {submitted?(
               <div style={{background:GREENL,border:`1.5px solid ${GREEN}`,borderRadius:10,padding:"24px",textAlign:"center",animation:"fadeIn .4s ease"}}>
                 <div style={{fontSize:40,marginBottom:12}}>✅</div>
-                <h3 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:20,color:GREEN,marginBottom:8}}>Report Submitted</h3>
-                <p style={{fontSize:14,color:SL}}>Your incident has been logged and the appropriate team has been notified. You will receive updates via the student portal.</p>
+                <h3 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:20,color:GREEN,marginBottom:8}}>Saved in this demo session</h3>
+                <p style={{fontSize:14,color:SL}}>This report is visible in the current portal session only. No responder was notified and no emergency dispatch was made.</p>
               </div>
             ):(
               <div style={{background:WHITE,borderRadius:12,border:`1px solid ${BD}`,padding:"26px"}}>
+                {form.type==="medical"&&(
+                  <section aria-label="Urgent medical help" style={{background:REDL,border:`1px solid ${RED}45`,borderLeft:`4px solid ${RED}`,borderRadius:8,padding:16,marginBottom:22}}>
+                    <div style={{fontSize:14,fontWeight:700,color:RED,marginBottom:4}}>Medical emergency?</div>
+                    <p style={{fontSize:12.5,color:SL,lineHeight:1.6,marginBottom:12}}>You can call for help immediately without completing this report. Opening a call link does not confirm that the call connected.</p>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:9}}>
+                      <a href="tel:10177" aria-label="Call emergency medical services at 10177" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",minHeight:44,padding:"10px 15px",background:RED,color:WHITE,borderRadius:6,textDecoration:"none",fontSize:13,fontWeight:700}}>Call EMS · 10177</a>
+                      <a href="tel:0130020010" aria-label="Call campus security at 013 002 0010" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",minHeight:44,padding:"10px 14px",background:NAVY,color:WHITE,borderRadius:6,textDecoration:"none",fontSize:12.5,fontWeight:600}}>Campus Security</a>
+                      <a href="tel:0130020200" aria-label="Call campus clinic at 013 002 0200" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",minHeight:44,padding:"10px 14px",background:WHITE,border:`1px solid ${BD}`,color:NAVY,borderRadius:6,textDecoration:"none",fontSize:12.5,fontWeight:600}}>Campus Clinic</a>
+                    </div>
+                  </section>
+                )}
                 {[
                   { label:"Incident Type", content:(
                     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
@@ -498,6 +459,20 @@ function StudentPortal({ user, onLogout }) {
                       <option value="">Select building…</option>
                       {MBOMBELA_BUILDINGS.map(b=><option key={b.id} value={b.id}>Building {b.id} — {b.name}</option>)}
                     </select>
+                  )},
+                  { label:"Pin the incident location (optional)", content:(
+                    <div>
+                      <button type="button" onClick={captureReportLocation} disabled={locating} style={{minHeight:42,padding:"9px 13px",marginBottom:8,background:WHITE,border:`1px solid ${BD}`,borderRadius:6,color:NAVY,fontSize:12.5,fontWeight:600,cursor:locating?"wait":"pointer"}}>{locating?"Getting location…":"Use my device location"}</button>
+                      {locationState&&<p role="status" style={{fontSize:12,color:SL,lineHeight:1.5,margin:"0 0 9px"}}>{locationState}</p>}
+                      <CampusMap
+                      compact
+                      incidents={[]}
+                      selectedBuilding={form.building}
+                      location={reportLocation}
+                      onLocationChange={setReportLocation}
+                      allowLocationSelection
+                      />
+                    </div>
                   )},
                   { label:"Priority Level", content:(
                     <div style={{display:"flex",gap:8}}>
@@ -530,8 +505,8 @@ function StudentPortal({ user, onLogout }) {
         {view==="map"&&(
           <div style={{animation:"fadeIn .35s ease"}}>
             <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,fontWeight:700,color:NK,marginBottom:6}}>Campus Map — Live Safety Status</h2>
-            <p style={{fontSize:14,color:SL,marginBottom:20}}>Mbombela Campus · Buildings with active incidents are highlighted</p>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 320px",gap:18,alignItems:"start"}}>
+            <p style={{fontSize:14,color:SL,marginBottom:20}}>Mbombela Campus · GPS-tagged incidents and mapped building locations</p>
+            <div className="ceis-student-map-layout" style={{display:"grid",gridTemplateColumns:"1fr 320px",gap:18,alignItems:"start"}}>
               <div style={{background:WHITE,borderRadius:12,border:`1px solid ${BD}`,padding:16}}>
                 <CampusMap incidents={incidents} selectedBuilding={selectedBldg?.id} onBuildingClick={b=>setSelectedBldg(b)}/>
               </div>
@@ -613,7 +588,7 @@ function StudentPortal({ user, onLogout }) {
           <div style={{animation:"fadeIn .35s ease"}}>
             <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,fontWeight:700,color:NK,marginBottom:20}}>My Reports</h2>
             {myReports.length===0?(
-              <div style={{background:WHITE,borderRadius:10,border:`1px solid ${BD}`,padding:"40px",textAlign:"center",color:MID,fontSize:14}}>You haven't submitted any reports this session.</div>
+              <div style={{background:WHITE,borderRadius:10,border:`1px solid ${BD}`,padding:"40px",textAlign:"center",color:MID,fontSize:14}}>You haven&apos;t submitted any reports this session.</div>
             ):myReports.map(inc=>(
               <div key={inc.id} style={{background:WHITE,borderRadius:10,border:`1px solid ${BD}`,padding:"16px 20px",marginBottom:10}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
@@ -744,7 +719,7 @@ function CommandCentre({ user, onLogout }) {
                 </div>
               ))}
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 380px",gap:18}}>
+            <div className="ceis-admin-dashboard-map-layout" style={{display:"grid",gridTemplateColumns:"1fr 380px",gap:18}}>
               {/* Live map */}
               <div style={{background:WHITE,borderRadius:10,border:`1px solid ${BD}`,overflow:"hidden"}}>
                 <div style={{padding:"13px 18px",borderBottom:`1px solid ${BD}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -885,14 +860,14 @@ function CommandCentre({ user, onLogout }) {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
               <div>
                 <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,fontWeight:700,color:NK,marginBottom:4}}>Live Campus Map — Mbombela</h2>
-                <p style={{fontSize:13,color:MID,fontFamily:"'IBM Plex Mono',monospace"}}>40 buildings · {active.length} active incidents · Click any building for details</p>
+                <p style={{fontSize:13,color:MID,fontFamily:"'IBM Plex Mono',monospace"}}>{MAPPED_BUILDINGS.length} mapped building locations · {active.length} active incidents · Select a marker for details</p>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
                 <span style={{width:8,height:8,borderRadius:"50%",background:GREEN,display:"inline-block",animation:"blink 2s infinite"}}/>
                 <span style={{fontSize:11,color:GREEN,fontFamily:"'IBM Plex Mono',monospace"}}>LIVE — updates every 30s</span>
               </div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 340px",gap:18,alignItems:"start"}}>
+            <div className="ceis-admin-map-layout" style={{display:"grid",gridTemplateColumns:"1fr 340px",gap:18,alignItems:"start"}}>
               <div style={{background:WHITE,borderRadius:12,border:`1px solid ${BD}`,padding:18}}>
                 <CampusMap incidents={incidents} selectedBuilding={selectedBldg?.id} onBuildingClick={b=>setSelectedBldg(b)}/>
               </div>
@@ -1147,17 +1122,31 @@ function CommandCentre({ user, onLogout }) {
 
 /* Operator form sub-component */
 function OperatorIncidentForm({ incidents, setIncidents }) {
-  const [form, setForm] = useState({ type:"security", building:"", priority:"P2", desc:"", reporter:"" });
+  const [form, setForm] = useState({ type:"security", building:"", priority:"P2", desc:"", reporter:"", location:null });
   const [done, setDone] = useState(false);
   function submit() {
     if (!form.building||!form.desc) return;
-    const inc = { id:`INC-OPS-${Date.now().toString().slice(-5)}`, ...form,
+    const mappedBuilding = MAPPED_BUILDINGS.find((building) => building.id === form.building);
+    const location = form.location || (mappedBuilding ? {
+      latitude: mappedBuilding.lat,
+      longitude: mappedBuilding.lng,
+      accuracyMeters: null,
+      capturedAt: new Date().toISOString(),
+      source: "mapped-building",
+    } : null);
+    const campusCheck = location ? checkCampusLocation(location) : "unknown";
+    const incidentDetails = { ...form };
+    delete incidentDetails.location;
+    const inc = { id:`INC-OPS-${Date.now().toString().slice(-5)}`, ...incidentDetails,
       loc:MBOMBELA_BUILDINGS.find(b=>b.id===form.building)?.name||`Building ${form.building}`,
       status:"NEW", time:new Date().toLocaleTimeString("en-ZA",{hour:"2-digit",minute:"2-digit"}),
-      responder:"Pending assignment", lat:200, lng:200 };
+      responder:"Pending assignment", lat:location?.latitude ?? null, lng:location?.longitude ?? null,
+      accuracy:location?.accuracyMeters ?? null, locationCapturedAt:location?.capturedAt ?? null,
+      locationSource:location?.source ?? null,
+      campusVerified:campusCheck === "inside" ? true : campusCheck === "outside" ? false : null };
     setIncidents(p=>[inc,...p]);
     setDone(true);
-    setTimeout(()=>{setDone(false);setForm({type:"security",building:"",priority:"P2",desc:"",reporter:""});},2500);
+    setTimeout(()=>{setDone(false);setForm({type:"security",building:"",priority:"P2",desc:"",reporter:"",location:null});},2500);
   }
   return (
     <div style={{background:WHITE,borderRadius:10,border:`1px solid ${BD}`,overflow:"hidden"}}>
@@ -1170,6 +1159,7 @@ function OperatorIncidentForm({ incidents, setIncidents }) {
         {[
           { label:"Incident Type", content:<select value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))} style={{width:"100%",padding:"9px 12px",border:`1.5px solid ${BD}`,borderRadius:6,fontSize:13,outline:"none"}}>{Object.entries(INC_TYPES).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}</select> },
           { label:"Building / Location", content:<select value={form.building} onChange={e=>setForm(f=>({...f,building:e.target.value}))} style={{width:"100%",padding:"9px 12px",border:`1.5px solid ${BD}`,borderRadius:6,fontSize:13,outline:"none",background:WHITE}}><option value="">Select…</option>{MBOMBELA_BUILDINGS.map(b=><option key={b.id} value={b.id}>B{b.id} — {b.name.slice(0,30)}</option>)}</select> },
+          { label:"Pin location (optional)", content:<CampusMap compact incidents={incidents} selectedBuilding={form.building} location={form.location} onLocationChange={location=>setForm(f=>({...f,location}))} allowLocationSelection /> },
           { label:"Priority", content:<div style={{display:"flex",gap:7}}>{["P1","P2","P3","P4"].map(p=><button key={p} onClick={()=>setForm(f=>({...f,priority:p}))} style={{flex:1,padding:"8px",background:form.priority===p?`${PRIORITY[p].color}14`:WHITE,border:`1.5px solid ${form.priority===p?PRIORITY[p].color:BD}`,borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:700,color:form.priority===p?PRIORITY[p].color:MID}}>{p}</button>)}</div> },
           { label:"Description", content:<textarea value={form.desc} onChange={e=>setForm(f=>({...f,desc:e.target.value}))} placeholder="Describe the incident in detail…" style={{width:"100%",minHeight:80,padding:"9px 12px",border:`1.5px solid ${BD}`,borderRadius:6,fontSize:13,resize:"vertical",outline:"none",lineHeight:1.6}}/> },
           { label:"Reporting Officer", content:<input value={form.reporter} onChange={e=>setForm(f=>({...f,reporter:e.target.value}))} placeholder="Officer name / badge number" style={{width:"100%",padding:"9px 12px",border:`1.5px solid ${BD}`,borderRadius:6,fontSize:13,outline:"none"}}/> },

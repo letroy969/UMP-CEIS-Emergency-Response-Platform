@@ -46,6 +46,7 @@ function IAI()        { return <svg width={18} height={18} viewBox="0 0 18 18" f
 function IShare()     { return <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><circle cx={3.5} cy={9} r={1.8} stroke="currentColor" strokeWidth={1.3}/><circle cx={14.5} cy={3.5} r={1.8} stroke="currentColor" strokeWidth={1.3}/><circle cx={14.5} cy={14.5} r={1.8} stroke="currentColor" strokeWidth={1.3}/><path d="M5.2 8l7.5-3.8M5.2 10l7.5 3.8" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round"/></svg> }
 function IAlert()     { return <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><path d="M9 1.5L1.5 16.5h15L9 1.5Z" stroke="currentColor" strokeWidth={1.3} strokeLinejoin="round"/><path d="M9 7.5v4M9 13.5v.5" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round"/></svg> }
 function IAid()       { return <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><rect x={1.5} y={1.5} width={15} height={15} rx={2.5} stroke="currentColor" strokeWidth={1.3}/><path d="M9 5.5v7M5.5 9h7" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round"/></svg> }
+function IStethoscope() { return <svg width={19} height={19} viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 2.5v4.2a4 4 0 008 0V2.5M2.5 2.5h3M10.5 2.5h3M8 10.7v1.1a4.4 4.4 0 008.8 0v-1.3" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/><circle cx={16.8} cy={8.8} r={1.8} stroke="currentColor" strokeWidth={1.4}/></svg> }
 function IAnalytics() { return <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><path d="M2.5 13.5l4-5 3.5 2.5 4-5.5" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round"/><circle cx={15} cy={5} r={1.5} fill="currentColor"/></svg> }
 function IPhone()     { return <svg width={15} height={15} viewBox="0 0 15 15" fill="none"><path d="M2 2h3l1.2 3-1.5.9c.75 1.7 2.1 3.05 3.8 3.8L9.4 8.5 12.5 10v2.5C6.5 12.5 2.5 8.5 2 2Z" stroke="currentColor" strokeWidth={1.2} strokeLinejoin="round"/></svg> }
 function IMail()      { return <svg width={15} height={15} viewBox="0 0 15 15" fill="none"><rect x={1} y={3} width={13} height={9} rx={1.5} stroke="currentColor" strokeWidth={1.2}/><path d="M1 5l6.5 4.5L14 5" stroke="currentColor" strokeWidth={1.1} strokeLinecap="round"/></svg> }
@@ -55,6 +56,31 @@ function ISend()      { return <svg width={14} height={14} viewBox="0 0 14 14" f
 function IClose()     { return <svg width={12} height={12} viewBox="0 0 12 12" fill="none"><path d="M2 2l8 8M10 2L2 10" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round"/></svg> }
 function IArrowR()    { return <svg width={13} height={13} viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M8 3l3 3.5-3 3.5" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round"/></svg> }
 function ICheck()     { return <svg width={8} height={8} viewBox="0 0 8 8" fill="none"><path d="M1 4l2.5 2.5L7 1" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round"/></svg> }
+
+function EmergencyHelpPanel() {
+  return (
+    <section aria-label="Emergency contact options" style={{display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between",gap:14,background:"#fff",border:"1px solid #ead8d2",borderLeft:`4px solid ${RED}`,borderRadius:9,padding:"14px 18px",margin:"20px 0"}}>
+      <div style={{minWidth:220,flex:"1 1 260px"}}>
+        <div style={{fontSize:14,fontWeight:700,color:NK,fontFamily:"'IBM Plex Sans',sans-serif"}}>Need urgent help now?</div>
+        <div style={{fontSize:12,color:SL,lineHeight:1.55,marginTop:3}}>You can call without completing triage. Opening a call link does not confirm that the call connected.</div>
+      </div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:9}}>
+        <a href="tel:10177" aria-label="Call emergency medical services at 10177" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",minHeight:44,padding:"10px 16px",background:RED,color:WHITE,borderRadius:6,textDecoration:"none",fontSize:13,fontWeight:700,fontFamily:"'IBM Plex Sans',sans-serif"}}>Call EMS · 10177</a>
+        <a href="tel:0130020010" aria-label="Call campus security at 013 002 0010" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",minHeight:44,padding:"10px 14px",background:NAVY,color:WHITE,borderRadius:6,textDecoration:"none",fontSize:12.5,fontWeight:600,fontFamily:"'IBM Plex Sans',sans-serif"}}>Campus Security</a>
+      </div>
+    </section>
+  );
+}
+
+function EmergencyCallDock() {
+  return (
+    <nav aria-label="Emergency calls" style={{position:"fixed",zIndex:500,inset:"auto 0 0",display:"flex",flexWrap:"wrap",alignItems:"center",justifyContent:"center",gap:10,padding:"10px max(5%, calc((100% - 1060px) / 2))",background:"rgba(255,255,255,.97)",borderTop:"1px solid #d9dfe8",boxShadow:"0 -8px 24px rgba(20,35,65,.08)"}}>
+      <span style={{fontSize:12,fontWeight:700,color:NK,marginRight:4}}>Emergency help</span>
+      <a href="tel:10177" aria-label="Call emergency medical services at 10177" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",minHeight:44,padding:"9px 16px",background:RED,color:WHITE,borderRadius:6,textDecoration:"none",fontSize:13,fontWeight:700,fontFamily:"'IBM Plex Sans',sans-serif"}}>Call EMS · 10177</a>
+      <a href="tel:0130020010" aria-label="Call campus security at 013 002 0010" style={{display:"inline-flex",alignItems:"center",justifyContent:"center",minHeight:44,padding:"9px 14px",background:NAVY,color:WHITE,borderRadius:6,textDecoration:"none",fontSize:12.5,fontWeight:600,fontFamily:"'IBM Plex Sans',sans-serif"}}>Security</a>
+    </nav>
+  );
+}
 
 function IHospital()  { return <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><rect x={1.5} y={3} width={15} height={13.5} rx={1.5} stroke="currentColor" strokeWidth={1.3}/><path d="M9 6.5v5M6.5 9h5" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round"/><path d="M5.5 3V1.5M12.5 3V1.5" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round"/></svg> }
 function IHeart()     { return <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><path d="M9 15S2 10.5 2 6c0-2.2 1.8-4 4-4 1.2 0 2.3.5 3 1.4C9.7 2.5 10.8 2 12 2c2.2 0 4 1.8 4 4 0 4.5-7 9-7 9Z" stroke="currentColor" strokeWidth={1.3} strokeLinejoin="round"/></svg> }
@@ -113,46 +139,61 @@ function SectionHead({ chip, chipColor, title, titleHighlight, sub, center = tru
 }
 
 /* ── NAVBAR ──────────────────────────────────────────────────── */
+function NavIcon({ id }) {
+  const paths = {
+    hero: <><path d="m3 9 6-5 6 5v7H5V9" /><path d="M8 16v-4h3v4" /></>,
+    features: <><path d="m9 2 7 3.5-7 3.5-7-3.5L9 2Z" /><path d="m2 9 7 3.5L16 9M2 12.5 9 16l7-3.5" /></>,
+    "how-it-works": <><circle cx="5" cy="5" r="2" /><circle cx="13" cy="13" r="2" /><path d="M7 5h5a2 2 0 0 1 2 2v4M11 13H6a2 2 0 0 1-2-2V7" /></>,
+    contact: <><rect x="2" y="4" width="14" height="10" rx="1" /><path d="m2.5 5 6.5 5 6.5-5" /></>,
+  };
+
+  return (
+    <svg width={20} height={20} viewBox="0 0 18 18" fill="none" aria-hidden="true">
+      <g stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+        {paths[id]}
+      </g>
+    </svg>
+  );
+}
+
 function Navbar({ setPage, goPage }){
   const [sc, setSc] = useState(false);
+  const [activeNav, setActiveNav] = useState("hero");
   useEffect(() => {
     const h = () => setSc(window.scrollY > 20);
     window.addEventListener("scroll", h);
     return () => window.removeEventListener("scroll", h);
   }, []);
   return (
-    <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 1000, background: sc ? `rgba(20,32,90,0.97)` : "transparent", borderBottom: sc ? `1px solid rgba(255,255,255,0.08)` : "none", backdropFilter: sc ? "blur(16px)" : "none", transition: "all .3s ease" }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 5%", height: 68, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+    <nav className="landing-navbar" aria-label="Main navigation" data-scrolled={sc}>
+      <div className="landing-navbar-inner">
         {/* Logo — lives naturally on navy at all scroll positions */}
-        <button onClick={() => scrollTo("hero")} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, padding: 0 }}>
-          <img src={LOGO} alt="University of Mpumalanga" style={{ height: 44, objectFit: "contain", mixBlendMode: "lighten" }} />
+        <button className="landing-navbar-brand" onClick={() => scrollTo("hero")} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, padding: 0 }}>
+          <img src={LOGO} alt="University of Mpumalanga" style={{ width: 150, height: 44, objectFit: "contain", mixBlendMode: "lighten" }} />
           <div style={{ borderLeft: "1px solid rgba(255,255,255,0.15)", paddingLeft: 12 }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: WHITE, letterSpacing: 2, textTransform: "uppercase", fontFamily: "'IBM Plex Sans',sans-serif", lineHeight: 1.1 }}>UMP-CEIS</div>
             <div style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", letterSpacing: 0.8, fontFamily: "'IBM Plex Sans',sans-serif", marginTop: 2 }}>Emergency Intelligence System</div>
           </div>
         </button>
-        <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
-          {[["Overview","hero"],["Features","features"],["How It Works","how-it-works"],["Contact","contact"]].map(([l, id]) => (
-            <button key={id} onClick={() => scrollTo(id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12.5, color: "rgba(255,255,255,0.72)", fontWeight: 500, fontFamily: "'IBM Plex Sans',sans-serif", letterSpacing: 0.3, transition: "color .2s", padding: "4px 0" }}
-              onMouseEnter={e => e.currentTarget.style.color = WHITE}
-              onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.72)"}>
-              {l}
-            </button>
-          ))}
-          <button onClick={() => setPage("firstaid")} style={{ background: "none", border: `1px solid rgba(255,255,255,0.22)`, borderRadius: 4, cursor: "pointer", fontSize: 12, color: "rgba(255,255,255,0.8)", fontWeight: 600, fontFamily: "'IBM Plex Sans',sans-serif", letterSpacing: 0.3, padding: "7px 14px", transition: "all .2s" }}
-            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.5)"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.22)"; }}>
-            First Aid
-          </button>
-          <button onClick={() => setPage("triage")} style={{ background: "none", border: `1px solid ${ORANGE}88`, borderRadius: 4, cursor: "pointer", fontSize: 12, color: ORANGE, fontWeight: 600, fontFamily: "'IBM Plex Sans',sans-serif", letterSpacing: 0.3, padding: "7px 14px", transition: "all .2s" }}
-            onMouseEnter={e => { e.currentTarget.style.background = `${ORANGE}18`; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "none"; }}>
-            Symptom Triage
-          </button>
-          <button onClick={() => goPage("system")} style={{ padding: "8px 20px", background: RED, color: WHITE, borderRadius: 4, fontSize: 12.5, fontWeight: 700, border: "none", cursor: "pointer", letterSpacing: 0.5, fontFamily: "'IBM Plex Sans',sans-serif", transition: "background .2s", textTransform: "uppercase" }}
-            onMouseEnter={e => e.currentTarget.style.background = "#A02810"}
-            onMouseLeave={e => e.currentTarget.style.background = RED}>
-            Access System
+        <div className="landing-navbar-actions">
+          <div className="landing-navbar-links">
+            {[["Overview","hero"],["Features","features"],["How it works","how-it-works"],["Contact","contact"]].map(([label, id]) => (
+              <button
+                key={id}
+                className={`landing-navbar-link${activeNav === id ? " is-active" : ""}`}
+                aria-current={activeNav === id ? "page" : undefined}
+                onClick={() => { setActiveNav(id); scrollTo(id); }}
+              >
+                <NavIcon id={id} />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+          <button className="landing-navbar-access" onClick={() => goPage("system")}>
+            <span>Access system</span>
+            <svg width={22} height={22} viewBox="0 0 22 22" fill="none" aria-hidden="true">
+              <path d="M13 4h5v14h-5M3 11h11m-4-4 4 4-4 4" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
         </div>
       </div>
@@ -160,10 +201,109 @@ function Navbar({ setPage, goPage }){
   );
 }
 
+const HERO_INCIDENTS = [
+  {
+    image: new URL("../Home page  src/fire responder.jpg", import.meta.url).href,
+    alt: "Emergency responders attending a fire incident",
+    category: "Fire response",
+    title: "When every second counts.",
+    detail: "Report a fire quickly so the right campus responders can be alerted and dispatched.",
+    color: ORANGE,
+  },
+  {
+    image: new URL("../Home page  src/cpr.jpg", import.meta.url).href,
+    alt: "First-aid CPR training",
+    category: "Medical emergency",
+    title: "Get urgent help moving.",
+    detail: "Share an emergency and its location to help responders coordinate a faster response.",
+    color: RED,
+  },
+  {
+    image: new URL("../Home page  src/camera security.jpg", import.meta.url).href,
+    alt: "Campus security camera monitoring",
+    category: "Campus security",
+    title: "Make safety concerns visible.",
+    detail: "Send a campus safety alert to the command centre for review and follow-up.",
+    color: GOLD,
+  },
+  {
+    image: new URL("../Home page  src/End gbv.jpg", import.meta.url).href,
+    alt: "End gender-based violence awareness",
+    category: "Personal safety",
+    title: "Speak up. Get support.",
+    detail: "Use the reporting system to raise a safety concern and connect it to a response.",
+    color: "#D887A4",
+  },
+  {
+    image: new URL("../Home page  src/mental health.jpg", import.meta.url).href,
+    alt: "Mental health support and wellbeing",
+    category: "Student wellbeing",
+    title: "Support starts with reaching out.",
+    detail: "Make it easier to surface wellbeing concerns and direct them to the appropriate support.",
+    color: "#83B8D8",
+  },
+];
+
+const HERO_BACKGROUND_IMAGE = new URL("../Home page  src/UMP-Gate-New-scaled.jpg", import.meta.url).href;
+
+function HeroIncidentSlideshow() {
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const incident = HERO_INCIDENTS[active];
+
+  useEffect(() => {
+    if (paused) return undefined;
+    const timer = window.setInterval(() => {
+      setActive(current => (current + 1) % HERO_INCIDENTS.length);
+    }, 6500);
+    return () => window.clearInterval(timer);
+  }, [paused]);
+
+  const show = (index) => setActive((index + HERO_INCIDENTS.length) % HERO_INCIDENTS.length);
+
+  return (
+    <div
+      className="hero-incident-slideshow"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setPaused(false);
+      }}
+      aria-roledescription="carousel"
+      aria-label="Campus incidents and how UMP-CEIS helps"
+    >
+      <img key={incident.image} className="hero-incident-image" src={incident.image} alt={incident.alt} />
+      <div className="hero-incident-shade" />
+      <div className="hero-incident-topline">
+        <span className="hero-live-indicator"><i /> CAMPUS RESPONSE</span>
+        <span className="hero-slide-count">{String(active + 1).padStart(2, "0")} <b>/ {String(HERO_INCIDENTS.length).padStart(2, "0")}</b></span>
+      </div>
+      <div className="hero-incident-copy" aria-live="polite" aria-atomic="true">
+        <span className="hero-incident-category" style={{ "--incident-accent": incident.color }}>{incident.category}</span>
+        <h2>{incident.title}</h2>
+        <p>{incident.detail}</p>
+      </div>
+      <div className="hero-incident-controls" aria-label="Slideshow controls">
+        <div className="hero-incident-dots">
+          {HERO_INCIDENTS.map((item, index) => (
+            <button key={item.category} type="button" className={`hero-incident-dot${index === active ? " is-active" : ""}`} onClick={() => show(index)} aria-label={`Show ${item.category}`} aria-current={index === active ? "true" : undefined} />
+          ))}
+        </div>
+        <div className="hero-incident-arrows">
+          <button type="button" onClick={() => show(active - 1)} aria-label="Previous slide">‹</button>
+          <button type="button" onClick={() => show(active + 1)} aria-label="Next slide">›</button>
+        </div>
+      </div>
+      <div className="hero-incident-progress" key={active} />
+    </div>
+  );
+}
+
 /* ── HERO ────────────────────────────────────────────────────── */
 function Hero({ setPage, goPage }) {
   return (
-    <section id="hero" style={{ background: `linear-gradient(160deg, ${NAVY3} 0%, ${NAVY} 45%, ${NAVYL} 100%)`, padding: "0 5%", position: "relative", overflow: "hidden", minHeight: "100vh", display: "flex", alignItems: "center" }}>
+    <section id="hero" className="landing-hero" style={{ "--hero-campus-image": `url("${HERO_BACKGROUND_IMAGE}")`, background: `linear-gradient(160deg, ${NAVY3} 0%, ${NAVY} 45%, ${NAVYL} 100%)`, padding: "0 5%", position: "relative", overflow: "hidden", minHeight: "100vh", display: "flex", alignItems: "center" }}>
 
       {/* Left accent bar */}
       <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 4, background: `linear-gradient(180deg, ${RED} 0%, ${ORANGE} 60%, transparent 100%)` }} />
@@ -204,18 +344,28 @@ function Hero({ setPage, goPage }) {
             </p>
           </Reveal>
           <Reveal delay={0.36}>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <button onClick={() => scrollTo("how-it-works")} style={{ padding: "12px 24px", background: "transparent", color: WHITE, border: `1.5px solid rgba(255,255,255,0.35)`, borderRadius: 4, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif", letterSpacing: 0.3, transition: "all .2s" }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = WHITE; e.currentTarget.style.background = "rgba(255,255,255,0.07)"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.35)"; e.currentTarget.style.background = "transparent"; }}>
-                Learn How It Works
-              </button>
-              {/* Red CTA — emergency action colour signals urgency/authority */}
-              <button onClick={() => goPage("system")} style={{ padding: "12px 24px", background: RED, color: WHITE, border: `1.5px solid ${RED}`, borderRadius: 4, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif", letterSpacing: 0.4, display: "flex", alignItems: "center", gap: 8, transition: "background .2s", textTransform: "uppercase" }}
-                onMouseEnter={e => e.currentTarget.style.background = "#A02810"}
-                onMouseLeave={e => e.currentTarget.style.background = RED}>
-                Access System <IArrowR />
-              </button>
+            <div className="hero-actions-stack">
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <button onClick={() => scrollTo("how-it-works")} style={{ padding: "12px 24px", background: "transparent", color: WHITE, border: `1.5px solid rgba(255,255,255,0.35)`, borderRadius: 4, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif", letterSpacing: 0.3, transition: "all .2s" }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = WHITE; e.currentTarget.style.background = "rgba(255,255,255,0.07)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.35)"; e.currentTarget.style.background = "transparent"; }}>
+                  Learn How It Works
+                </button>
+                {/* Red CTA — emergency action colour signals urgency/authority */}
+                <button onClick={() => goPage("system")} style={{ padding: "12px 24px", background: RED, color: WHITE, border: `1.5px solid ${RED}`, borderRadius: 4, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif", letterSpacing: 0.4, display: "flex", alignItems: "center", gap: 8, transition: "background .2s", textTransform: "uppercase" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "#A02810"}
+                  onMouseLeave={e => e.currentTarget.style.background = RED}>
+                  Access System <IArrowR />
+                </button>
+              </div>
+              <div className="hero-quick-actions" aria-label="Quick health resources">
+                <button className="hero-quick-action" onClick={() => goPage("firstaid")}>
+                  <IAid /> <span>First Aid</span>
+                </button>
+                <button className="hero-quick-action" onClick={() => goPage("triage")}>
+                  <IStethoscope /> <span>Symptom Triage</span>
+                </button>
+              </div>
             </div>
           </Reveal>
           <Reveal delay={0.44}>
@@ -230,57 +380,9 @@ function Hero({ setPage, goPage }) {
           </Reveal>
         </div>
 
-        {/* Right — mock dashboard — navy header matches hero perfectly */}
+        {/* Right — incident photography and response guidance stay inside this panel */}
         <Reveal delay={0.22} y={40}>
-          <div style={{ position: "relative" }}>
-            <div style={{ background: WHITE, borderRadius: 12, border: `1px solid rgba(255,255,255,0.1)`, boxShadow: `0 24px 80px rgba(0,0,0,0.4), 0 4px 20px rgba(0,0,0,0.2)`, overflow: "hidden" }}>
-              {/* Dashboard header — same navy as hero, logo looks identical */}
-              <div style={{ background: NAVY3, padding: "12px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `2px solid ${RED}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <img src={LOGO} alt="UMP" style={{ height: 24, objectFit: "contain", mixBlendMode: "lighten" }} />
-                  <span style={{ fontSize: 9.5, fontWeight: 700, color: "rgba(255,255,255,0.85)", letterSpacing: 1.5, textTransform: "uppercase", fontFamily: "'IBM Plex Sans',sans-serif" }}>UMP-CEIS · Command Centre</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e" }} />
-                  <span style={{ fontFamily: "monospace", fontSize: 10, color: "rgba(255,255,255,0.45)" }}>14:32:07</span>
-                </div>
-              </div>
-              {/* Red crisis strip — purposeful emergency red */}
-              <div style={{ background: `${RED}12`, borderBottom: `1px solid ${RED}28`, padding: "6px 16px", display: "flex", alignItems: "center", gap: 7 }}>
-                <div style={{ width: 5, height: 5, borderRadius: "50%", background: RED }} />
-                <span style={{ fontSize: 10, color: RED, fontWeight: 700, letterSpacing: 0.8, fontFamily: "'IBM Plex Sans',sans-serif" }}>3 ACTIVE INCIDENTS — RESPONDERS DEPLOYED</span>
-              </div>
-              <div style={{ padding: "14px 16px", background: PAPER }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginBottom: 12 }}>
-                  {[["Active Incidents","3",RED],["Responders","9",NAVY],["Response Time","4.2m",GREEN],["Alerts Sent","17",ORANGE]].map(([l, v, c]) => (
-                    <div key={l} style={{ background: WHITE, borderRadius: 6, padding: "10px 12px", border: `1px solid ${BD}`, borderLeft: `3px solid ${c}` }}>
-                      <div style={{ fontSize: 8.5, color: MID, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4, fontFamily: "'IBM Plex Sans',sans-serif" }}>{l}</div>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: c, lineHeight: 1, fontFamily: "'IBM Plex Serif',serif" }}>{v}</div>
-                    </div>
-                  ))}
-                </div>
-                {[["Medical Emergency","Hartley Hall","Active",RED],["Fire Alarm","Science Complex B","Escalated",ORANGE],["Panic Alert","Main Library","Active",RED]].map(([t, z, s, c]) => (
-                  <div key={t} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", background: WHITE, borderRadius: 5, marginBottom: 5, border: `1px solid ${BD}`, borderLeft: `2px solid ${c}` }}>
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: NK, fontFamily: "'IBM Plex Sans',sans-serif" }}>{t}</div>
-                      <div style={{ fontSize: 9.5, color: MID, fontFamily: "'IBM Plex Sans',sans-serif" }}>{z}</div>
-                    </div>
-                    <span style={{ fontSize: 8.5, fontWeight: 700, color: c, background: `${c}12`, border: `1px solid ${c}28`, borderRadius: 3, padding: "2px 7px", fontFamily: "'IBM Plex Sans',sans-serif", textTransform: "uppercase", letterSpacing: 0.5 }}>{s}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* Trust badge — navy signals authority */}
-            <div style={{ position: "absolute", top: -12, right: -12, background: NAVY3, border: `1px solid rgba(255,255,255,0.15)`, borderRadius: 8, padding: "8px 12px", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
-              <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e" }} />
-              <span style={{ fontSize: 10.5, fontWeight: 600, color: WHITE, fontFamily: "'IBM Plex Sans',sans-serif" }}>System Operational</span>
-            </div>
-            {/* Coverage badge — gold accent from shield */}
-            <div style={{ position: "absolute", bottom: -12, left: -12, background: NAVY, borderRadius: 8, padding: "9px 14px", boxShadow: `0 6px 24px rgba(26,39,102,0.4)`, border: `1px solid rgba(255,255,255,0.1)` }}>
-              <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 2, fontFamily: "'IBM Plex Sans',sans-serif" }}>Campus Coverage</div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: GOLD, fontFamily: "'IBM Plex Serif',serif" }}>100%</div>
-            </div>
-          </div>
+          <HeroIncidentSlideshow />
         </Reveal>
       </div>
 
@@ -477,7 +579,7 @@ function Purpose() {
             <Chip label="Our Purpose" c="rgba(255,255,255,0.6)" bg="rgba(255,255,255,0.06)" bd="rgba(255,255,255,0.12)" />
           </div>
           <blockquote style={{ fontFamily: "'IBM Plex Serif',serif", fontSize: "clamp(15px,2.1vw,20px)", fontWeight: 600, color: "rgba(255,255,255,0.9)", lineHeight: 1.82, fontStyle: "italic", margin: "0 auto 36px", maxWidth: 760 }}>
-            "To enhance safety, reduce emergency response time, and deliver intelligent emergency management within the University of Mpumalanga campus — powered by artificial intelligence and real-time technology."
+            &quot;To enhance safety, reduce emergency response time, and deliver intelligent emergency management within the University of Mpumalanga campus — powered by artificial intelligence and real-time technology.&quot;
           </blockquote>
           <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap" }}>
             {[["↓ 60%","Response Time","#22c55e"],["100%","Campus Coverage",GOLD],["24/7","Monitoring",ORANGE],["<30s","SOS to Dispatch",RED]].map(([v, l, c], i, arr) => (
@@ -842,7 +944,7 @@ function Footer({ setPage }) {
                 <div key={heading}>
                   <div style={{ fontSize: 9.5, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: 1.8, textTransform: "uppercase", marginBottom: 14, fontFamily: "'IBM Plex Sans',sans-serif" }}>{heading}</div>
                   {links.map(([l, id]) => (
-                    <a key={l} href="#" onClick={e => { e.preventDefault(); if (l === "Access System") goPage("system"); else if (id) scrollTo(id); }} style={{ display: "block", fontSize: 13, color: "rgba(255,255,255,0.3)", textDecoration: "none", marginBottom: 8, fontFamily: "'IBM Plex Sans',sans-serif", transition: "color .2s" }}
+                    <a key={l} href="#" onClick={e => { e.preventDefault(); if (l === "Access System") setPage("system"); else if (id) scrollTo(id); }} style={{ display: "block", fontSize: 13, color: "rgba(255,255,255,0.3)", textDecoration: "none", marginBottom: 8, fontFamily: "'IBM Plex Sans',sans-serif", transition: "color .2s" }}
                       onMouseEnter={e => e.target.style.color = "rgba(255,255,255,0.75)"}
                       onMouseLeave={e => e.target.style.color = "rgba(255,255,255,0.3)"}>{l}</a>
                   ))}
@@ -1249,7 +1351,7 @@ function SimBleeding({ step, running }) {
       {step === 3 && <>
         <rect x={145} y={104} width={50} height={36} rx={6} fill="#BFDBFE" stroke={NAVY} strokeWidth={2} opacity={0.85}/>
         <rect x={145} y={96} width={50} height={14} rx={4} fill="#93C5FD" stroke={NAVY} strokeWidth={1.5} opacity={0.7}/>
-        <text x={100} y={85} fontSize={9} fill={NAVY} fontFamily="monospace">Add layers — don't lift!</text>
+        <text x={100} y={85} fontSize={9} fill={NAVY} fontFamily="monospace">Add layers — don&apos;t lift!</text>
       </>}
       {/* Elevation arrows */}
       {step === 4 && <>
@@ -1353,11 +1455,18 @@ function SimBurns({ step, running }) {
 function useVoice() {
   const [speaking, setSpeaking] = useState(false);
   const [supported] = useState(() => typeof window !== "undefined" && "speechSynthesis" in window);
-  const cancel = () => { if (supported) { window.speechSynthesis.cancel(); setSpeaking(false); } };
-  const speak = (text, onEnd) => {
+  const utteranceRef = useRef(null);
+  const cancel = () => {
     if (!supported) return;
+    if (utteranceRef.current) utteranceRef.current.__ceisCancelled = true;
     window.speechSynthesis.cancel();
+    setSpeaking(false);
+  };
+  const speak = (text, onEnd) => {
+    if (!supported) { onEnd?.(); return; }
+    cancel();
     const u = new SpeechSynthesisUtterance(text);
+    utteranceRef.current = u;
     u.rate = 0.88; u.pitch = 1.02; u.volume = 1;
     const voices = window.speechSynthesis.getVoices();
     const en = voices.find(v => v.lang.startsWith("en") && v.name.toLowerCase().includes("female"))
@@ -1365,8 +1474,15 @@ function useVoice() {
             || voices[0];
     if (en) u.voice = en;
     u.onstart = () => setSpeaking(true);
-    u.onend = () => { setSpeaking(false); if (onEnd) onEnd(); };
-    u.onerror = () => setSpeaking(false);
+    let completed = false;
+    const complete = () => {
+      if (completed) return;
+      completed = true;
+      setSpeaking(false);
+      if (!u.__ceisCancelled) onEnd?.();
+    };
+    u.onend = complete;
+    u.onerror = complete;
     window.speechSynthesis.speak(u);
   };
   return { speak, cancel, speaking, supported };
@@ -1378,9 +1494,14 @@ function FirstAidPage({ setPage }) {
   const [mode, setMode] = useState("guide"); // guide | simulate | voice
   const [simStep, setSimStep] = useState(0);
   const [simRunning, setSimRunning] = useState(false);
+  const [simAuto, setSimAuto] = useState(false);
+  const [simPaused, setSimPaused] = useState(false);
+  const [simWaiting, setSimWaiting] = useState(false);
   const [voiceStep, setVoiceStep] = useState(0);
   const [voiceAuto, setVoiceAuto] = useState(false);
   const [voicePaused, setVoicePaused] = useState(false);
+  const [voiceWaiting, setVoiceWaiting] = useState(false);
+  const voiceAdvanceTimer = useRef(null);
   const { speak, cancel, speaking, supported } = useVoice();
   const stepRef = useRef(null);
 
@@ -1444,11 +1565,34 @@ function FirstAidPage({ setPage }) {
 
   const g = guides[active];
   const totalSteps = g.steps.length;
+  const simStepDuration = Math.min(18000, Math.max(10500, g.steps[simStep].body.split(/\s+/).length * 300 + 4500));
+
+  useEffect(() => {
+    if (!simAuto || mode !== "simulate") return undefined;
+    if (simWaiting) {
+      setSimRunning(false);
+      const pauseTimer = setTimeout(() => {
+        if (simStep + 1 >= totalSteps) {
+          setSimAuto(false);
+          setSimPaused(false);
+          setSimWaiting(false);
+        } else {
+          setSimStep(step => step + 1);
+          setSimWaiting(false);
+        }
+      }, 4000);
+      return () => clearTimeout(pauseTimer);
+    }
+    setSimRunning(true);
+    const stepTimer = setTimeout(() => setSimWaiting(true), simStepDuration);
+    return () => clearTimeout(stepTimer);
+  }, [simAuto, simWaiting, simStep, simStepDuration, totalSteps, mode]);
 
   // Reset on tab change
   useEffect(() => {
-    setSimStep(0); setSimRunning(false);
-    setVoiceStep(0); setVoiceAuto(false); setVoicePaused(false);
+    setSimStep(0); setSimRunning(false); setSimAuto(false); setSimPaused(false); setSimWaiting(false);
+    setVoiceStep(0); setVoiceAuto(false); setVoicePaused(false); setVoiceWaiting(false);
+    clearTimeout(voiceAdvanceTimer.current);
     cancel();
   }, [active, mode]);
 
@@ -1458,9 +1602,14 @@ function FirstAidPage({ setPage }) {
     const s = g.steps[voiceStep];
     speak(`Step ${voiceStep + 1}. ${s.title}. ${s.body}`, () => {
       if (voiceStep + 1 < totalSteps) {
-        setTimeout(() => setVoiceStep(v => v + 1), 800);
+        setVoiceWaiting(true);
+        voiceAdvanceTimer.current = setTimeout(() => {
+          setVoiceWaiting(false);
+          setVoiceStep(v => v + 1);
+        }, 3500);
       } else {
         setVoiceAuto(false);
+        setVoiceWaiting(false);
         speak("All steps complete. Stay with the patient and await emergency services.");
       }
     });
@@ -1468,21 +1617,51 @@ function FirstAidPage({ setPage }) {
   }, [voiceStep, voiceAuto, voicePaused]);
 
   function startVoice() {
+    clearTimeout(voiceAdvanceTimer.current);
+    setVoiceWaiting(false);
     setVoiceStep(0); setVoiceAuto(true); setVoicePaused(false);
   }
   function pauseVoice() {
+    clearTimeout(voiceAdvanceTimer.current);
+    setVoiceWaiting(false);
     cancel(); setVoicePaused(true); setVoiceAuto(false);
   }
   function resumeVoice() {
     setVoicePaused(false); setVoiceAuto(true);
   }
   function stopVoice() {
+    clearTimeout(voiceAdvanceTimer.current);
+    setVoiceWaiting(false);
     cancel(); setVoiceAuto(false); setVoicePaused(false); setVoiceStep(0);
   }
   function speakStep(i) {
+    clearTimeout(voiceAdvanceTimer.current);
+    setVoiceWaiting(false);
     cancel(); setVoiceAuto(false); setVoicePaused(false); setVoiceStep(i);
     const s = g.steps[i];
     speak(`Step ${i + 1}. ${s.title}. ${s.body}`);
+  }
+
+  function toggleSimulationGuide() {
+    if (simAuto) {
+      setSimAuto(false);
+      setSimPaused(true);
+      setSimRunning(false);
+      setSimWaiting(false);
+      return;
+    }
+    if (!simPaused) setSimStep(0);
+    setSimWaiting(false);
+    setSimPaused(false);
+    setSimAuto(true);
+  }
+
+  function selectSimulationStep(step) {
+    setSimAuto(false);
+    setSimPaused(false);
+    setSimWaiting(false);
+    setSimRunning(false);
+    setSimStep(step);
   }
 
   const SimComponent = [SimCPR, SimChoking, SimBleeding, SimBurns][active];
@@ -1507,16 +1686,19 @@ function FirstAidPage({ setPage }) {
               <div style={{ fontSize: 8.5, color: "rgba(255,255,255,0.4)", fontFamily: "'IBM Plex Sans',sans-serif" }}>First Aid Library — Phase 1 · Voice + Simulation</div>
             </div>
           </div>
-          <button onClick={() => { cancel(); setPage("landing"); }} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.7)", borderRadius: 4, padding: "7px 16px", fontSize: 12, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif" }}>← Back</button>
+          <button onClick={() => { clearTimeout(voiceAdvanceTimer.current); cancel(); setPage("landing"); }} style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.7)", borderRadius: 4, padding: "7px 16px", fontSize: 12, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif" }}>← Back</button>
         </div>
       </div>
 
-      <div style={{ maxWidth: 1060, margin: "0 auto", padding: "36px 5% 60px" }}>
+      <div style={{ maxWidth: 1060, margin: "0 auto", padding: "36px 5% 112px" }}>
+        <EmergencyCallDock />
         <div style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 10.5, fontWeight: 700, color: MID, letterSpacing: 1.8, textTransform: "uppercase", fontFamily: "'IBM Plex Sans',sans-serif", marginBottom: 6 }}>Phase 1 · Emergency Utility</div>
           <h1 style={{ fontFamily: "'IBM Plex Serif',serif", fontSize: "clamp(22px,3vw,32px)", fontWeight: 700, color: NK, letterSpacing: -0.5, marginBottom: 5 }}>First Aid Library</h1>
           <p style={{ fontSize: 13.5, color: SL, fontFamily: "'IBM Plex Sans',sans-serif", lineHeight: 1.7, maxWidth: 560 }}>Step-by-step guides with animated simulation and voice instructor. Not a substitute for professional medical care.</p>
         </div>
+
+        <EmergencyHelpPanel />
 
         {/* Guide tabs */}
         <div style={{ display: "flex", gap: 8, marginTop: 24, marginBottom: 0, borderBottom: `1px solid ${BD}` }}>
@@ -1578,23 +1760,30 @@ function FirstAidPage({ setPage }) {
                     <div style={{ fontSize: 13, fontWeight: 700, color: NK, fontFamily: "'IBM Plex Serif',serif", marginTop: 2 }}>{g.title} — Step {simStep + 1}</div>
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => setSimRunning(r => !r)} style={{ padding: "6px 14px", background: simRunning ? RED : g.color, color: WHITE, border: "none", borderRadius: 5, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif" }}>
-                      {simRunning ? "⏸ Pause" : "▶ Animate"}
+                    <button onClick={toggleSimulationGuide} aria-pressed={simAuto} style={{ padding: "7px 13px", background: simAuto ? RED : g.color, color: WHITE, border: "none", borderRadius: 5, fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif" }}>
+                      {simAuto ? "⏸ Pause guide" : simPaused ? "▶ Resume guide" : "▶ Start auto guide"}
                     </button>
                   </div>
                 </div>
+                <div role="status" aria-live="polite" style={{padding:"9px 16px",background:simWaiting?GOLDL:PAPER,borderBottom:`1px solid ${BD}`,fontSize:11.5,color:simWaiting?"#6B4800":SL,lineHeight:1.5}}>
+                  {simAuto ? simWaiting ? "Brief pause — next step starts in 4 seconds. Pause or select a step at any time." : `Step ${simStep + 1} of ${totalSteps} · shown for about ${Math.round(simStepDuration / 1000)} seconds before the pause.` : "Start the guided simulation to move through the visual steps automatically, or select any step manually."}
+                </div>
                 <div style={{ padding: "20px 16px 12px", background: PAPER, minHeight: 220 }}>
                   <SimComponent step={simStep} running={simRunning} />
+                  <div aria-live="polite" style={{maxWidth:480,margin:"12px auto 0",padding:"12px 14px",background:WHITE,border:`1px solid ${g.color}35`,borderLeft:`3px solid ${g.color}`,borderRadius:7}}>
+                    <div style={{fontSize:12,fontWeight:700,color:g.color,fontFamily:"'IBM Plex Serif',serif",marginBottom:4}}>{g.steps[simStep].title}</div>
+                    <p style={{fontSize:12,color:SL,lineHeight:1.65,fontFamily:"'IBM Plex Sans',sans-serif"}}>{g.steps[simStep].body}</p>
+                  </div>
                 </div>
                 {/* Step nav */}
                 <div style={{ padding: "12px 16px", borderTop: `1px solid ${BD}`, display: "flex", alignItems: "center", gap: 8 }}>
-                  <button disabled={simStep === 0} onClick={() => { setSimStep(s => s - 1); setSimRunning(false); }} style={{ width: 32, height: 32, borderRadius: 6, border: `1px solid ${BD}`, background: simStep === 0 ? PAPER : WHITE, cursor: simStep === 0 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: simStep === 0 ? MID : NK, fontSize: 14 }}>‹</button>
+                  <button aria-label="Previous simulation step" disabled={simStep === 0} onClick={() => selectSimulationStep(Math.max(0, simStep - 1))} style={{ width: 36, height: 36, borderRadius: 6, border: `1px solid ${BD}`, background: simStep === 0 ? PAPER : WHITE, cursor: simStep === 0 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: simStep === 0 ? MID : NK, fontSize: 14 }}>‹</button>
                   <div style={{ flex: 1, display: "flex", gap: 4 }}>
                     {g.steps.map((_, i) => (
-                      <button key={i} onClick={() => { setSimStep(i); setSimRunning(false); }} style={{ flex: 1, height: 6, borderRadius: 3, background: i === simStep ? g.color : i < simStep ? `${g.color}44` : BD, border: "none", cursor: "pointer", transition: "background .2s" }} />
+                      <button key={i} aria-label={`Go to step ${i + 1}: ${g.steps[i].title}`} aria-current={i === simStep ? "step" : undefined} onClick={() => selectSimulationStep(i)} style={{ flex: 1, height: 8, borderRadius: 4, background: i === simStep ? g.color : i < simStep ? `${g.color}44` : BD, border: "none", cursor: "pointer", transition: "background .2s" }} />
                     ))}
                   </div>
-                  <button disabled={simStep === totalSteps - 1} onClick={() => { setSimStep(s => s + 1); setSimRunning(false); }} style={{ width: 32, height: 32, borderRadius: 6, border: `1px solid ${BD}`, background: simStep === totalSteps - 1 ? PAPER : WHITE, cursor: simStep === totalSteps - 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: simStep === totalSteps - 1 ? MID : NK, fontSize: 14 }}>›</button>
+                  <button aria-label="Next simulation step" disabled={simStep === totalSteps - 1} onClick={() => selectSimulationStep(Math.min(totalSteps - 1, simStep + 1))} style={{ width: 36, height: 36, borderRadius: 6, border: `1px solid ${BD}`, background: simStep === totalSteps - 1 ? PAPER : WHITE, cursor: simStep === totalSteps - 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: simStep === totalSteps - 1 ? MID : NK, fontSize: 14 }}>›</button>
                 </div>
               </div>
 
@@ -1604,7 +1793,7 @@ function FirstAidPage({ setPage }) {
                   <span style={{ fontSize: 12, color: g.color === GOLD ? "#6B4800" : g.color, fontWeight: 600, fontFamily: "'IBM Plex Sans',sans-serif" }}>⚠ {g.warning}</span>
                 </div>
                 {g.steps.map((s, i) => (
-                  <button key={i} onClick={() => { setSimStep(i); setSimRunning(false); }} style={{ padding: "11px 14px", background: i === simStep ? `${g.color}10` : WHITE, border: `1.5px solid ${i === simStep ? g.color : BD}`, borderRadius: 8, cursor: "pointer", textAlign: "left", display: "flex", gap: 10, alignItems: "flex-start", transition: "all .15s" }}>
+                  <button key={i} onClick={() => selectSimulationStep(i)} aria-current={i === simStep ? "step" : undefined} style={{ padding: "11px 14px", background: i === simStep ? `${g.color}10` : WHITE, border: `1.5px solid ${i === simStep ? g.color : BD}`, borderRadius: 8, cursor: "pointer", textAlign: "left", display: "flex", gap: 10, alignItems: "flex-start", transition: "all .15s" }}>
                     <span style={{ width: 24, height: 24, borderRadius: "50%", background: i === simStep ? g.color : `${g.color}14`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: "'IBM Plex Mono',monospace", fontSize: 9, fontWeight: 700, color: i === simStep ? WHITE : g.color }}>{s.n}</span>
                     <div>
                       <div style={{ fontSize: 12, fontWeight: i === simStep ? 700 : 600, color: i === simStep ? g.color : NK, fontFamily: "'IBM Plex Serif',serif" }}>{s.title}</div>
@@ -1633,8 +1822,8 @@ function FirstAidPage({ setPage }) {
                   </div>
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: 1.8, textTransform: "uppercase", fontFamily: "'IBM Plex Sans',sans-serif" }}>Voice Instructor</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: WHITE, fontFamily: "'IBM Plex Serif',serif" }}>
-                      {speaking ? `Speaking — Step ${voiceStep + 1} of ${totalSteps}` : voiceAuto ? "Preparing next step..." : voicePaused ? `Paused at Step ${voiceStep + 1}` : `${g.title} — ${g.subtitle}`}
+                    <div role="status" aria-live="polite" style={{ fontSize: 15, fontWeight: 700, color: WHITE, fontFamily: "'IBM Plex Serif',serif" }}>
+                      {speaking ? `Speaking — Step ${voiceStep + 1} of ${totalSteps}` : voiceWaiting ? "Pause between instructions…" : voiceAuto ? "Preparing next step…" : voicePaused ? `Paused at Step ${voiceStep + 1}` : `${g.title} — ${g.subtitle}`}
                     </div>
                   </div>
                 </div>
@@ -1666,7 +1855,7 @@ function FirstAidPage({ setPage }) {
                     </button>
                   )}
                   {voiceAuto && voiceStep + 1 < totalSteps && (
-                    <button onClick={() => { cancel(); setVoiceStep(s => s + 1); }} style={{ padding: "10px 18px", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.6)", borderRadius: 6, fontSize: 13, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif" }}>
+                    <button onClick={() => { clearTimeout(voiceAdvanceTimer.current); setVoiceWaiting(false); cancel(); setVoiceStep(s => s + 1); }} style={{ padding: "10px 18px", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.6)", borderRadius: 6, fontSize: 13, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif" }}>
                       ⏭ Skip
                     </button>
                   )}
@@ -1687,7 +1876,7 @@ function FirstAidPage({ setPage }) {
                 const isDone = i < voiceStep && (voiceAuto || voicePaused || speaking);
                 return (
                   <div key={i} ref={isActive ? stepRef : null} style={{ background: isActive ? `${g.color}0e` : isDone ? `${GREEN}06` : WHITE, border: `1.5px solid ${isActive ? g.color : isDone ? GREEN + "40" : BD}`, borderRadius: 10, padding: "14px 18px", display: "flex", gap: 14, alignItems: "flex-start", transition: "all .35s", animation: isActive ? "fadeIn .4s ease" : "none", cursor: "pointer" }}
-                    onClick={() => { cancel(); setVoiceAuto(false); setVoicePaused(false); speakStep(i); setVoiceStep(i); }}>
+                    onClick={() => { clearTimeout(voiceAdvanceTimer.current); setVoiceWaiting(false); cancel(); setVoiceAuto(false); setVoicePaused(false); speakStep(i); setVoiceStep(i); }}>
                     {/* Status icon */}
                     <div style={{ width: 34, height: 34, borderRadius: "50%", background: isActive ? g.color : isDone ? GREEN : `${g.color}10`, border: `2px solid ${isActive ? g.color : isDone ? GREEN : g.color + "30"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all .3s" }}>
                       {isDone ? <span style={{ color: WHITE, fontSize: 14 }}>✓</span>
@@ -1849,7 +2038,7 @@ function StepAnim({ type, color, running }) {
     rest: <><rect x={30} y={100} width={200} height={35} rx={9} fill="#DBEAFE" stroke="#93C5FD" strokeWidth={1.5}/><circle cx={62} cy={92} r={18} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><ellipse cx={140} cy={112} rx={65} ry={19} fill="#BFDBFE" stroke="#60A5FA" strokeWidth={1}/><path d="M82 80 Q96 68 108 74" stroke={color} strokeWidth={2} fill="none" strokeLinecap="round"/><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">SIT UPRIGHT · DO NOT WALK</text>{running&&<circle cx={220} cy={28} r={p?8:5} fill={color} opacity={0.5}/>}</>,
     loosen: <><circle cx={110} cy={44} r={22} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><ellipse cx={110} cy={95} rx={32} ry={42} fill="#DBEAFE" stroke="#93C5FD" strokeWidth={1.5}/><line x1={94} y1={64} x2={126} y2={64} stroke={color} strokeWidth={3} strokeLinecap="round" strokeDasharray={running?(p?"none":"5 4"):"none"}/><path d="M126 64 L138 54" stroke={color} strokeWidth={2} strokeLinecap="round"/><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">LOOSEN CLOTHING</text></>,
     pressure: <><ellipse cx={130} cy={108} rx={72} ry={28} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><ellipse cx={130} cy={100} rx={22} ry={13} fill="#8B1A1A" opacity={0.55}/><ellipse cx={130} cy={running?94-(p?5:0):94} rx={26} ry={12} fill={color} opacity={0.85}/><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">FIRM DIRECT PRESSURE</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">t-shirt · cloth · bandage · sanitary pad</text>{running&&<text x={162} y={92} fontSize={9} fill={color} fontFamily="monospace">{p?"↓ PRESS":"HOLD"}</text>}</>,
-    layer: <><ellipse cx={130} cy={110} rx={72} ry={26} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/>{[0,1,2].map(i=><rect key={i} x={88} y={88-i*11} width={84} height={22} rx={4} fill={`rgba(30,64,175,${0.28+i*0.22})`} stroke="#3B82F6" strokeWidth={1}/>)}<text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">ADD LAYERS — DON'T LIFT</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">stack on top · press harder</text>{running&&<text x={178} y={86} fontSize={9} fill={NAVY} fontFamily="monospace">{p?"ADD ↓":"HOLD"}</text>}</>,
+    layer: <><ellipse cx={130} cy={110} rx={72} ry={26} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/>{[0,1,2].map(i=><rect key={i} x={88} y={88-i*11} width={84} height={22} rx={4} fill={`rgba(30,64,175,${0.28+i*0.22})`} stroke="#3B82F6" strokeWidth={1}/>)}<text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">ADD LAYERS — DON&apos;T LIFT</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">stack on top · press harder</text>{running&&<text x={178} y={86} fontSize={9} fill={NAVY} fontFamily="monospace">{p?"ADD ↓":"HOLD"}</text>}</>,
     elevate: <><rect x={70} y={90} width={120} height={36} rx={11} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><path d={`M130 ${running?82-(p?6:0):84} L130 ${running?50-(p?3:0):55}`} stroke={color} strokeWidth={3} strokeLinecap="round"/><path d="M118 60 L130 46 L142 60" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"/><rect x={96} y={126} width={68} height={14} rx={4} fill="#6B7280" opacity={0.45}/><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">ELEVATE ABOVE HEART</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">bag · backpack · rolled clothing</text></>,
     tourniquet: <><rect x={78} y={74} width={104} height={60} rx={16} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><rect x={72} y={76} width={20} height={56} rx={5} fill={RED} opacity={0.75}/><text x={82} y={86} textAnchor="middle" fontSize={7} fill={WHITE} fontFamily="monospace" fontWeight="bold">5cm</text><text x={130} y={24} textAnchor="middle" fontSize={10} fill={RED} fontFamily="monospace" fontWeight="bold">TOURNIQUET — LAST RESORT</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">belt · tie · note the exact time</text>{running&&<text x={98} y={68} fontSize={9} fill={RED} fontFamily="monospace">{p?"TIGHTEN ↗":"NOTE TIME"}</text>}</>,
     call: <><rect x={95} y={38} width={70} height={90} rx={10} fill="#1A2766" stroke={color} strokeWidth={2}/><rect x={101} y={48} width={58} height={42} rx={4} fill="#60A5FA" opacity={0.7}/><circle cx={130} cy={108} r={6} fill="rgba(255,255,255,0.3)"/><text x={130} y={72} textAnchor="middle" fontSize={16} fontFamily="sans-serif">📞</text><text x={130} y={24} textAnchor="middle" fontSize={12} fill={RED} fontFamily="monospace" fontWeight="bold">CALL 10177</text>{running&&[1,2,3].map(i=><circle key={i} cx={130} cy={80} r={i*9+(p?4:0)} fill="none" stroke={color} strokeWidth={1} opacity={0.4-i*0.1}/>)}<text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">keep line open · give location</text></>,
@@ -1902,70 +2091,6 @@ const DEMO_LOG = [
 ];
 const SESSION_LOG = [];
 function logSession(inc) { SESSION_LOG.unshift(inc); }
-
-/* ── EMERGENCY ALERT OVERLAY ─────────────────────────────────── */
-function EmergencyAlert({ risk, onDismiss }) {
-  const [dispatched, setDispatched] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
-    const t1 = setTimeout(() => setDispatched(true), 2200);
-    const t2 = setInterval(() => setElapsed(s => s + 1), 1000);
-    return () => { clearTimeout(t1); clearInterval(t2); };
-  }, []);
-  const fmt = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
-  const personnel = [
-    { name:"Campus Security", num:"Ext 10 / +27 13 002 0010", icon:"🛡️" },
-    { name:"Campus Clinic / Nurse", num:"+27 13 002 0200", icon:"🏥" },
-    { name:"National EMS — 10177", num:"National Emergency Line", icon:"🚑" },
-  ];
-  return (
-    <div style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,0.88)",display:"flex",alignItems:"center",justifyContent:"center",padding:20,animation:"fadeIn .3s ease"}}>
-      <div style={{background:WHITE,borderRadius:16,maxWidth:480,width:"100%",overflow:"hidden",boxShadow:`0 0 0 4px ${RED},0 28px 90px rgba(0,0,0,0.55)`}}>
-        <div style={{background:RED,padding:"16px 22px",display:"flex",alignItems:"center",gap:14}}>
-          <div style={{fontSize:30,animation:"alertPulse 1s infinite"}}>🚨</div>
-          <div style={{flex:1}}>
-            <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.65)",letterSpacing:2,textTransform:"uppercase",fontFamily:"'IBM Plex Sans',sans-serif"}}>Automatic Emergency Alert — Demo</div>
-            <div style={{fontSize:19,fontWeight:800,color:WHITE,fontFamily:"'IBM Plex Serif',serif",marginTop:2}}>{risk.level} Risk Detected — {risk.code}</div>
-          </div>
-          <div style={{fontFamily:"'IBM Plex Mono',monospace",fontSize:20,fontWeight:700,color:WHITE}}>{fmt(elapsed)}</div>
-        </div>
-        <div style={{padding:"20px 22px"}}>
-          <p style={{fontSize:12.5,color:MID,fontFamily:"'IBM Plex Sans',sans-serif",marginBottom:14}}>The following personnel have been notified automatically:</p>
-          {personnel.map((p,i)=>(
-            <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:dispatched?GREENL:"#FFF7ED",borderRadius:7,marginBottom:8,border:`1px solid ${dispatched?GREEN+"28":ORANGE+"28"}`,transition:"background .4s"}}>
-              <span style={{fontSize:22}}>{p.icon}</span>
-              <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:700,color:NK,fontFamily:"'IBM Plex Sans',sans-serif"}}>{p.name}</div>
-                <div style={{fontSize:11.5,color:MID,fontFamily:"'IBM Plex Sans',sans-serif"}}>{p.num}</div>
-              </div>
-              <div style={{fontSize:11,fontWeight:700,color:dispatched?GREEN:ORANGE,fontFamily:"'IBM Plex Sans',sans-serif",display:"flex",alignItems:"center",gap:5}}>
-                {dispatched?<>✓ Notified</>:<><span style={{display:"inline-block",width:9,height:9,borderRadius:"50%",border:`2px solid ${ORANGE}`,borderTopColor:"transparent",animation:"spin .8s linear infinite"}}/> Sending…</>}
-              </div>
-            </div>
-          ))}
-          <div style={{background:`${NAVY}0d`,border:`1px solid ${NAVY}20`,borderRadius:8,padding:"10px 14px",marginTop:14,marginBottom:16,display:"flex",gap:10,alignItems:"center"}}>
-            <span style={{fontSize:20}}>📍</span>
-            <div>
-              <div style={{fontSize:11.5,fontWeight:700,color:NAVY,fontFamily:"'IBM Plex Sans',sans-serif"}}>Live Location Shared</div>
-              <div style={{fontSize:12,color:SL,fontFamily:"'IBM Plex Sans',sans-serif"}}>UMP Main Campus, Mbombela — GPS coordinates transmitted to all responders</div>
-            </div>
-          </div>
-          <div style={{display:"flex",gap:10,marginBottom:16}}>
-            {[["Response Target","≤ 5 min"],["Status",dispatched?"Alert Sent":"Dispatching"],["Mode","Demo"]].map(([l,v])=>(
-              <div key={l} style={{flex:1,background:PAPER,borderRadius:7,padding:"9px 10px",textAlign:"center"}}>
-                <div style={{fontSize:9,color:MID,textTransform:"uppercase",letterSpacing:1,fontFamily:"'IBM Plex Sans',sans-serif"}}>{l}</div>
-                <div style={{fontSize:12,fontWeight:700,color:NK,fontFamily:"'IBM Plex Mono',monospace",marginTop:3}}>{v}</div>
-              </div>
-            ))}
-          </div>
-          <button onClick={onDismiss} style={{width:"100%",padding:"13px",background:NAVY,color:WHITE,border:"none",borderRadius:7,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>
-            Continue First Aid Instructions →
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ── ANALYTICS PAGE ───────────────────────────────────────────── */
 function AnalyticsPage({ setPage }) {
@@ -2084,11 +2209,20 @@ function TriagePage({ setPage }) {
   const [aidStep, setAidStep]        = useState(-1);  // -1 = calming phase
   const [simRunning, setSimRunning]  = useState(false);
   const [riskResult, setRiskResult]  = useState(null);
-  const [showAlert, setShowAlert]    = useState(false);
   const [calmDone, setCalmDone]      = useState(false);
   const [loading, setLoading]        = useState(false);
+  const [autoAdvance, setAutoAdvance] = useState(false);
+  const [stepPause, setStepPause] = useState(false);
+  const autoAdvanceRef = useRef(false);
+  const autoAdvanceTimer = useRef(null);
   const { speak, cancel, speaking, supported } = useVoice();
   const topRef = useRef(null);
+
+  useEffect(() => () => {
+    autoAdvanceRef.current = false;
+    clearTimeout(autoAdvanceTimer.current);
+    if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+  }, []);
 
   const CALM = "Attention everyone — stay calm. Clear the area around the patient. Take a breath. Help is here. We will guide you through every step right now.";
 
@@ -2140,11 +2274,54 @@ function TriagePage({ setPage }) {
     return AID_DB[key] || AID_DB.unconscious;
   }
 
+  function speakAidStep(stepIndex, steps = aidSteps) {
+    const step = steps[stepIndex];
+    if (!step) return;
+    clearTimeout(autoAdvanceTimer.current);
+    setStepPause(false);
+    setAidStep(stepIndex);
+    setSimRunning(true);
+    const narration = `Step ${stepIndex + 1}. ${step.text}${step.tools?.length ? ` Use: ${step.tools.join(" or ")}.` : ""}${step.alt?.length ? ` Alternative: ${step.alt[0]}.` : ""}`;
+    speak(narration, () => {
+      if (!autoAdvanceRef.current) return;
+      setStepPause(true);
+      autoAdvanceTimer.current = setTimeout(() => {
+        setStepPause(false);
+        if (stepIndex + 1 >= steps.length) {
+          autoAdvanceRef.current = false;
+          setAutoAdvance(false);
+          setSimRunning(false);
+          return;
+        }
+        speakAidStep(stepIndex + 1, steps);
+      }, 4000);
+    });
+  }
+
+  function toggleAutoAdvance() {
+    if (autoAdvanceRef.current) {
+      autoAdvanceRef.current = false;
+      clearTimeout(autoAdvanceTimer.current);
+      setAutoAdvance(false);
+      setStepPause(false);
+      setSimRunning(false);
+      cancel();
+      return;
+    }
+    autoAdvanceRef.current = true;
+    setAutoAdvance(true);
+    speakAidStep(Math.max(0, aidStep));
+  }
+
   function launch() {
+    clearTimeout(autoAdvanceTimer.current);
+    autoAdvanceRef.current = true;
+    setAutoAdvance(true);
+    setStepPause(false);
     setLoading(true);
     const risk = scoreRisk(selected, useCustom ? customText : null);
     setRiskResult(risk);
-    const inc = { id: Date.now(), ts: new Date().toISOString(), symptoms: useCustom?["custom"]:selected, custom: useCustom?customText:"", risk: risk.level, location: "UMP Campus — Active Session", responseTime: null };
+    const inc = { id: Date.now(), ts: new Date().toISOString(), symptoms: useCustom?["custom"]:selected, custom: useCustom?customText:"", risk: risk.level, location: "Not provided", responseTime: null, deliveryStatus: "Local demo only — no dispatch" };
     logSession(inc);
     const db = getSteps(selected, useCustom ? customText : null);
     setTimeout(() => {
@@ -2156,13 +2333,9 @@ function TriagePage({ setPage }) {
       setTimeout(() => {
         speak(db.calm || CALM, () => {
           setCalmDone(true);
-          setAidStep(0);
-          setSimRunning(true);
-          const s = db.steps[0];
-          speak(`Step 1. ${s.text}${s.tools?.length?` Use: ${s.tools.join(" or ")}.`:""}${s.alt?.length?` Alternative: ${s.alt[0]}.`:""}`);
+          speakAidStep(0, db.steps);
         });
       }, 500);
-      if (["Critical","High"].includes(risk.level)) setTimeout(()=>setShowAlert(true), 2000);
     }, 1400);
   }
 
@@ -2170,26 +2343,25 @@ function TriagePage({ setPage }) {
     const next = aidStep + 1;
     if (next >= aidSteps.length) { cancel(); setPhase(3); return; }
     cancel();
-    setAidStep(next);
-    setSimRunning(false);
-    const s = aidSteps[next];
-    setTimeout(() => {
-      setSimRunning(true);
-      speak(`Step ${next+1}. ${s.text}${s.tools?.length?` Use: ${s.tools.join(" or ")}.`:""}${s.alt?.length?` Alternative: ${s.alt[0]}.`:""}`);
-    }, 300);
+    speakAidStep(next);
     topRef.current?.scrollIntoView({behavior:"smooth",block:"start"});
   }
 
   function prevStep() {
     if (aidStep <= 0) return;
-    cancel(); setSimRunning(false); setAidStep(aidStep - 1);
+    cancel();
+    speakAidStep(aidStep - 1);
   }
 
   function reset() {
+    clearTimeout(autoAdvanceTimer.current);
+    autoAdvanceRef.current = false;
+    setAutoAdvance(false);
+    setStepPause(false);
     cancel();
     setPhase(0); setSelected([]); setCustomText(""); setUseCustom(false);
     setDetails({}); setDetailIdx(0); setAidSteps([]); setAidStep(-1);
-    setSimRunning(false); setRiskResult(null); setShowAlert(false);
+    setSimRunning(false); setRiskResult(null);
     setCalmDone(false); setLoading(false);
   }
 
@@ -2199,8 +2371,7 @@ function TriagePage({ setPage }) {
   return (
     <div style={{minHeight:"100vh",background:PAPER,fontFamily:"'IBM Plex Sans',sans-serif"}}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');*{box-sizing:border-box;margin:0;padding:0;}@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}@keyframes voiceWave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}@keyframes spin{to{transform:rotate(360deg)}}@keyframes alertPulse{0%,100%{box-shadow:0 0 0 0 rgba(184,48,24,.5)}70%{box-shadow:0 0 0 14px rgba(184,48,24,0)}}`}</style>
-
-      {showAlert && riskResult && <EmergencyAlert risk={riskResult} onDismiss={()=>setShowAlert(false)}/>}
+      <EmergencyCallDock />
 
       {/* HEADER */}
       <div style={{background:NAVY,borderBottom:`3px solid ${ORANGE}`,position:"sticky",top:0,zIndex:100}}>
@@ -2220,13 +2391,15 @@ function TriagePage({ setPage }) {
         </div>
       </div>
 
+      <div style={{maxWidth:1200,margin:"0 auto",padding:"0 5%"}}><EmergencyHelpPanel /></div>
+
       {/* PHASE 0 — SYMPTOM SELECTION */}
       {phase===0&&(
-        <div style={{maxWidth:880,margin:"0 auto",padding:"36px 5% 60px",animation:"fadeIn .35s ease"}}>
+        <div style={{maxWidth:880,margin:"0 auto",padding:"36px 5% 112px",animation:"fadeIn .35s ease"}}>
           <div style={{marginBottom:26}}>
             <div style={{fontSize:10.5,fontWeight:700,color:MID,letterSpacing:1.8,textTransform:"uppercase",fontFamily:"'IBM Plex Sans',sans-serif",marginBottom:6}}>Emergency Aid Engine · Demo Mode</div>
             <h1 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:"clamp(24px,3.5vw,36px)",fontWeight:700,color:NK,letterSpacing:-0.5,marginBottom:8}}>What is happening?</h1>
-            <p style={{fontSize:14,color:SL,fontFamily:"'IBM Plex Sans',sans-serif",lineHeight:1.7,maxWidth:560}}>Select the patient's symptoms or describe the situation. The system will immediately guide you through first aid with voice instructions and live simulation.</p>
+            <p style={{fontSize:14,color:SL,fontFamily:"'IBM Plex Sans',sans-serif",lineHeight:1.7,maxWidth:560}}>Select symptoms or describe what is happening. This demo provides existing first-aid guidance and a rule-based triage estimate; it is not a diagnosis and does not contact responders.</p>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9,marginBottom:18}}>
             {SYMPTOM_DATA.map(sym=>{
@@ -2250,7 +2423,7 @@ function TriagePage({ setPage }) {
             {useCustom&&<textarea value={customText} onChange={e=>setCustomText(e.target.value)} placeholder="e.g. Student fell from stairs, cannot move right leg, conscious but in severe pain, no visible bleeding..." style={{width:"100%",minHeight:90,padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:13.5,fontFamily:"'IBM Plex Sans',sans-serif",color:NK,background:PAPER,resize:"vertical",outline:"none",lineHeight:1.65}}/>}
           </div>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16}}>
-            <span style={{fontSize:13,color:MID,fontFamily:"'IBM Plex Sans',sans-serif"}}>{useCustom?(customText.trim()?"Custom situation ready — AI will analyse":"Describe the situation above"):`${selected.length} symptom${selected.length!==1?"s":""} selected`}</span>
+            <span style={{fontSize:13,color:MID,fontFamily:"'IBM Plex Sans',sans-serif"}}>{useCustom?(customText.trim()?"Situation ready for the demo guide":"Describe the situation above"):`${selected.length} symptom${selected.length!==1?"s":""} selected`}</span>
             <button disabled={(!useCustom&&selected.length===0)||(useCustom&&!customText.trim())} onClick={()=>{if(useCustom){launch();}else{setDetailIdx(0);setPhase(1);}}} style={{padding:"13px 30px",background:(!useCustom&&selected.length===0)||(useCustom&&!customText.trim())?BD:ORANGE,color:WHITE,border:"none",borderRadius:7,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif",display:"flex",alignItems:"center",gap:9,transition:"background .2s"}}>
               Get Emergency Support →
             </button>
@@ -2260,16 +2433,17 @@ function TriagePage({ setPage }) {
 
       {/* PHASE 1 — DETAILS */}
       {phase===1&&curDetailId&&(
-        <div style={{maxWidth:660,margin:"0 auto",padding:"48px 5% 60px",animation:"fadeIn .3s ease"}}>
+        <div style={{maxWidth:660,margin:"0 auto",padding:"48px 5% 112px",animation:"fadeIn .3s ease"}}>
           <div style={{marginBottom:28}}>
             <div style={{fontSize:10,fontWeight:700,color:ORANGE,letterSpacing:1.8,textTransform:"uppercase",fontFamily:"'IBM Plex Sans',sans-serif",marginBottom:6}}>Additional Details — {detailIdx+1} of {detailItems.length}</div>
             <div style={{width:"100%",height:5,background:BD,borderRadius:3,marginBottom:20}}><div style={{width:`${((detailIdx+1)/detailItems.length)*100}%`,height:"100%",background:ORANGE,borderRadius:3,transition:"width .4s"}}/></div>
             <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:"clamp(18px,2.5vw,26px)",fontWeight:700,color:NK,letterSpacing:-0.3,marginBottom:8}}>{SYMPTOM_DATA.find(s=>s.id===curDetailId)?.label}</h2>
-            <p style={{fontSize:14,color:SL,fontFamily:"'IBM Plex Sans',sans-serif",lineHeight:1.7}}>Add any details about this symptom so the first aid instructions can be precisely tailored to the situation.</p>
+            <p style={{fontSize:14,color:SL,fontFamily:"'IBM Plex Sans',sans-serif",lineHeight:1.7}}>Details are optional and do not change the guidance selected by this demo. Skip them to open the guide sooner.</p>
           </div>
           <textarea value={details[curDetailId]||""} onChange={e=>setDetails(d=>({...d,[curDetailId]:e.target.value}))} placeholder={`Describe: severity, duration, any known history, what you can see...`} style={{width:"100%",minHeight:100,padding:"12px 16px",border:`1.5px solid ${BD}`,borderRadius:9,fontSize:14,fontFamily:"'IBM Plex Sans',sans-serif",color:NK,background:WHITE,resize:"vertical",outline:"none",lineHeight:1.65,marginBottom:20}}/>
           <div style={{display:"flex",gap:10}}>
             {detailIdx>0&&<button onClick={()=>setDetailIdx(i=>i-1)} style={{padding:"12px 22px",background:WHITE,border:`1.5px solid ${BD}`,borderRadius:6,fontSize:14,fontWeight:600,color:NK,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>← Back</button>}
+            <button onClick={launch} style={{padding:"12px 16px",background:WHITE,border:`1.5px solid ${BD}`,borderRadius:6,fontSize:13,fontWeight:600,color:NAVY,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>Skip details</button>
             <button onClick={()=>{ if(detailIdx+1<detailItems.length){setDetailIdx(i=>i+1);}else{launch();}}} style={{flex:1,padding:"13px",background:RED,color:WHITE,border:"none",borderRadius:7,fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:9,animation:"pulse 1.8s ease-in-out infinite"}}>
               {detailIdx+1<detailItems.length?"Continue →":"🚨 START FIRST AID NOW"}
             </button>
@@ -2288,7 +2462,7 @@ function TriagePage({ setPage }) {
 
       {/* PHASE 2 — ACTIVE AID */}
       {phase===2&&!loading&&(
-        <div ref={topRef} style={{maxWidth:1060,margin:"0 auto",padding:"22px 5% 60px",animation:"fadeIn .3s ease"}}>
+        <div ref={topRef} style={{maxWidth:1060,margin:"0 auto",padding:"22px 5% 112px",animation:"fadeIn .3s ease"}}>
 
           {/* Calm banner */}
           {!calmDone&&(
@@ -2316,7 +2490,7 @@ function TriagePage({ setPage }) {
                       {[0.6,1,0.7,0.9,0.5,0.8,0.6].map((h,i)=><div key={i} style={{width:3,borderRadius:1.5,background:ORANGE,height:`${h*22}px`,animation:speaking?`voiceWave ${0.38+i*0.07}s ease-in-out infinite`:"none",animationDelay:`${i*0.06}s`}}/>)}
                     </div>
                     <span style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.55)",letterSpacing:1.4,textTransform:"uppercase",fontFamily:"'IBM Plex Sans',sans-serif",flex:1}}>
-                      {speaking?`Speaking — Step ${aidStep+1} of ${aidSteps.length}`:`Step ${aidStep+1} of ${aidSteps.length}`}
+                      {speaking?`Speaking — Step ${aidStep+1} of ${aidSteps.length}`:stepPause?"Brief pause · next step in 4 seconds":`Step ${aidStep+1} of ${aidSteps.length}`}
                     </span>
                     {riskResult&&<span style={{padding:"3px 10px",background:`${riskResult.color}22`,border:`1px solid ${riskResult.color}44`,borderRadius:3,fontSize:10.5,fontWeight:700,color:riskResult.color,fontFamily:"'IBM Plex Sans',sans-serif"}}>{riskResult.icon} {riskResult.level}</span>}
                   </div>
@@ -2336,8 +2510,11 @@ function TriagePage({ setPage }) {
                   )}
                   <div style={{display:"flex",gap:9,marginTop:22}}>
                     {aidStep>0&&<button onClick={prevStep} style={{padding:"10px 18px",background:WHITE,border:`1.5px solid ${BD}`,borderRadius:6,fontSize:13,fontWeight:600,color:NK,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>‹ Prev</button>}
-                    <button onClick={()=>{cancel();setSimRunning(false);setTimeout(()=>{setSimRunning(true);speak(`Step ${aidStep+1}. ${s.text}${s.tools?.length?` Use: ${s.tools.join(" or ")}.`:""}${s.alt?.length?` Alternative: ${s.alt[0]}.`:""}`);},200);}} style={{padding:"10px 18px",background:WHITE,border:`1.5px solid ${ORANGE}`,borderRadius:6,fontSize:13,fontWeight:600,color:ORANGE,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>
+                    <button onClick={()=>{cancel();speakAidStep(aidStep);}} style={{padding:"10px 18px",background:WHITE,border:`1.5px solid ${ORANGE}`,borderRadius:6,fontSize:13,fontWeight:600,color:ORANGE,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>
                       🔊 Repeat
+                    </button>
+                    <button onClick={toggleAutoAdvance} aria-pressed={autoAdvance} style={{padding:"10px 14px",background:autoAdvance?NAVY:WHITE,border:`1.5px solid ${NAVY}`,borderRadius:6,fontSize:12.5,fontWeight:700,color:autoAdvance?WHITE:NAVY,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>
+                      {autoAdvance?"⏸ Pause guide":"▶ Resume auto guide"}
                     </button>
                     <button onClick={nextStep} style={{flex:1,padding:"12px",background:aidStep===aidSteps.length-1?GREEN:RED,color:WHITE,border:"none",borderRadius:6,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif",animation:"pulse 2s ease-in-out infinite"}}>
                       {aidStep===aidSteps.length-1?"✓ Complete — Aid Done":"Next Step →"}
@@ -2361,7 +2538,7 @@ function TriagePage({ setPage }) {
                   {/* Step progress pills */}
                   <div style={{display:"flex",flexDirection:"column",gap:5}}>
                     {aidSteps.map((st,i)=>(
-                      <button key={i} onClick={()=>{cancel();setAidStep(i);setSimRunning(false);}} style={{padding:"7px 12px",background:i===aidStep?`${ORANGE}10`:i<aidStep?GREENL:WHITE,border:`1.5px solid ${i===aidStep?ORANGE:i<aidStep?GREEN+"40":BD}`,borderRadius:7,cursor:"pointer",textAlign:"left",display:"flex",gap:9,alignItems:"center",transition:"all .15s"}}>
+                      <button key={i} onClick={()=>{clearTimeout(autoAdvanceTimer.current);autoAdvanceRef.current=false;setAutoAdvance(false);setStepPause(false);cancel();setAidStep(i);setSimRunning(false);}} style={{padding:"7px 12px",background:i===aidStep?`${ORANGE}10`:i<aidStep?GREENL:WHITE,border:`1.5px solid ${i===aidStep?ORANGE:i<aidStep?GREEN+"40":BD}`,borderRadius:7,cursor:"pointer",textAlign:"left",display:"flex",gap:9,alignItems:"center",transition:"all .15s"}}>
                         <span style={{width:20,height:20,borderRadius:"50%",background:i===aidStep?ORANGE:i<aidStep?GREEN:`${ORANGE}14`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"'IBM Plex Mono',monospace",fontSize:9,fontWeight:700,color:i===aidStep||i<aidStep?WHITE:ORANGE}}>{i<aidStep?"✓":i+1}</span>
                         <span style={{fontSize:11.5,fontWeight:i===aidStep?700:500,color:i===aidStep?ORANGE:i<aidStep?GREEN:SL,fontFamily:"'IBM Plex Sans',sans-serif",lineHeight:1.35}}>{st.text.slice(0,52)}{st.text.length>52?"…":""}</span>
                       </button>
@@ -2383,7 +2560,8 @@ function TriagePage({ setPage }) {
           {riskResult&&(
             <div style={{background:`${riskResult.color}0d`,border:`1.5px solid ${riskResult.color}30`,borderRadius:10,padding:"16px 20px",marginBottom:24}}>
               <div style={{fontSize:24,marginBottom:6}}>{riskResult.icon}</div>
-              <div style={{fontSize:15,fontWeight:700,color:riskResult.color,fontFamily:"'IBM Plex Serif',serif"}}>{riskResult.level} Risk — {riskResult.action}</div>
+              <div style={{fontSize:15,fontWeight:700,color:riskResult.color,fontFamily:"'IBM Plex Serif',serif"}}>Demo triage estimate: {riskResult.level}</div>
+              <p style={{fontSize:12.5,color:SL,lineHeight:1.55,marginTop:6}}>This estimate is not a diagnosis and cannot determine that someone is safe. Call emergency services if you are concerned.</p>
             </div>
           )}
           <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>

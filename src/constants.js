@@ -145,14 +145,14 @@ export function validateStaffNo(n)   { return /^(STAFF|SEC|NUR|ADM|ENG|FAC)\d{2,
 
 // ── MOCK LIVE INCIDENTS ─────────────────────────────────────────
 export const INIT_INCIDENTS = [
-  { id:"INC-2024-001", type:"medical",    priority:"P1", building:"35", loc:"Health & Wellness Clinic",  desc:"Student collapsed — possible cardiac event",        status:"IN_RESPONSE",  time:"14:32", responder:"Sr. Mahlangu + EMS",      lat:390, lng:300 },
-  { id:"INC-2024-002", type:"fire",       priority:"P1", building:"19", loc:"Chemistry Laboratory",      desc:"Smoke detected — automatic sensor triggered",        status:"DISPATCHED",   time:"14:28", responder:"Fire response + Security", lat:210, lng:230 },
-  { id:"INC-2024-003", type:"security",   priority:"P2", building:"16", loc:"Student Centre",            desc:"Altercation between students — security required",    status:"ACKNOWLEDGED", time:"14:25", responder:"Sgt. Mthembu",            lat:320, lng:270 },
-  { id:"INC-2024-004", type:"medical",    priority:"P2", building:"26", loc:"Third Year Hostel",         desc:"Student reports chest pain — ambulatory assessment",  status:"CONTAINED",    time:"13:58", responder:"Sr. Mahlangu",            lat:420, lng:200 },
-  { id:"INC-2024-005", type:"suspicious", priority:"P3", building:"2",  loc:"Library & Lecture Venue",   desc:"Unidentified individual in restricted area",          status:"IN_RESPONSE",  time:"13:45", responder:"Security patrol",          lat:200, lng:180 },
-  { id:"INC-2024-006", type:"infra",      priority:"P3", building:"18", loc:"Engineering Laboratory",    desc:"Electrical fault reported — lights out in Lab B",     status:"NEW",          time:"13:30", responder:"Unassigned",              lat:185, lng:245 },
-  { id:"INC-2024-007", type:"crowd",      priority:"P4", building:"36", loc:"Multi-Purpose Hall",        desc:"Overcrowding concern at society event",               status:"RESOLVED",     time:"12:44", responder:"Student Support",          lat:390, lng:360 },
-  { id:"INC-2024-008", type:"medical",    priority:"P2", building:"5",  loc:"University Hall",           desc:"Allergic reaction — student administered EpiPen",    status:"RESOLVED",     time:"11:20", responder:"Nurse + Security",         lat:280, lng:260 },
+  { id:"INC-2024-001", type:"medical",    priority:"P1", building:"35", loc:"Health & Wellness Clinic",  desc:"Student collapsed — possible cardiac event",        status:"IN_RESPONSE",  time:"14:32", responder:"Sr. Mahlangu + EMS",      lat:-25.4348054, lng:30.9805793 },
+  { id:"INC-2024-002", type:"fire",       priority:"P1", building:"19", loc:"Chemistry Laboratory",      desc:"Smoke detected — automatic sensor triggered",        status:"DISPATCHED",   time:"14:28", responder:"Fire response + Security", lat:null, lng:null },
+  { id:"INC-2024-003", type:"security",   priority:"P2", building:"16", loc:"Student Centre",            desc:"Altercation between students — security required",    status:"ACKNOWLEDGED", time:"14:25", responder:"Sgt. Mthembu",            lat:null, lng:null },
+  { id:"INC-2024-004", type:"medical",    priority:"P2", building:"26", loc:"Third Year Hostel",         desc:"Student reports chest pain — ambulatory assessment",  status:"CONTAINED",    time:"13:58", responder:"Sr. Mahlangu",            lat:null, lng:null },
+  { id:"INC-2024-005", type:"suspicious", priority:"P3", building:"2",  loc:"Library & Lecture Venue",   desc:"Unidentified individual in restricted area",          status:"IN_RESPONSE",  time:"13:45", responder:"Security patrol",          lat:null, lng:null },
+  { id:"INC-2024-006", type:"infra",      priority:"P3", building:"18", loc:"Engineering Laboratory",    desc:"Electrical fault reported — lights out in Lab B",     status:"NEW",          time:"13:30", responder:"Unassigned",              lat:null, lng:null },
+  { id:"INC-2024-007", type:"crowd",      priority:"P4", building:"36", loc:"Multi-Purpose Hall",        desc:"Overcrowding concern at society event",               status:"RESOLVED",     time:"12:44", responder:"Student Support",          lat:-25.434787, lng:30.9800036 },
+  { id:"INC-2024-008", type:"medical",    priority:"P2", building:"5",  loc:"University Hall",           desc:"Allergic reaction — student administered EpiPen",    status:"RESOLVED",     time:"11:20", responder:"Nurse + Security",         lat:null, lng:null },
 ];
 
 // ── SYMPTOM DATA (Triage Engine) ────────────────────────────────
