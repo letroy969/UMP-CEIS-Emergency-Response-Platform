@@ -1,17 +1,14 @@
 import { useState } from "react";
 import { BD, GREEN, NAVY, RED, REDL, SL, WHITE } from "../constants.js";
+import { applyEmailVerificationCode } from "./firebaseAuth.js";
 
 export default function VerifyEmail() {
-  const [token] = useState(() => {
-    const value = new URLSearchParams(window.location.search).get("token") || "";
-    window.history.replaceState(null, "", "/verify-email");
-    return value;
-  });
+  const [code] = useState(() => new URLSearchParams(window.location.search).get("oobCode") || "");
   const [status, setStatus] = useState("ready");
   const [message, setMessage] = useState("");
 
   async function verifyEmail() {
-    if (!/^[a-f0-9]{64}$/.test(token)) {
+    if (!code) {
       setStatus("error");
       setMessage("This verification link is invalid or incomplete.");
       return;
@@ -19,15 +16,9 @@ export default function VerifyEmail() {
     setStatus("loading");
     setMessage("");
     try {
-      const response = await fetch("/api/verify-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Verification failed.");
+      await applyEmailVerificationCode(code);
       setStatus("success");
-      setMessage(result.message);
+      setMessage("Your email address is verified. You can now sign in to CEIS.");
     } catch (error) {
       setStatus("error");
       setMessage(error.message || "Could not connect to the verification service.");

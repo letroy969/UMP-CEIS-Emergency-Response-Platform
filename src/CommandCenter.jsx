@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   NAVY, NAVY2, NAVY3, NAVYL, RED, REDL, ORANGE, ORANGEL, GREEN, GREENL,
   GOLD, WHITE, PAPER, PAPER2, BD, NK, SL, MID,
@@ -10,7 +11,8 @@ import CampusMap from "./components/CampusMap.jsx";
 import { MAPPED_BUILDINGS } from "./maps/campusBuildings.js";
 import { checkCampusLocation, getCurrentLocation } from "./maps/location.js";
 import Signup from "./auth/Signup.jsx";
-import { clearAuthSession, readAuthSession, writeAuthSession } from "./auth/session.js";
+import { auth } from "./lib/firebase.js";
+import { loadAppUser, signInUser, signOutUser } from "./auth/firebaseAuth.js";
 import { createCheckin, createIncident, getCheckin, listIncidents, updateIncident } from "./incidentApi.js";
 
 
@@ -50,12 +52,7 @@ function LoginPage({ onLogin, onBack }) {
     setLoginError("");
     setLoading(true);
     try {
-      const response = await fetch("/api/login", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ email:emailVal, password:pwdVal }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Sign-in failed.");
+      const result = await signInUser(emailVal, pwdVal);
       const isStaff = result.user.portal === "staff";
       if ((portal === "staff") !== isStaff) {
         setLoginError(portal === "staff" ? "This account is not provisioned for staff access." : "Use the Command Centre portal for this account.");
@@ -121,7 +118,7 @@ function LoginPage({ onLogin, onBack }) {
 /* ══════════════════════════════════════════════════════════════
    STUDENT PORTAL
    ══════════════════════════════════════════════════════════════ */
-function StudentPortal({ user, accessToken, onLogout }) {
+function StudentPortal({ user, authUser, onLogout }) {
   const [view, setView]         = useState("home");
   const [incidents, setIncidents] = useState([]);
   const [form, setForm]         = useState({ type:"medical", building:"", desc:"", priority:"P3", photo:null });
@@ -137,11 +134,11 @@ function StudentPortal({ user, accessToken, onLogout }) {
 
   useEffect(() => {
     let active = true;
-    Promise.all([listIncidents(accessToken), getCheckin(accessToken)])
+    Promise.all([listIncidents(authUser, true), getCheckin(authUser)])
       .then(([rows, checkin]) => { if (active) { setIncidents(rows); setMyReports(rows.filter(row => row.reportedBy === user.id)); setSafeStatus(checkin?.status || null); } })
       .catch(error => { if (active) setDataError(error.message); });
     return () => { active = false; };
-  }, [accessToken, user.id]);
+  }, [authUser, user.id]);
 
   async function captureReportLocation() {
     setLocating(true);
@@ -171,7 +168,7 @@ function StudentPortal({ user, accessToken, onLogout }) {
     const campusCheck = location ? checkCampusLocation(location) : "unknown";
     let newInc;
     try {
-      newInc = await createIncident(accessToken, {
+      newInc = await createIncident(authUser, {
         type:form.type, priority:form.priority, building:form.building, desc:form.desc,
         lat:location?.latitude ?? null, lng:location?.longitude ?? null,
         accuracy:location?.accuracyMeters ?? null, locationCapturedAt:location?.capturedAt ?? null,
@@ -449,12 +446,12 @@ function StudentPortal({ user, accessToken, onLogout }) {
                 </div>
               )}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-                <button onClick={async()=>{try{await createCheckin(accessToken,{status:"safe"});setSafeStatus("safe");setDataError("");}catch(error){setDataError(error.message);}}} style={{padding:"22px",background:safeStatus==="safe"?GREENL:WHITE,border:`2px solid ${safeStatus==="safe"?GREEN:BD}`,borderRadius:10,cursor:"pointer",textAlign:"center",transition:"all .2s"}}>
+                <button onClick={async()=>{try{await createCheckin(authUser,{status:"safe"});setSafeStatus("safe");setDataError("");}catch(error){setDataError(error.message);}}} style={{padding:"22px",background:safeStatus==="safe"?GREENL:WHITE,border:`2px solid ${safeStatus==="safe"?GREEN:BD}`,borderRadius:10,cursor:"pointer",textAlign:"center",transition:"all .2s"}}>
                   <div style={{fontSize:36,marginBottom:8}}>✅</div>
                   <div style={{fontSize:15,fontWeight:700,color:GREEN}}>I am SAFE</div>
                   <div style={{fontSize:12,color:SL,marginTop:4}}>I am in a safe location</div>
                 </button>
-                <button onClick={async()=>{try{await createCheckin(accessToken,{status:"help"});setSafeStatus("help");setDataError("");}catch(error){setDataError(error.message);}}} style={{padding:"22px",background:safeStatus==="help"?REDL:WHITE,border:`2px solid ${safeStatus==="help"?RED:BD}`,borderRadius:10,cursor:"pointer",textAlign:"center",transition:"all .2s"}}>
+                <button onClick={async()=>{try{await createCheckin(authUser,{status:"help"});setSafeStatus("help");setDataError("");}catch(error){setDataError(error.message);}}} style={{padding:"22px",background:safeStatus==="help"?REDL:WHITE,border:`2px solid ${safeStatus==="help"?RED:BD}`,borderRadius:10,cursor:"pointer",textAlign:"center",transition:"all .2s"}}>
                   <div style={{fontSize:36,marginBottom:8}}>🆘</div>
                   <div style={{fontSize:15,fontWeight:700,color:RED}}>Need HELP</div>
                   <div style={{fontSize:12,color:SL,marginTop:4}}>I need emergency assistance</div>
@@ -490,7 +487,7 @@ function StudentPortal({ user, accessToken, onLogout }) {
 /* ══════════════════════════════════════════════════════════════
    ADMIN COMMAND CENTRE
    ══════════════════════════════════════════════════════════════ */
-function CommandCentre({ user, accessToken, onLogout }) {
+function CommandCentre({ user, authUser, onLogout }) {
   const [view, setView]             = useState(user.access === "staff" ? "input" : "dashboard");
   const [incidents, setIncidents]   = useState([]);
   const [selectedInc, setSelectedInc] = useState(null);
@@ -501,12 +498,12 @@ function CommandCentre({ user, accessToken, onLogout }) {
   const [dataError, setDataError] = useState("");
   useEffect(() => {
     let active = true;
-    listIncidents(accessToken).then(rows => { if (active) setIncidents(rows); }).catch(error => { if (active) setDataError(error.message); });
+    listIncidents(authUser).then(rows => { if (active) setIncidents(rows); }).catch(error => { if (active) setDataError(error.message); });
     return () => { active = false; };
-  }, [accessToken]);
+  }, [authUser]);
   async function updateStatus(id, status) {
     try {
-      const updated = await updateIncident(accessToken, { id, status });
+      const updated = await updateIncident(authUser, { id, status });
       setIncidents(prev => prev.map(i => i.id===id ? updated : i));
       if (selectedInc?.id===id) setSelectedInc(updated);
       setDataError("");
@@ -514,7 +511,7 @@ function CommandCentre({ user, accessToken, onLogout }) {
   }
   async function assignResponder(id, responder) {
     try {
-      const updated = await updateIncident(accessToken, { id, responder, status:"TEAM_DISPATCHED" });
+      const updated = await updateIncident(authUser, { id, responder, status:"TEAM_DISPATCHED" });
       setIncidents(prev => prev.map(i => i.id===id ? updated : i));
       if (selectedInc?.id===id) setSelectedInc(updated);
       setDataError("");
@@ -878,7 +875,7 @@ function CommandCentre({ user, accessToken, onLogout }) {
             <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,fontWeight:700,color:NK,marginBottom:6}}>Input Layer — Incident Intake</h2>
             <p style={{fontSize:14,color:SL,marginBottom:22}}>Layer 1 of 6 — Manual incident logging by security or admin staff. All inputs are processed by the detection engine.</p>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
-              <OperatorIncidentForm incidents={incidents} setIncidents={setIncidents} accessToken={accessToken}/>
+              <OperatorIncidentForm incidents={incidents} setIncidents={setIncidents} authUser={authUser}/>
               {/* IoT / Sensor inputs */}
               <div>
                 <div style={{background:WHITE,borderRadius:10,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:14}}>
@@ -920,7 +917,7 @@ function CommandCentre({ user, accessToken, onLogout }) {
 }
 
 /* Operator form sub-component */
-function OperatorIncidentForm({ incidents, setIncidents, accessToken }) {
+function OperatorIncidentForm({ incidents, setIncidents, authUser }) {
   const [form, setForm] = useState({ type:"security", building:"", priority:"P2", desc:"", reporter:"", location:null });
   const [done, setDone] = useState(false);
   async function submit() {
@@ -936,7 +933,7 @@ function OperatorIncidentForm({ incidents, setIncidents, accessToken }) {
     const campusCheck = location ? checkCampusLocation(location) : "unknown";
     let inc;
     try {
-      inc = await createIncident(accessToken, { type:form.type, priority:form.priority, building:form.building, desc:form.desc,
+      inc = await createIncident(authUser, { type:form.type, priority:form.priority, building:form.building, desc:form.desc,
         lat:location?.latitude ?? null, lng:location?.longitude ?? null, accuracy:location?.accuracyMeters ?? null,
         locationCapturedAt:location?.capturedAt ?? null, locationSource:location?.source ?? null,
         campusVerified:campusCheck === "inside" ? true : campusCheck === "outside" ? false : null, reporter:form.reporter });
@@ -978,49 +975,59 @@ function OperatorIncidentForm({ incidents, setIncidents, accessToken }) {
    APP ROUTER
    ══════════════════════════════════════════════════════════════ */
 export default function CommandCenterApp({ onBack }) {
-  const [session, setSession] = useState(() => readAuthSession());
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
-    if (!session?.refreshToken || !session?.expiresAt) return undefined;
-    const delay = Math.max(0, session.expiresAt - Date.now() - 60_000);
-    const timer = setTimeout(async () => {
-      try {
-        const response = await fetch("/api/login", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ action:"refresh", refreshToken:session.refreshToken }) });
-        const refreshed = await response.json();
-        if (!response.ok) throw new Error("Session refresh failed");
-        const nextSession = { ...refreshed, user:session.user, expiresAt:Date.now() + refreshed.expiresIn * 1000 };
-        writeAuthSession(nextSession);
-        setSession(nextSession);
-      } catch {
-        clearAuthSession();
-        setSession(null);
+    let active = true;
+    const unsubscribe = onAuthStateChanged(auth, async firebaseUser => {
+      if (!firebaseUser) {
+        if (active) {
+          setSession(null);
+          setAuthLoading(false);
+        }
+        return;
       }
-    }, delay);
-    return () => clearTimeout(timer);
-  }, [session?.refreshToken, session?.expiresAt, session?.user]);
+      try {
+        await firebaseUser.reload();
+        if (!firebaseUser.emailVerified) {
+          await signOutUser();
+          return;
+        }
+        const user = await loadAppUser(firebaseUser);
+        if (active) setSession({ user, firebaseUser });
+      } catch (error) {
+        console.error("Firebase session could not be loaded", error);
+        if (active) setSession(null);
+      } finally {
+        if (active) setAuthLoading(false);
+      }
+    }, error => {
+      console.error("Firebase authentication state failed", error);
+      if (active) {
+        setSession(null);
+        setAuthLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
 
   function handleLogin(authResult) {
-    const nextSession = { ...authResult, expiresAt:Date.now() + authResult.expiresIn * 1000 };
-    writeAuthSession(nextSession);
-    setSession(nextSession);
+    setSession(authResult);
   }
 
   async function handleLogout() {
-    if (session?.accessToken) {
-      try {
-        await fetch("/api/logout", {
-          method:"POST", headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({ accessToken:session.accessToken }),
-        });
-      } catch { /* Local sign-out still clears this browser's session. */ }
-    }
-    clearAuthSession();
+    await signOutUser();
     setSession(null);
     if (onBack) onBack();
   }
 
   const user = session?.user;
+  if (authLoading) return <div role="status" style={{padding:24,textAlign:"center"}}>Loading your secure session…</div>;
   if (!user) return <LoginPage onLogin={handleLogin} onBack={onBack} />;
-  if (user.portal==="student") return <StudentPortal user={user} accessToken={session.accessToken} onLogout={handleLogout} />;
-  return <CommandCentre user={user} accessToken={session.accessToken} onLogout={handleLogout} />;
+  if (user.portal==="student") return <StudentPortal user={user} authUser={session.firebaseUser} onLogout={handleLogout} />;
+  return <CommandCentre user={user} authUser={session.firebaseUser} onLogout={handleLogout} />;
 }
