@@ -221,14 +221,6 @@ const HERO_INCIDENTS = [
     color: RED,
   },
   {
-    image: new URL("../Home page  src/mpu.jpg", import.meta.url).href,
-    alt: "University of Mpumalanga campus entrance",
-    category: "Campus access",
-    title: "Know where help is needed.",
-    detail: "A clear campus location helps teams identify where an incident has been reported.",
-    color: GOLD,
-  },
-  {
     image: new URL("../Home page  src/camera security.jpg", import.meta.url).href,
     alt: "Campus security camera monitoring",
     category: "Campus security",
@@ -261,28 +253,12 @@ const HERO_INCIDENTS = [
     color: GOLD,
   },
   {
-    image: new URL("../Home page  src/Auditorium.jpg", import.meta.url).href,
-    alt: "University lecture auditorium",
-    category: "Teaching spaces",
-    title: "Share concerns from learning spaces.",
-    detail: "Report an incident in a lecture venue and include its location to help direct a response.",
-    color: "#83B8D8",
-  },
-  {
     image: new URL("../Home page  src/emergency-numbers-south-africa.webp", import.meta.url).href,
     alt: "University campus building in daylight",
     category: "Campus awareness",
     title: "Stay aware of your surroundings.",
     detail: "Use the reporting system to bring campus safety concerns to the attention of responders.",
     color: GOLD,
-  },
-  {
-    image: new URL("../Home page  src/images (1).jpg", import.meta.url).href,
-    alt: "Empty university lecture theatre",
-    category: "Campus facilities",
-    title: "Report hazards where they happen.",
-    detail: "Flag a facility or infrastructure concern and identify the affected campus location.",
-    color: ORANGE,
   },
   {
     image: new URL("../Home page  src/images.jpg", import.meta.url).href,
@@ -293,44 +269,12 @@ const HERO_INCIDENTS = [
     color: GOLD,
   },
   {
-    image: new URL("../Home page  src/Inside_the_University.png", import.meta.url).href,
-    alt: "Students walking between university buildings",
-    category: "On-campus support",
-    title: "Report a concern wherever you are.",
-    detail: "Share the campus location and details so the right team can assess the report.",
-    color: "#83B8D8",
-  },
-  {
     image: new URL("../Home page  src/new great hall.jpg", import.meta.url).href,
     alt: "University building and grounds at night",
     category: "After-hours safety",
     title: "Campus safety matters after dark.",
     detail: "Report an urgent concern with its location to help responders understand where to go.",
     color: "#83B8D8",
-  },
-  {
-    image: new URL("../Home page  src/police.jpg", import.meta.url).href,
-    alt: "University community gathered for a safety event",
-    category: "Community safety",
-    title: "Build awareness across the campus community.",
-    detail: "Share safety concerns through one reporting point for appropriate review and follow-up.",
-    color: GOLD,
-  },
-  {
-    image: new URL("../Home page  src/ramaphosa.jpg", import.meta.url).href,
-    alt: "University leader speaking at a formal campus event",
-    category: "University community",
-    title: "A safer campus is a shared responsibility.",
-    detail: "Clear incident reports help campus teams stay informed and coordinate their response.",
-    color: GOLD,
-  },
-  {
-    image: new URL("../Home page  src/UMP safety forum.jpg", import.meta.url).href,
-    alt: "University campus safety forum announcement",
-    category: "Safety awareness",
-    title: "Know how to raise a safety concern.",
-    detail: "Use UMP-CEIS to submit campus incident information for review by the response team.",
-    color: RED,
   },
   {
     image: new URL("../Home page  src/UMP_GAPP_16_Student_Residence_Courtyard.jpg", import.meta.url).href,
@@ -340,17 +284,9 @@ const HERO_INCIDENTS = [
     detail: "Report a residence incident and include the building or area where it occurred.",
     color: "#83B8D8",
   },
-  {
-    image: new URL("../Home page  src/UMP-Gate-New-scaled.jpg", import.meta.url).href,
-    alt: "University of Mpumalanga campus entrance and grounds",
-    category: "Campus response",
-    title: "Help starts with a clear report.",
-    detail: "Share what happened and where on campus to help the appropriate team assess the situation.",
-    color: GOLD,
-  },
 ];
 
-const HERO_BACKGROUND_IMAGE = new URL("../Home page  src/UMP-Gate-New-scaled.jpg", import.meta.url).href;
+const HERO_BACKGROUND_IMAGE = new URL("../Home page  src/emergency-numbers-south-africa.webp", import.meta.url).href;
 
 function HeroIncidentSlideshow() {
   const [active, setActive] = useState(0);
