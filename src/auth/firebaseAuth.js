@@ -6,7 +6,7 @@ import {
   signOut,
   updateProfile,
 } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "../lib/firebase.js";
 
 const ROLE_PORTALS = {
@@ -48,6 +48,7 @@ function authError(error) {
     "auth/weak-password": "Choose a stronger password.",
     "auth/network-request-failed": "Could not connect to Firebase. Check your connection and try again.",
     "auth/operation-not-allowed": "Email/password sign-in is not enabled in Firebase Authentication yet.",
+    "permission-denied": "Could not create your student profile in Cloud Firestore. Check the Firestore users create rule and Firebase project configuration.",
     "auth/unauthorized-continue-uri": "Firebase does not allow this email link's return address. In Firebase Console, open Authentication → Settings → Authorized domains and add localhost for local testing or your deployed app domain.",
   };
   return new Error(messages[error.code] || error.message || "Authentication failed. Please try again.");
@@ -77,11 +78,32 @@ export async function loadAppUser(firebaseUser) {
   if (!firebaseUser.emailVerified) {
     throw new Error("Verify your email address before signing in.");
   }
-  const profileSnapshot = await getDoc(doc(db, "users", firebaseUser.uid));
-  if (!profileSnapshot.exists()) {
-    throw new Error("Your CEIS profile is missing. Please contact support.");
+  const email = firebaseUser.email;
+  if (!email || !isUmpEmail(email)) {
+    throw new Error("Use your university email address ending in @ump.ac.za.");
   }
-  return appUser(firebaseUser, profileSnapshot.data());
+
+  const profileRef = doc(db, "users", firebaseUser.uid);
+  const profile = await runTransaction(db, async transaction => {
+    const profileSnapshot = await transaction.get(profileRef);
+    if (profileSnapshot.exists()) return profileSnapshot.data();
+
+    const emailName = email.split("@")[0].trim();
+    const displayName = firebaseUser.displayName?.trim() || "";
+    const fullName = [displayName, emailName]
+      .find(name => name.length >= 2 && name.length <= 100) || "UMP Student";
+    const newProfile = {
+      uid: firebaseUser.uid,
+      email,
+      fullName,
+      role: "student",
+      createdAt: serverTimestamp(),
+    };
+    transaction.set(profileRef, newProfile);
+    return newProfile;
+  });
+
+  return appUser(firebaseUser, profile);
 }
 
 export async function registerUser({ fullName, email, password }) {
