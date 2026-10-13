@@ -1,7 +1,6 @@
 import {
   addDoc,
   collection,
-  doc,
   getDoc,
   getDocs,
   limit,
@@ -9,10 +8,9 @@ import {
   orderBy,
   query,
   serverTimestamp,
-  updateDoc,
   where,
 } from "firebase/firestore";
-import { db } from "./lib/firebase.js";
+import { auth, db } from "./lib/firebase.js";
 
 const INCIDENT_TYPES = new Set(["medical", "fire", "security", "hazard", "infrastructure", "wellbeing", "other"]);
 const PRIORITIES = new Set(["P1", "P2", "P3", "P4"]);
@@ -58,11 +56,28 @@ function present(id, row) {
   };
 }
 
+async function apiRequest(user, path, options = {}) {
+  if (!user || !auth.currentUser || auth.currentUser.uid !== user.uid) throw new Error("Sign in to continue.");
+  const token = await auth.currentUser.getIdToken();
+  const response = await fetch(`/api${path}`, {
+    ...options,
+    headers: {
+      authorization: `Bearer ${token}`,
+      ...(options.body ? { "content-type": "application/json" } : {}),
+      ...options.headers,
+    },
+  });
+  if (response.status === 204) return null;
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "The request could not be completed.");
+  return payload;
+}
+
 export async function listIncidents(user, mine = false) {
   if (!user) throw new Error("Sign in to access incident reports.");
   try {
-    const snapshot = await getDocs(buildIncidentQuery(user, mine));
-    return snapshot.docs.map(item => present(item.id, item.data()));
+    const payload = await apiRequest(user, `/incidents${mine ? "?mine=true" : ""}`);
+    return payload.incidents || [];
   } catch (error) {
     fail(error, "Could not load incident reports.");
   }
@@ -97,37 +112,57 @@ export async function createIncident(user, incident) {
     throw new Error("Provide a valid incident type, priority, building, and description.");
   }
   if ((incident.lat == null) !== (incident.lng == null)) throw new Error("Location must include both coordinates.");
-  const reference = `INC-${crypto.randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase()}`;
-  const data = {
-    reference,
-    reportedBy: user.uid,
-    responderUid: null,
-    dispatchedByUid: null,
-    type: incident.type,
-    priority: incident.priority,
-    building: String(incident.building),
-    description: incident.desc.trim(),
-    status: "NEW",
-    responder: null,
-    latitude: incident.lat ?? null,
-    longitude: incident.lng ?? null,
-    accuracyMeters: incident.accuracy ?? null,
-    locationCapturedAt: incident.locationCapturedAt ? new Date(incident.locationCapturedAt) : null,
-    locationSource: incident.locationSource ?? null,
-    campusVerified: incident.campusVerified ?? null,
-    reporterName: typeof incident.reporter === "string" ? incident.reporter.trim().slice(0, 100) : user.displayName || null,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-    dispatchedAt: null,
-    resolvedAt: null,
-  };
   try {
-    const created = await addDoc(collection(db, "incidents"), data);
-    const saved = await getDoc(created);
-    return present(saved.id, saved.data());
+    const payload = await apiRequest(user, "/incidents", {
+      method: "POST",
+      body: JSON.stringify({
+        type: incident.type,
+        priority: incident.priority,
+        building: String(incident.building),
+        description: incident.desc.trim(),
+        latitude: incident.lat ?? null,
+        longitude: incident.lng ?? null,
+        accuracyMeters: incident.accuracy ?? null,
+        campusVerified: incident.campusVerified ?? null,
+      }),
+    });
+    return payload.incident;
   } catch (error) {
     fail(error, "Incident report could not be saved.");
   }
+}
+
+export async function activateSOS(user, position) {
+  if (!position?.coords) throw new Error("Location access is required to send an SOS.");
+  const { latitude, longitude, accuracy } = position.coords;
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) throw new Error("Your device did not return a valid location.");
+  return apiRequest(user, "/sos", {
+    method: "POST",
+    body: JSON.stringify({ latitude, longitude, accuracyMeters: accuracy }),
+  });
+}
+
+export async function setResponderPresence(user, available, coordinates = {}) {
+  return apiRequest(user, "/responders/presence", {
+    method: "PUT",
+    body: JSON.stringify({ available, ...coordinates }),
+  });
+}
+
+export async function registerPushToken(user, token) {
+  return apiRequest(user, "/notifications/tokens", { method: "POST", body: JSON.stringify({ token }) });
+}
+
+export async function removePushToken(user, token) {
+  return apiRequest(user, "/notifications/tokens", { method: "DELETE", body: JSON.stringify({ token }) });
+}
+
+export async function getDashboardAnalytics(user) {
+  return apiRequest(user, "/dashboard/analytics");
+}
+
+export async function sendCampusAlert(user, alert) {
+  return apiRequest(user, "/alerts", { method: "POST", body: JSON.stringify(alert) });
 }
 
 export async function updateIncident(user, update) {
@@ -138,20 +173,12 @@ export async function updateIncident(user, update) {
   if (user.role === "responder" && !["ACKNOWLEDGED", "ON_SCENE", "RESOLVED"].includes(update.status)) {
     throw new Error("Responders may acknowledge, mark on scene, or resolve assigned incidents.");
   }
-  const changes = { status: update.status, updatedAt: serverTimestamp() };
-  if (user.role === "admin" && update.responder !== undefined) {
-    if (typeof update.responder !== "string" || update.responder.length > 120) throw new Error("Responder name is invalid.");
-    changes.responder = update.responder;
-  }
-  if (user.role === "admin" && update.status === "TEAM_DISPATCHED") changes.dispatchedAt = serverTimestamp();
-  if (user.role === "admin" || update.status === "RESOLVED") {
-    if (["RESOLVED", "CLOSED"].includes(update.status)) changes.resolvedAt = serverTimestamp();
-  }
   try {
-    const incidentRef = doc(db, "incidents", update.id);
-    await updateDoc(incidentRef, changes);
-    const saved = await getDoc(incidentRef);
-    return present(saved.id, saved.data());
+    const payload = await apiRequest(user, `/incidents/${encodeURIComponent(update.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: update.status }),
+    });
+    return payload.incident;
   } catch (error) {
     fail(error, "Incident update could not be saved.");
   }
@@ -160,19 +187,8 @@ export async function updateIncident(user, update) {
 export async function listResponders(user) {
   if (!user || user.role !== "admin") throw new Error("Admin access is required to view responders.");
   try {
-    const users = collection(db, "users");
-    const [legacyProfiles, roleArrays, roleFieldArrays] = await Promise.all([
-      getDocs(query(users, where("role", "in", ["responder", "security", "medical"]), limit(100))),
-      getDocs(query(users, where("roles", "array-contains-any", ["responder", "security", "medical"]), limit(100))),
-      getDocs(query(users, where("role", "array-contains-any", ["responder", "security", "medical"]), limit(100))),
-    ]);
-    const profiles = new Map();
-    for (const snapshot of [legacyProfiles, roleArrays, roleFieldArrays]) {
-      for (const item of snapshot.docs) profiles.set(item.id, item.data());
-    }
-    return [...profiles]
-      .map(([uid, profile]) => ({ uid, name: profile.fullName || profile.email || "Responder" }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const payload = await apiRequest(user, "/responders");
+    return payload.responders || [];
   } catch (error) {
     fail(error, "Could not load the responder roster.");
   }
@@ -182,17 +198,11 @@ export async function assignIncident(user, incidentId, responder) {
   if (!user || user.role !== "admin") throw new Error("Admin access is required to dispatch responders.");
   if (!incidentId || !responder?.uid || !responder?.name) throw new Error("Choose a valid responder.");
   try {
-    const incidentRef = doc(db, "incidents", incidentId);
-    await updateDoc(incidentRef, {
-      responderUid: responder.uid,
-      responder: responder.name,
-      dispatchedByUid: user.uid,
-      status: "TEAM_DISPATCHED",
-      dispatchedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+    const payload = await apiRequest(user, `/incidents/${encodeURIComponent(incidentId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "TEAM_DISPATCHED", responder: { uid: responder.uid } }),
     });
-    const saved = await getDoc(incidentRef);
-    return present(saved.id, saved.data());
+    return payload.incident;
   } catch (error) {
     fail(error, "Responder dispatch could not be saved.");
   }

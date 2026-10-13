@@ -11,6 +11,8 @@ import CampusMap from "./components/CampusMap.jsx";
 import { MAPPED_BUILDINGS } from "./maps/campusBuildings.js";
 import { checkCampusLocation, getCurrentLocation } from "./maps/location.js";
 import Signup from "./auth/Signup.jsx";
+import SOSActivation from "./components/SOSActivation.jsx";
+import PushNotificationsButton from "./components/PushNotificationsButton.jsx";
 import { auth } from "./lib/firebase.js";
 import { canAccessPortal } from "./auth/roles.js";
 import { isRegistrationInProgress, loadAppUser, requestPasswordReset, signInUser, signOutUser } from "./auth/firebaseAuth.js";
@@ -260,6 +262,7 @@ function StudentPortal({ user, authUser, onLogout }) {
         </div>
       )}
 
+      <PushNotificationsButton user={authUser} compact />
       <button
         onClick={onLogout}
         style={{
@@ -293,6 +296,7 @@ function StudentPortal({ user, authUser, onLogout }) {
         {/* HOME */}
         {view==="home"&&(
           <div style={{animation:"fadeIn .35s ease"}}>
+            <SOSActivation user={authUser} />
             <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:26,fontWeight:700,color:NK,marginBottom:6}}>Welcome back, {user.name.split(" ")[0]}</h2>
             <p style={{fontSize:14,color:SL,marginBottom:28}}>{user.faculty} · Year {user.year} · ID: {user.id}</p>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:28}}>

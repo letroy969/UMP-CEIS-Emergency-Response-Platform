@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { sendChatMessages } from "./chatbot/chatApi.js";
 import {
   LOGO, NAVY, NAVY2, NAVY3, NAVYL,
   RED, REDL, ORANGE, ORANGEL, GREEN, GREENL,
@@ -204,12 +205,28 @@ const HERO_INCIDENTS = [
     color: ORANGE,
   },
   {
-    image: new URL("../Home page  src/cpr.jpg", import.meta.url).href,
-    alt: "First-aid CPR training",
-    category: "Medical emergency",
-    title: "Get urgent help moving.",
-    detail: "Share an emergency and its location to help responders coordinate a faster response.",
+    image: new URL("../Home page  src/campus night.jpg", import.meta.url).href,
+    alt: "Fire and rescue crew preparing to respond",
+    category: "Fire and rescue",
+    title: "Help responders find the right place.",
+    detail: "Include the incident location when reporting so response teams know where help is needed.",
+    color: ORANGE,
+  },
+  {
+    image: new URL("../Home page  src/medical team.jpg", import.meta.url).href,
+    alt: "Emergency medical responders with their equipment",
+    category: "Medical response",
+    title: "Make medical concerns easier to report.",
+    detail: "Share the location and key details of a medical emergency with the campus response team.",
     color: RED,
+  },
+  {
+    image: new URL("../Home page  src/mpu.jpg", import.meta.url).href,
+    alt: "University of Mpumalanga campus entrance",
+    category: "Campus access",
+    title: "Know where help is needed.",
+    detail: "A clear campus location helps teams identify where an incident has been reported.",
+    color: GOLD,
   },
   {
     image: new URL("../Home page  src/camera security.jpg", import.meta.url).href,
@@ -234,6 +251,102 @@ const HERO_INCIDENTS = [
     title: "Support starts with reaching out.",
     detail: "Make it easier to surface wellbeing concerns and direct them to the appropriate support.",
     color: "#83B8D8",
+  },
+  {
+    image: new URL("../Home page  src/Auditorium with people.jpg", import.meta.url).href,
+    alt: "People gathered in a university auditorium",
+    category: "Campus events",
+    title: "Help keep campus gatherings safer.",
+    detail: "Report safety concerns at events so the appropriate campus team can follow up.",
+    color: GOLD,
+  },
+  {
+    image: new URL("../Home page  src/Auditorium.jpg", import.meta.url).href,
+    alt: "University lecture auditorium",
+    category: "Teaching spaces",
+    title: "Share concerns from learning spaces.",
+    detail: "Report an incident in a lecture venue and include its location to help direct a response.",
+    color: "#83B8D8",
+  },
+  {
+    image: new URL("../Home page  src/emergency-numbers-south-africa.webp", import.meta.url).href,
+    alt: "University campus building in daylight",
+    category: "Campus awareness",
+    title: "Stay aware of your surroundings.",
+    detail: "Use the reporting system to bring campus safety concerns to the attention of responders.",
+    color: GOLD,
+  },
+  {
+    image: new URL("../Home page  src/images (1).jpg", import.meta.url).href,
+    alt: "Empty university lecture theatre",
+    category: "Campus facilities",
+    title: "Report hazards where they happen.",
+    detail: "Flag a facility or infrastructure concern and identify the affected campus location.",
+    color: ORANGE,
+  },
+  {
+    image: new URL("../Home page  src/images.jpg", import.meta.url).href,
+    alt: "Campus safety and policing representatives at a university event",
+    category: "Safety partnerships",
+    title: "Safety works best through coordination.",
+    detail: "The command centre helps organise incident information for the teams responsible for follow-up.",
+    color: GOLD,
+  },
+  {
+    image: new URL("../Home page  src/Inside_the_University.png", import.meta.url).href,
+    alt: "Students walking between university buildings",
+    category: "On-campus support",
+    title: "Report a concern wherever you are.",
+    detail: "Share the campus location and details so the right team can assess the report.",
+    color: "#83B8D8",
+  },
+  {
+    image: new URL("../Home page  src/new great hall.jpg", import.meta.url).href,
+    alt: "University building and grounds at night",
+    category: "After-hours safety",
+    title: "Campus safety matters after dark.",
+    detail: "Report an urgent concern with its location to help responders understand where to go.",
+    color: "#83B8D8",
+  },
+  {
+    image: new URL("../Home page  src/police.jpg", import.meta.url).href,
+    alt: "University community gathered for a safety event",
+    category: "Community safety",
+    title: "Build awareness across the campus community.",
+    detail: "Share safety concerns through one reporting point for appropriate review and follow-up.",
+    color: GOLD,
+  },
+  {
+    image: new URL("../Home page  src/ramaphosa.jpg", import.meta.url).href,
+    alt: "University leader speaking at a formal campus event",
+    category: "University community",
+    title: "A safer campus is a shared responsibility.",
+    detail: "Clear incident reports help campus teams stay informed and coordinate their response.",
+    color: GOLD,
+  },
+  {
+    image: new URL("../Home page  src/UMP safety forum.jpg", import.meta.url).href,
+    alt: "University campus safety forum announcement",
+    category: "Safety awareness",
+    title: "Know how to raise a safety concern.",
+    detail: "Use UMP-CEIS to submit campus incident information for review by the response team.",
+    color: RED,
+  },
+  {
+    image: new URL("../Home page  src/UMP_GAPP_16_Student_Residence_Courtyard.jpg", import.meta.url).href,
+    alt: "Student residence courtyard",
+    category: "Student residences",
+    title: "Support safer student residences.",
+    detail: "Report a residence incident and include the building or area where it occurred.",
+    color: "#83B8D8",
+  },
+  {
+    image: new URL("../Home page  src/UMP-Gate-New-scaled.jpg", import.meta.url).href,
+    alt: "University of Mpumalanga campus entrance and grounds",
+    category: "Campus response",
+    title: "Help starts with a clear report.",
+    detail: "Share what happened and where on campus to help the appropriate team assess the situation.",
+    color: GOLD,
   },
 ];
 
@@ -270,7 +383,6 @@ function HeroIncidentSlideshow() {
       <div className="hero-incident-shade" />
       <div className="hero-incident-topline">
         <span className="hero-live-indicator"><i /> CAMPUS RESPONSE</span>
-        <span className="hero-slide-count">{String(active + 1).padStart(2, "0")} <b>/ {String(HERO_INCIDENTS.length).padStart(2, "0")}</b></span>
       </div>
       <div className="hero-incident-copy" aria-live="polite" aria-atomic="true">
         <span className="hero-incident-category" style={{ "--incident-accent": incident.color }}>{incident.category}</span>
@@ -363,7 +475,7 @@ function Hero({ goPage }) {
           </Reveal>
           <Reveal delay={0.44}>
             <div style={{ display: "flex", gap: 0, marginTop: 40, paddingTop: 30, borderTop: `1px solid rgba(255,255,255,0.1)` }}>
-              {[["Real-Time","Emergency Detection"],["Instant","Alert Dispatch"],["24 / 7","Campus Coverage"]].map(([a, b], i) => (
+              {[["Role-Based","Incident Reports"],["Live","Responder Updates"],["Campus","Safety Guidance"]].map(([a, b], i) => (
                 <div key={a} style={{ flex: 1, paddingRight: 18, borderRight: i < 2 ? `1px solid rgba(255,255,255,0.1)` : "none", paddingLeft: i > 0 ? 18 : 0 }}>
                   <div style={{ fontSize: 16, fontWeight: 800, color: GOLD, fontFamily: "'IBM Plex Serif',serif", letterSpacing: -0.3 }}>{a}</div>
                   <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.42)", marginTop: 3, fontFamily: "'IBM Plex Sans',sans-serif" }}>{b}</div>
@@ -440,18 +552,18 @@ function WhatIsIt() {
 function Features() {
   const [modal, setModal] = useState(null);
   const features = [
-    { Icon: ISOS, title: "Smart SOS Activation", tag: "Emergency Response", desc: "One-tap SOS automatically logs time, identity, and GPS coordinates and dispatches the nearest available officer.", more: "The SOS system uses a three-second hold to prevent accidental activation. Once triggered, it simultaneously notifies the command centre, dispatches the nearest available officer, and initiates incident classification. All alerts are timestamped to a permanent incident record.", c: RED },
-    { Icon: IAI, title: "Intelligent Incident Triage", tag: "Response Prioritisation", desc: "Incidents are classified by severity within seconds, assigning priority codes that guide the appropriate response and deployment.", more: "The triage module applies a structured severity scale — P1 (immediate), P2 (urgent), P3 (non-urgent) — reducing cognitive load on dispatchers during high-volume events. All classifications are logged to a permanent incident record.", c: NAVY },
-    { Icon: IShare, title: "Live Location Sharing", tag: "Geospatial", desc: "GPS coordinates transmitted in real time to the command dashboard — responders navigate directly to the incident.", more: "Location data updates every 5 seconds during an active incident. The command dashboard displays live maps with all active incidents, officer positions, and route overlays. Sharing continues until the incident is marked resolved.", c: NAVY },
-    { Icon: IAlert, title: "Campus-Wide Alerts", tag: "Communications", desc: "Broadcast emergency notifications via SMS, push, and PA system to ensure all affected parties receive timely warnings.", more: "Alerts can be scoped to specific zones, buildings, or the full campus. Delivery receipts are tracked and logged for post-incident review and compliance reporting.", c: ORANGE },
-    { Icon: IAid, title: "First-Aid Guidance", tag: "Medical Support", desc: "AI-guided first-aid instructions provide immediate step-by-step support while responders are in transit.", more: "Covers 18 emergency categories including cardiac events, anaphylaxis, burns, trauma, and seizures. All instructions reviewed by registered medical professionals and written to a Grade 8 literacy level.", c: GREEN },
-    { Icon: IAnalytics, title: "Emergency Analytics", tag: "Command Intelligence", desc: "Live operations dashboard giving security leadership full visibility into incident trends and response performance.", more: "Real-time and historical views of incident volume, type distribution, response times, officer deployment, and alert delivery. Monthly reports auto-generated and exportable as PDF or XLSX.", c: GOLD },
+    { Icon: ISOS, title: "Incident Reporting", tag: "Emergency Response", desc: "Submit an incident report with your identity, time, description, and optional location. An administrator can assign a responder from the command centre.", more: "Reports are stored in Firestore and access is restricted by account role. Location is captured only when the reporter grants browser permission. One-tap SOS, automatic nearest-officer dispatch, and emergency-service contact are not available.", c: RED },
+    { Icon: IAI, title: "Guided Incident Triage", tag: "Response Prioritisation", desc: "Use the interactive triage guide for a rule-based urgency estimate. Report priority is selected by the person submitting it.", more: "The triage guide is informational and separate from incident reporting. It does not automatically classify reports, assign priority codes, or dispatch responders, and it is not a medical diagnosis.", c: NAVY },
+    { Icon: IShare, title: "Incident Location", tag: "Geospatial", desc: "Reports can include a location point when the reporter grants browser location permission. The command centre can display incident locations on the campus map.", more: "The app stores the location captured with a report. It does not continuously track people or responders, refresh positions in the background, or calculate routes.", c: NAVY },
+    { Icon: IAlert, title: "Responder Updates", tag: "Communications", desc: "Assigned responders see incident updates in the signed-in responder workspace as Firestore changes arrive.", more: "This is an in-app update for signed-in users. SMS, push notifications, campus-wide broadcasts, PA integration, and delivery receipts are not configured.", c: ORANGE },
+    { Icon: IAid, title: "First-Aid Guidance", tag: "Medical Support", desc: "An interactive first-aid guide provides general step-by-step information and optional spoken instructions.", more: "The guide is informational; it is not AI-generated, a diagnosis, or a substitute for professional care. Call emergency services for urgent medical help.", c: GREEN },
+    { Icon: IAnalytics, title: "Incident Overview", tag: "Command Intelligence", desc: "The admin command centre shows incident records, status, priority, and responder assignments for operational monitoring.", more: "The current dashboard is based on records available in Firestore. Automated performance analytics, alert-delivery reporting, and scheduled PDF or spreadsheet exports are not implemented.", c: GOLD },
   ];
   return (
     <section id="features" style={{ padding: "96px 5%", background: PAPER2, borderTop: `1px solid ${BD}`, borderBottom: `1px solid ${BD}` }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <Reveal style={{ marginBottom: 52 }}>
-          <SectionHead chip="System Capabilities" title="What Does UMP-CEIS Do?" sub="A fully integrated emergency management ecosystem — from the moment an incident is reported to full resolution, every step is intelligent and traceable." />
+          <SectionHead chip="System Capabilities" title="What Does UMP-CEIS Do?" sub="Report incidents, manage responder assignments, and access campus safety guidance through a role-protected web application." />
         </Reveal>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
           {features.map((f, i) => (
@@ -493,9 +605,9 @@ function Features() {
 function WhoFor() {
   const [modal, setModal] = useState(null);
   const cols = [
-    { Icon: () => <svg width={24} height={24} viewBox="0 0 24 24" fill="none"><circle cx={12} cy={8} r={3.5} stroke="currentColor" strokeWidth={1.4}/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round"/></svg>, title: "Students & Staff", tag: "Primary Reporters", accent: NAVY, items: ["Report emergencies via one-tap SOS","Receive real-time campus safety alerts","Access guided first-aid instructions","Track responder arrival in real time"], detail: "All registered UMP students and staff members have access to the mobile application. Upon login with university credentials, users can immediately trigger SOS alerts, report symptoms, or access the first-aid guide. Push notifications deliver campus-wide alerts and safety advisories in real time." },
-    { Icon: () => <svg width={24} height={24} viewBox="0 0 24 24" fill="none"><path d="M12 2L4 5.5v6c0 5.5 3.6 10.5 8 12 4.4-1.5 8-6.5 8-12v-6L12 2Z" stroke="currentColor" strokeWidth={1.4} strokeLinejoin="round"/><path d="M9 12l2.5 2.5 4.5-5" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round"/></svg>, title: "Security & Medical", tag: "First Responders", accent: RED, items: ["Receive instant alerts with GPS location","Manage incidents from the command dashboard","Track and update incident status live","Communicate directly via the platform"], detail: "Campus security officers and medical staff access the full command dashboard on desktop and mobile. Upon alert, responders see incident type, GPS location, AI severity score, and reporter details. Incidents can be accepted, escalated, or resolved — all tracked in a live audit trail." },
-    { Icon: () => <svg width={24} height={24} viewBox="0 0 24 24" fill="none"><rect x={3} y={3} width={18} height={18} rx={2.5} stroke="currentColor" strokeWidth={1.4}/><path d="M7 9h10M7 12.5h6.5M7 16h4" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round"/></svg>, title: "University Administration", tag: "Command & Control", accent: ORANGE, items: ["Monitor all incidents in real time","Access safety analytics and reporting","Configure alert protocols and channels","Review full audit trails and logs"], detail: "University administration and security leadership access a read-only command view and a full analytics dashboard. Administrators can configure alert broadcast rules, manage user permissions, review incident histories, and export compliance reports for institutional governance." },
+    { Icon: () => <svg width={24} height={24} viewBox="0 0 24 24" fill="none"><circle cx={12} cy={8} r={3.5} stroke="currentColor" strokeWidth={1.4}/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round"/></svg>, title: "Students & Staff", tag: "Primary Reporters", accent: NAVY, items: ["Submit incident reports with optional location","Review reports submitted from your account","Access the interactive first-aid guide","Use the campus map and emergency contacts"], detail: "Verified UMP email accounts can submit incident reports and safety check-ins. A report may include a location point when browser permission is granted. Responders are assigned by an administrator; the app does not provide campus-wide push alerts or responder-arrival tracking." },
+    { Icon: () => <svg width={24} height={24} viewBox="0 0 24 24" fill="none"><path d="M12 2L4 5.5v6c0 5.5 3.6 10.5 8 12 4.4-1.5 8-6.5 8-12v-6L12 2Z" stroke="currentColor" strokeWidth={1.4} strokeLinejoin="round"/><path d="M9 12l2.5 2.5 4.5-5" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round"/></svg>, title: "Security & Medical", tag: "First Responders", accent: RED, items: ["See incidents assigned to their account","Review available incident location details","Update acknowledgement and response status","View changes while signed in"], detail: "Provisioned responder accounts see incidents assigned to them and can acknowledge, mark on scene, or resolve them. Updates appear in the signed-in workspace. The app does not send push alerts or provide responder-to-reporter messaging." },
+    { Icon: () => <svg width={24} height={24} viewBox="0 0 24 24" fill="none"><rect x={3} y={3} width={18} height={18} rx={2.5} stroke="currentColor" strokeWidth={1.4}/><path d="M7 9h10M7 12.5h6.5M7 16h4" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round"/></svg>, title: "University Administration", tag: "Command & Control", accent: ORANGE, items: ["Review incident records and current status","Assign incidents to provisioned responders","Monitor priority and assignment details","Provision staff roles through trusted controls"], detail: "Admins can review incident records, manage statuses, and assign provisioned responders. User role provisioning is handled through trusted Firebase administration. Automated exports, configurable broadcast rules, and full audit-history reporting are not available." },
   ];
   return (
     <section id="who-for" style={{ padding: "96px 5%", background: PAPER, borderBottom: `1px solid ${BD}` }}>
@@ -572,10 +684,10 @@ function Purpose() {
             <Chip label="Our Purpose" c="rgba(255,255,255,0.6)" bg="rgba(255,255,255,0.06)" bd="rgba(255,255,255,0.12)" />
           </div>
           <blockquote style={{ fontFamily: "'IBM Plex Serif',serif", fontSize: "clamp(15px,2.1vw,20px)", fontWeight: 600, color: "rgba(255,255,255,0.9)", lineHeight: 1.82, fontStyle: "italic", margin: "0 auto 36px", maxWidth: 760 }}>
-            &quot;To enhance safety, reduce emergency response time, and deliver intelligent emergency management within the University of Mpumalanga campus — powered by artificial intelligence and real-time technology.&quot;
+            &quot;To support campus safety with a role-protected incident reporting and response coordination system for the University of Mpumalanga.&quot;
           </blockquote>
           <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap" }}>
-            {[["↓ 60%","Response Time","#22c55e"],["100%","Campus Coverage",GOLD],["24/7","Monitoring",ORANGE],["<30s","SOS to Dispatch",RED]].map(([v, l, c], i, arr) => (
+            {[["Live","Incident Feed","#22c55e"],["Role","Protected Access",GOLD],["UMP","Campus Focus",ORANGE],["Optional","Location Capture",RED]].map(([v, l, c], i, arr) => (
               <div key={l} style={{ textAlign: "center", padding: "0 28px", borderRight: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.1)" : "none" }}>
                 <div style={{ fontSize: 22, fontWeight: 800, color: c, fontFamily: "'IBM Plex Serif',serif", letterSpacing: -0.5 }}>{v}</div>
                 <div style={{ fontSize: 10, color: "rgba(255,255,255,0.38)", marginTop: 4, letterSpacing: 0.7, textTransform: "uppercase", fontFamily: "'IBM Plex Sans',sans-serif" }}>{l}</div>
@@ -643,25 +755,63 @@ function HowItWorks() {
 
 
 /* ── CHATBOT ─────────────────────────────────────────────────── */
-function ChatBot() {
+const CHAT_DESTINATIONS = {
+  hero: "Overview",
+  "what-is-it": "What is UMP-CEIS?",
+  features: "System features",
+  "who-for": "User roles",
+  "how-it-works": "How it works",
+  contact: "Emergency contacts",
+  triage: "Open guided triage",
+  firstaid: "Open first-aid guide",
+  system: "Open sign in",
+};
+
+function ChatBot({ goPage }) {
   const [open, setOpen] = useState(false);
-  const [msgs, setMsgs] = useState([{ from: "bot", text: "Hello. I am the UMP-CEIS Assistant. How can I help you today?", ts: "Now" }]);
+  const [msgs, setMsgs] = useState([{ from: "bot", text: "Hello. I am the UMP-CEIS Assistant. Ask me about reporting an incident, account access, responder roles, or any section of the system.", sections: [], ts: "Now" }]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
   const endRef = useRef(null);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, typing]);
 
-  function send() {
+  async function send() {
     const txt = input.trim();
-    if (!txt) return;
+    if (!txt || typing) return;
     const ts = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
     setMsgs(p => [...p, { from: "user", text: txt, ts }]);
     setInput("");
     setTyping(true);
-    setTimeout(() => {
+    const conversation = [...msgs, { from: "user", text: txt }]
+      .slice(-10)
+      .map(message => ({ role: message.from === "bot" ? "assistant" : "user", content: message.text }));
+    try {
+      const result = await sendChatMessages(conversation);
+      setMsgs(p => [...p, {
+        from: "bot",
+        text: result.answer,
+        sections: result.sections.filter(section => Object.hasOwn(CHAT_DESTINATIONS, section)),
+        ts: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+      }]);
+    } catch (error) {
+      setMsgs(p => [...p, {
+        from: "bot",
+        text: `${error.message} For emergencies, call UMP Security at +27 13 002 0099.`,
+        sections: ["contact"],
+        ts: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+      }]);
+    } finally {
       setTyping(false);
-      setMsgs(p => [...p, { from: "bot", text: "Thank you for your message. This information assistant cannot contact emergency services or dispatch responders. For emergencies, call the UMP security hotline: +27 13 002 0099.", ts: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) }]);
-    }, 1800);
+    }
+  }
+
+  function openDestination(destination) {
+    setOpen(false);
+    if (["system", "triage", "firstaid"].includes(destination)) {
+      goPage(destination === "system" ? "system" : destination);
+      return;
+    }
+    scrollTo(destination);
   }
 
   return (
@@ -703,6 +853,9 @@ function ChatBot() {
               <div style={{ width: 5, height: 5, borderRadius: "50%", background: ORANGE, marginTop: 4, flexShrink: 0 }} />
               <span style={{ fontSize: 10.5, color: ORANGE, fontWeight: 600, fontFamily: "'IBM Plex Sans',sans-serif", lineHeight: 1.5 }}>For life-threatening emergencies, call <strong>+27 13 002 0099</strong> immediately.</span>
             </div>
+            <div style={{ background: PAPER, borderBottom: `1px solid ${BD}`, padding: "7px 14px", fontSize: 10, color: MID, lineHeight: 1.45, fontFamily: "'IBM Plex Sans',sans-serif" }}>
+              Messages are processed by an external AI provider. Do not share passwords, verification codes, or sensitive personal details.
+            </div>
             <div style={{ overflowY: "auto", padding: "14px 12px", maxHeight: 300, minHeight: 190, background: PAPER }}>
               {msgs.map((m, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: m.from === "user" ? "flex-end" : "flex-start", marginBottom: 10, animation: "fadeIn .3s ease" }}>
@@ -715,6 +868,15 @@ function ChatBot() {
                     <div style={{ maxWidth: 216, padding: "9px 13px", borderRadius: m.from === "user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px", background: m.from === "user" ? NAVY : WHITE, color: m.from === "user" ? WHITE : NK, fontSize: 13, lineHeight: 1.65, fontFamily: "'IBM Plex Sans',sans-serif", border: m.from === "bot" ? `1px solid ${BD}` : "none", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
                       {m.text}
                     </div>
+                    {m.from === "bot" && m.sections?.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
+                        {m.sections.map(section => (
+                          <button key={section} type="button" onClick={() => openDestination(section)} style={{ border: `1px solid ${BD}`, borderRadius: 12, background: WHITE, color: NAVY, padding: "4px 8px", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+                            {CHAT_DESTINATIONS[section]} →
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <div style={{ fontSize: 9, color: MID, marginTop: 3, textAlign: m.from === "user" ? "right" : "left", fontFamily: "monospace" }}>{m.ts}</div>
                   </div>
                 </div>
@@ -744,7 +906,7 @@ function ChatBot() {
               <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder="Type your message…" rows={1} style={{ flex: 1, border: `1px solid ${BD}`, borderRadius: 7, padding: "9px 11px", fontSize: 13, fontFamily: "'IBM Plex Sans',sans-serif", color: NK, background: PAPER, resize: "none", outline: "none", lineHeight: 1.5, maxHeight: 76, overflowY: "auto", transition: "border-color .2s" }}
                 onFocus={e => e.target.style.borderColor = NAVY}
                 onBlur={e => e.target.style.borderColor = BD} />
-              <button onClick={send} disabled={!input.trim()} style={{ width: 36, height: 36, borderRadius: 7, background: input.trim() ? NAVY : BD, border: "none", cursor: input.trim() ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", transition: "background .2s", flexShrink: 0, color: WHITE }}>
+              <button onClick={send} disabled={!input.trim() || typing} style={{ width: 36, height: 36, borderRadius: 7, background: input.trim() && !typing ? NAVY : BD, border: "none", cursor: input.trim() && !typing ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", transition: "background .2s", flexShrink: 0, color: WHITE }}>
                 <ISend />
               </button>
             </div>
@@ -2281,7 +2443,7 @@ export default function LandingSite({ onAccessSystem }) {
       <HowItWorks />
       <Contact />
       <Footer setPage={goPage} />
-      <ChatBot />
+      <ChatBot goPage={goPage} />
     </div>
   );
 }

@@ -19,4 +19,13 @@ module.exports = {
     'react/prop-types': 'off',
     'no-unused-vars': 'warn',
   },
+  overrides: [
+    {
+      files: ['api/**/*.js'],
+      env: { node: true },
+      rules: {
+        'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      },
+    },
+  ],
 }

@@ -5,6 +5,9 @@ import { MAPPED_BUILDINGS } from "../maps/campusBuildings.js";
 import { checkCampusLocation } from "../maps/location.js";
 import { STYLES } from "./portalStyles.js";
 import { assignIncident, createIncident, listResponders, subscribeIncidents, updateIncident } from "../incidentApi.js";
+import PushNotificationsButton from "../components/PushNotificationsButton.jsx";
+import CampusAlertComposer from "../components/CampusAlertComposer.jsx";
+import IncidentAnalyticsPanel from "../components/IncidentAnalyticsPanel.jsx";
 
 export default function AdminPortal({ user, authUser, onLogout }) {
   const [view, setView]             = useState(user.access === "staff" ? "input" : "dashboard");
@@ -59,6 +62,7 @@ export default function AdminPortal({ user, authUser, onLogout }) {
   const filtered = incidents.filter(i => (filterType==="all"||i.type===filterType) && (filterPri==="all"||i.priority===filterPri));
 
   const NAVITEMS = [
+    ["analytics","📊","Analytics"],
     ["dashboard","📡","Dashboard"],["incidents","🚨","Incidents"],["map","🗺","Live Map"],
     ["dispatch","⚡","Assignments"],["input","📥","Report Input"],
   ];
@@ -93,10 +97,13 @@ export default function AdminPortal({ user, authUser, onLogout }) {
               })}
             </div>
             <div style={{fontSize:10.5,color:"rgba(255,255,255,0.4)",fontFamily:"'IBM Plex Mono',monospace"}}>{new Date().toLocaleString("en-ZA")}</div>
+            <PushNotificationsButton user={authUser} compact />
             <button onClick={onLogout} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.14)",color:"rgba(255,255,255,0.6)",borderRadius:4,padding:"6px 14px",fontSize:12,cursor:"pointer"}}>Sign Out</button>
           </div>
         </div>
       </div>
+
+      {user.access === "admin" && <CampusAlertComposer user={authUser} />}
 
       {/* NAV */}
       <div style={{background:WHITE,borderBottom:`1px solid ${BD}`,position:"sticky",top:p1count>0?96:60,zIndex:99}}>
@@ -113,6 +120,8 @@ export default function AdminPortal({ user, authUser, onLogout }) {
         {dataError&&<div role="alert" style={{background:REDL,color:RED,padding:12,borderRadius:7,marginBottom:16}}>{dataError}</div>}
 
         {/* ── DASHBOARD ── */}
+        {view==="analytics"&&<IncidentAnalyticsPanel user={authUser} />}
+
         {view==="dashboard"&&(
           <div style={{animation:"fadeIn .35s ease"}}>
             {/* KPI row */}
