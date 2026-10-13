@@ -448,7 +448,11 @@ route("get", "/firebase-messaging-sw.js", async (_req, res) => {
 app.use((error, _req, res, _next) => {
   const status = error.status || (error.code === "auth/id-token-expired" || error.code === "auth/argument-error" ? 401 : 500);
   if (status >= 500) console.error("CEIS API request failed", error);
-  res.status(status).json({ error: status >= 500 ? "The request could not be completed." : error.message });
+  res.status(status).json({
+    error: status >= 500
+      ? error.publicMessage || "The request could not be completed."
+      : error.message,
+  });
 });
 
 export default app;

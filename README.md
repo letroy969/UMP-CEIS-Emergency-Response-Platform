@@ -35,7 +35,7 @@ Requirements: Node.js 18+ and npm 9+.
 7. Run the local frontend with `npm run dev`.
 
 Firebase web configuration is used by the browser SDK. Never put Firebase Admin service-account credentials in Vite variables or frontend code.
-The UMP-CEIS chatbot requires a server-only `GROQ_API_KEY`; add it to the Vercel project environment (and to the server environment when running the API locally). Do not prefix it with `VITE_` or expose it in browser code. The optional `GROQ_MODEL` variable overrides the default model.
+The UMP-CEIS chatbot requires a server-only `GROQ_API_KEY`; add it to the Vercel project environment (and to the server environment when running the API locally). Do not prefix it with `VITE_` or expose it in browser code. The optional `GROQ_MODEL` variable overrides the default `openai/gpt-oss-120b` model. After changing either variable in Vercel, redeploy the application.
 
 Self-service signup is for students only and requires an `@ump.ac.za` address, a password that meets the configured policy, and Firebase email verification. Verification confirms control of that mailbox only; it does not verify current enrolment or employment. Users choose between the Student and Staff sign-in portals, but portal selection does not grant privileges. Staff, admin, and responder accounts must be provisioned by a trusted administrator in the Firestore `users/{uid}` profile. Use the `roles` array for multiple portals, for example `roles: ["student", "admin"]`; the older single `role` field remains supported. Legacy `security` and `medical` roles are also treated as responders. For the first administrator, create and verify an account, then promote its profile using a trusted Firebase Console account. Never let a user promote their own role.
 
