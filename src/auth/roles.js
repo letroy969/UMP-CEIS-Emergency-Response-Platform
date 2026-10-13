@@ -20,3 +20,13 @@ export function profilePortals(profile) {
 export function defaultPortal(portals) {
   return ["admin", "responder", "staff", "student"].find(role => portals.includes(role)) || "student";
 }
+
+export function canAccessPortal(portals, portal) {
+  const acceptedRoles = {
+    student: ["student"],
+    staff: ["staff", "admin", "responder"],
+    admin: ["admin"],
+    responder: ["responder"],
+  };
+  return acceptedRoles[portal]?.some(role => portals.includes(role)) || false;
+}

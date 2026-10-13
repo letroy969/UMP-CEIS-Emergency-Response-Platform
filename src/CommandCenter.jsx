@@ -12,6 +12,7 @@ import { MAPPED_BUILDINGS } from "./maps/campusBuildings.js";
 import { checkCampusLocation, getCurrentLocation } from "./maps/location.js";
 import Signup from "./auth/Signup.jsx";
 import { auth } from "./lib/firebase.js";
+import { canAccessPortal } from "./auth/roles.js";
 import { isRegistrationInProgress, loadAppUser, requestPasswordReset, signInUser, signOutUser } from "./auth/firebaseAuth.js";
 import AdminPortal from "./pages/AdminPortal.jsx";
 import ResponderPortal from "./pages/ResponderPortal.jsx";
@@ -23,7 +24,7 @@ import { createCheckin, createIncident, getCheckin, listIncidents } from "./inci
    LOGIN PAGE
    ══════════════════════════════════════════════════════════════ */
 function LoginPage({ onLogin, onBack }) {
-  const [portal, setPortal]       = useState(null);  // "student" | "staff"
+  const [portal, setPortal]       = useState(null);
   const [authView, setAuthView]   = useState("portal");
   // onBack goes back to the public landing site
   const [emailVal, setEmailVal]   = useState("");
@@ -45,12 +46,15 @@ function LoginPage({ onLogin, onBack }) {
     try {
       const result = await signInUser(emailVal, pwdVal);
       const roles = result.user.roles || [result.user.portal];
-      if (portal === "student" && !roles.includes("student")) {
-        setLoginError("This account is assigned to the Staff Portal.");
-      } else if (portal === "staff" && !roles.some(role => ["staff", "admin", "responder"].includes(role))) {
-        setLoginError("This account is assigned to the Student Portal.");
+      if (!canAccessPortal(roles, portal)) {
+        const portalName = portal === "admin" ? "Admin" : portal === "responder" ? "Responder" : portal === "student" ? "Student" : "Staff";
+        setLoginError(`This account is not assigned to the ${portalName} Portal. Ask an administrator to update your Firestore profile.`);
       } else {
-        onLogin(result);
+        const selectedPortal = portal === "staff" && !roles.includes("staff") ? result.user.portal : portal;
+        onLogin({
+          ...result,
+          user: { ...result.user, portal: selectedPortal, role: selectedPortal, access: selectedPortal },
+        });
       }
     } catch (error) {
       setLoginError(error.message || "We could not sign you in. Check your details and verify your email address.");
@@ -120,6 +124,8 @@ function LoginPage({ onLogin, onBack }) {
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,padding:"14px 24px 28px"}}>{[
                 {key:"student",title:"Student Portal",sub:"Report incidents, check in, view safety status",icon:"🎓"},
                 {key:"staff",title:"Staff Portal",sub:"Incident reporting for UMP staff",icon:"🛡️"},
+                {key:"admin",title:"Admin Portal",sub:"Manage incidents, analytics, and responder dispatch",icon:"⚙️"},
+                {key:"responder",title:"Responder Portal",sub:"View and respond to assigned incidents",icon:"🚑"},
               ].map(item=><button key={item.key} onClick={()=>setPortal(item.key)} style={{background:"rgba(255,255,255,.08)",border:"1.5px solid rgba(255,255,255,.14)",borderRadius:12,padding:"22px 16px",cursor:"pointer",textAlign:"center",color:WHITE}}><div style={{fontSize:32,marginBottom:10}}>{item.icon}</div><div style={{fontSize:14,fontWeight:700,marginBottom:5}}>{item.title}</div><div style={{fontSize:11.5,color:"rgba(255,255,255,.58)",lineHeight:1.5}}>{item.sub}</div></button>)}</div>
             </div>
             <div style={{textAlign:"center",marginTop:18}}><button onClick={()=>setAuthView("register")} style={{background:"none",border:"1px solid rgba(255,255,255,.28)",borderRadius:7,padding:"10px 18px",color:WHITE,fontWeight:600,cursor:"pointer"}}>Create student account</button>{onBack&&<div><button onClick={onBack} style={{marginTop:12,background:"none",border:0,color:"rgba(255,255,255,.6)",cursor:"pointer"}}>← Back to Landing</button></div>}</div>
@@ -128,7 +134,7 @@ function LoginPage({ onLogin, onBack }) {
           <div style={{background:WHITE,borderRadius:16,overflow:"hidden",boxShadow:"0 24px 80px rgba(0,0,0,.45)",animation:shake?"shake .3s":"slideIn .35s ease"}}>
             <div style={{background:`linear-gradient(135deg,${NAVY},${NAVY2})`,padding:"22px 28px",borderBottom:`3px solid ${portal==="student"?GOLD:RED}`}}>
               <button onClick={()=>{setPortal(null);setEmailVal("");setPwdVal("");setLoginError("");}} style={{background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.14)",color:"rgba(255,255,255,.7)",borderRadius:4,padding:"4px 10px",fontSize:11,cursor:"pointer",marginBottom:10}}>← Change portal</button>
-              <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,.55)",letterSpacing:2,textTransform:"uppercase",marginBottom:5}}>{portal==="student"?"Student Portal":"Command Centre Access"}</div><div style={{fontSize:20,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>Sign In</div>
+              <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,.55)",letterSpacing:2,textTransform:"uppercase",marginBottom:5}}>{portal==="student"?"Student Portal":portal==="admin"?"Admin Portal":portal==="responder"?"Responder Portal":"Staff Portal"}</div><div style={{fontSize:20,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>Sign In</div>
             </div>
             <form onSubmit={event=>{event.preventDefault();handleSubmit();}} style={{padding:"26px 28px"}}>
               <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:15}}>UMP email address<input type="email" autoComplete="username" value={emailVal} onChange={event=>setEmailVal(event.target.value)} required pattern="[^\s@]+@ump\.ac\.za" title="Use an address ending in @ump.ac.za." placeholder="name@ump.ac.za" style={{display:"block",width:"100%",marginTop:7,padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/></label>

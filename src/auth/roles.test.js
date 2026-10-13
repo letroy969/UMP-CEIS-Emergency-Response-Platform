@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { defaultPortal, profilePortals } from "./roles.js";
+import { canAccessPortal, defaultPortal, profilePortals } from "./roles.js";
 
 test("profilePortals supports student and admin roles together", () => {
   const portals = profilePortals({ roles: ["student", "admin"] });
@@ -16,4 +16,12 @@ test("profilePortals supports legacy and array-valued role fields", () => {
 
 test("profilePortals ignores unknown roles and safely defaults to student", () => {
   assert.deepEqual(profilePortals({ roles: ["unknown"] }), ["student"]);
+});
+
+test("portal sign-in requires the matching privileged role", () => {
+  const portals = ["student", "admin", "responder"];
+
+  assert.equal(canAccessPortal(portals, "admin"), true);
+  assert.equal(canAccessPortal(portals, "responder"), true);
+  assert.equal(canAccessPortal(["student"], "admin"), false);
 });
