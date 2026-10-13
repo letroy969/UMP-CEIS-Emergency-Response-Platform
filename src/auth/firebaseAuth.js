@@ -33,6 +33,12 @@ export function validateNewPassword(password) {
   return "";
 }
 
+function emailActionUrl(path) {
+  const url = new URL(path, window.location.origin);
+  if (url.hostname === "127.0.0.1") url.hostname = "localhost";
+  return url.toString();
+}
+
 function authError(error) {
   const messages = {
     "auth/email-already-in-use": "An account already exists for this email. Sign in or use password reset.",
@@ -42,6 +48,7 @@ function authError(error) {
     "auth/weak-password": "Choose a stronger password.",
     "auth/network-request-failed": "Could not connect to Firebase. Check your connection and try again.",
     "auth/operation-not-allowed": "Email/password sign-in is not enabled in Firebase Authentication yet.",
+    "auth/unauthorized-continue-uri": "Firebase does not allow this email link's return address. In Firebase Console, open Authentication → Settings → Authorized domains and add localhost for local testing or your deployed app domain.",
   };
   return new Error(messages[error.code] || error.message || "Authentication failed. Please try again.");
 }
@@ -94,7 +101,7 @@ export async function registerUser({ fullName, email, password }) {
       createdAt: serverTimestamp(),
     });
     await sendEmailVerification(credential.user, {
-      url: `${window.location.origin}/verify-email`,
+      url: emailActionUrl("/verify-email"),
       handleCodeInApp: true,
     });
     await signOut(auth);
@@ -112,7 +119,7 @@ export async function signInUser(email, password) {
     await credential.user.reload();
     if (!credential.user.emailVerified) {
       await sendEmailVerification(credential.user, {
-        url: `${window.location.origin}/verify-email`,
+        url: emailActionUrl("/verify-email"),
         handleCodeInApp: true,
       });
       await signOut(auth);
@@ -132,7 +139,7 @@ export async function requestPasswordReset(email) {
   }
   try {
     await sendPasswordResetEmail(auth, email.trim().toLowerCase(), {
-      url: `${window.location.origin}/`,
+      url: emailActionUrl("/"),
       handleCodeInApp: false,
     });
   } catch (error) {
