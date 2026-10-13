@@ -6,7 +6,7 @@ import {
   signOut,
   updateProfile,
 } from "firebase/auth";
-import { doc, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../lib/firebase.js";
 
 const ROLE_PORTALS = {
@@ -18,8 +18,24 @@ const ROLE_PORTALS = {
   medical: "responder",
 };
 
+let registrationInProgress = false;
+
+export function isRegistrationInProgress() {
+  return registrationInProgress;
+}
+
 export function isUmpEmail(email) {
   return /^[^\s@]+@ump\.ac\.za$/i.test(email.trim());
+}
+
+function waitForFirebaseOperation(operation, description, timeoutMs = 30000) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(`Firebase is taking too long while ${description}. Check your connection and Firebase configuration, then try again.`));
+    }, timeoutMs);
+  });
+  return Promise.race([operation, timeout]).finally(() => window.clearTimeout(timeoutId));
 }
 
 export function validateNewPassword(password) {
@@ -41,7 +57,7 @@ function emailActionUrl(path) {
 
 function authError(error) {
   const messages = {
-    "auth/email-already-in-use": "An account already exists for this email. Sign in or use password reset.",
+    "auth/email-already-in-use": "An account already exists for this email. Sign in to request another verification email, or use password reset.",
     "auth/invalid-credential": "We could not sign you in. Check your email and password.",
     "auth/invalid-email": "Enter a valid email address.",
     "auth/too-many-requests": "Too many attempts. Wait a while and try again.",
@@ -49,6 +65,7 @@ function authError(error) {
     "auth/network-request-failed": "Could not connect to Firebase. Check your connection and try again.",
     "auth/operation-not-allowed": "Email/password sign-in is not enabled in Firebase Authentication yet.",
     "permission-denied": "Could not create your student profile in Cloud Firestore. Check the Firestore users create rule and Firebase project configuration.",
+    "firestore/permission-denied": "Could not create your student profile in Cloud Firestore. Check the Firestore users create rule and Firebase project configuration.",
     "auth/unauthorized-continue-uri": "Firebase does not allow this email link's return address. In Firebase Console, open Authentication → Settings → Authorized domains and add localhost for local testing or your deployed app domain.",
   };
   return new Error(messages[error.code] || error.message || "Authentication failed. Please try again.");
@@ -106,7 +123,7 @@ export async function loadAppUser(firebaseUser) {
   return appUser(firebaseUser, profile);
 }
 
-export async function registerUser({ fullName, email, password }) {
+export async function registerUser({ fullName, email, password, onProgress = () => {} }) {
   const normalizedName = fullName.trim();
   if (normalizedName.length < 2 || normalizedName.length > 100) {
     throw new Error("Enter a name between 2 and 100 characters.");
@@ -116,22 +133,47 @@ export async function registerUser({ fullName, email, password }) {
   }
   const passwordError = validateNewPassword(password);
   if (passwordError) throw new Error(passwordError);
+  registrationInProgress = true;
+  let credential;
+  const signupDeadline = Date.now() + 4500;
   try {
-    const credential = await createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
-    await setDoc(doc(db, "users", credential.user.uid), {
-      uid: credential.user.uid,
-      email: credential.user.email,
-      fullName: normalizedName,
-      role: "student",
-      createdAt: serverTimestamp(),
-    });
-    await updateProfile(credential.user, { displayName: normalizedName });
-    await sendEmailVerification(credential.user, {
+    onProgress("Creating your Firebase account…");
+    credential = await waitForFirebaseOperation(
+      createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password),
+      "creating your account",
+      Math.max(1, signupDeadline - Date.now()),
+    );
+    await waitForFirebaseOperation(
+      updateProfile(credential.user, { displayName: normalizedName }),
+      "updating your account",
+      Math.max(1, signupDeadline - Date.now()),
+    );
+    onProgress("Sending your verification email…");
+    const verificationEmail = waitForFirebaseOperation(sendEmailVerification(credential.user, {
       url: emailActionUrl("/verify-email"),
       handleCodeInApp: true,
-    });
-    await signOut(auth);
+    }), "requesting the verification email", 5000)
+      .then(() => null, error => authError(error))
+      .finally(async () => {
+        try {
+          if (auth.currentUser?.uid === credential.user.uid) await signOut(auth);
+        } catch (error) {
+          console.error("Could not sign out after registration", error);
+        } finally {
+          registrationInProgress = false;
+        }
+      });
+    return { verificationEmail };
   } catch (error) {
+    try {
+      if (credential && auth.currentUser?.uid === credential.user.uid) {
+        await signOut(auth);
+      }
+    } catch (signOutError) {
+      console.error("Could not sign out after registration failed", signOutError);
+    } finally {
+      registrationInProgress = false;
+    }
     throw authError(error);
   }
 }

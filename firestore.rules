@@ -49,7 +49,7 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow create: if campusEmail()
+      allow create: if verified()
         && request.auth.uid == userId
         && request.resource.data.keys().hasOnly(['uid', 'email', 'fullName', 'role', 'createdAt'])
         && request.resource.data.uid == userId

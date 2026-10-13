@@ -12,7 +12,7 @@ import { MAPPED_BUILDINGS } from "./maps/campusBuildings.js";
 import { checkCampusLocation, getCurrentLocation } from "./maps/location.js";
 import Signup from "./auth/Signup.jsx";
 import { auth } from "./lib/firebase.js";
-import { loadAppUser, requestPasswordReset, signInUser, signOutUser } from "./auth/firebaseAuth.js";
+import { isRegistrationInProgress, loadAppUser, requestPasswordReset, signInUser, signOutUser } from "./auth/firebaseAuth.js";
 import { assignIncident, createCheckin, createIncident, getCheckin, listIncidents, listResponders, subscribeIncidents, updateIncident } from "./incidentApi.js";
 
 
@@ -1105,6 +1105,10 @@ export default function CommandCenterApp({ onBack }) {
   useEffect(() => {
     let active = true;
     const unsubscribe = onAuthStateChanged(auth, async firebaseUser => {
+      if (isRegistrationInProgress()) {
+        if (active) setAuthLoading(false);
+        return;
+      }
       if (!firebaseUser) {
         if (active) {
           setSession(null);

@@ -15,7 +15,11 @@ import VerifyEmail from "./auth/VerifyEmail.jsx";
  * its own login, student portal, and admin dashboard routing internally.
  */
 export default function App() {
-  const [screen, setScreen] = useState("landing");
+  const [screen, setScreen] = useState(() =>
+    new URLSearchParams(window.location.search).get("access") === "system"
+      ? "system"
+      : "landing",
+  );
 
   if (window.location.pathname === "/verify-email") return <VerifyEmail />;
 

@@ -21,11 +21,24 @@ export default function Signup({ onBack }) {
     if (password !== confirm) { setMessage("The passwords do not match."); return; }
     setLoading(true);
     try {
-      await registerUser({ fullName, email, password });
+      const { verificationEmail } = await registerUser({
+        fullName,
+        email,
+        password,
+        onProgress: setMessage,
+      });
       setPassword("");
       setConfirm("");
       setSuccess(true);
-      setMessage("A Firebase verification email has been sent. Verify your address before signing in, and check your spam folder.");
+      setMessage("Your account is created. A verification email is being sent; open its link, then sign in to access CEIS.");
+      verificationEmail.then(error => {
+        if (error) {
+          setSuccess(false);
+          setMessage(`Your account was created, but the verification email could not be requested: ${error.message} Sign in to request another verification email.`);
+          return;
+        }
+        setMessage("Your account is created. Open the verification link in your university email, then sign in to access CEIS.");
+      });
     } catch (error) {
       setMessage(error.message || "Could not connect to the authentication service.");
     } finally {
@@ -47,8 +60,8 @@ export default function Signup({ onBack }) {
         <label style={labelStyle}>UMP email address<input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="student@ump.ac.za" autoComplete="email" required pattern="[^\s@]+@ump\.ac\.za" title="Use an address ending in @ump.ac.za." style={inputStyle}/></label>
         <label style={labelStyle}>Password<input value={password} onChange={e=>setPassword(e.target.value)} type="password" autoComplete="new-password" minLength={12} maxLength={128} required style={inputStyle}/><span style={{display:"block",fontSize:11,fontWeight:400,textTransform:"none",letterSpacing:0,color:SL,marginTop:5}}>12–128 characters; include uppercase, lowercase, a number, and a symbol.</span></label>
         <label style={labelStyle}>Confirm password<input value={confirm} onChange={e=>setConfirm(e.target.value)} type="password" autoComplete="new-password" minLength={12} maxLength={128} required style={inputStyle}/></label>
-        {message&&<p role="status" style={{background:success?`${GREEN}14`:REDL,color:success?GREEN:RED,padding:11,borderRadius:7,fontSize:12.5,lineHeight:1.55,marginBottom:14}}>{message}</p>}
-        <button type="submit" disabled={loading} style={{position:"sticky",bottom:0,zIndex:2,width:"100%",padding:13,marginTop:14,background:NAVY,color:WHITE,border:0,borderRadius:7,fontSize:14,fontWeight:700,cursor:loading?"wait":"pointer",opacity:loading ? .75 : 1,boxShadow:"0 -8px 16px rgba(255,255,255,.92)"}}>{loading?"Creating account…":"Create account"}</button>
+        {message&&<p role="status" style={{background:loading?`${NAVY}0D`:success?`${GREEN}14`:REDL,color:loading?NAVY:success?GREEN:RED,padding:11,borderRadius:7,fontSize:12.5,lineHeight:1.55,marginBottom:14}}>{message}</p>}
+        <button type="submit" disabled={loading} style={{position:"sticky",bottom:0,zIndex:2,width:"100%",padding:13,marginTop:14,background:NAVY,color:WHITE,border:0,borderRadius:7,fontSize:14,fontWeight:700,cursor:loading?"wait":"pointer",opacity:loading ? .75 : 1,boxShadow:"0 -8px 16px rgba(255,255,255,.92)"}}>{loading?(message||"Creating account…"):"Create account"}</button>
       </form>
     </div>
   );
