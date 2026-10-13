@@ -8,15 +8,7 @@ import {
 } from "firebase/auth";
 import { doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../lib/firebase.js";
-
-const ROLE_PORTALS = {
-  student: "student",
-  staff: "staff",
-  admin: "admin",
-  responder: "responder",
-  security: "responder",
-  medical: "responder",
-};
+import { defaultPortal, profilePortals } from "./roles.js";
 
 let registrationInProgress = false;
 
@@ -72,11 +64,9 @@ function authError(error) {
 }
 
 function appUser(firebaseUser, profile) {
-  const storedRole = profile.role;
-  const role = storedRole === "security" || storedRole === "medical"
-    ? "responder"
-    : ROLE_PORTALS[storedRole] ? storedRole : "student";
-  const portal = ROLE_PORTALS[role];
+  const roles = profilePortals(profile);
+  const portal = defaultPortal(roles);
+  const role = portal;
   return {
     id: firebaseUser.uid,
     uid: firebaseUser.uid,
@@ -88,6 +78,7 @@ function appUser(firebaseUser, profile) {
     role,
     access: role,
     portal,
+    roles,
   };
 }
 

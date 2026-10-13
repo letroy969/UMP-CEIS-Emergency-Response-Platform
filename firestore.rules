@@ -20,18 +20,37 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/users/$(uid));
     }
 
-    function profileRole(uid) {
-      return get(/databases/$(database)/documents/users/$(uid)).data.role;
+    function hasRole(profile, expectedRole) {
+      return ('role' in profile
+          && (profile.role == expectedRole
+            || (profile.role is list && expectedRole in profile.role)))
+        || ('roles' in profile
+          && profile.roles is list
+          && expectedRole in profile.roles);
+    }
+
+    function hasAnyRole(profile, expectedRoles) {
+      return ('role' in profile
+          && ((profile.role is string && profile.role in expectedRoles)
+            || (profile.role is list && profile.role.hasAny(expectedRoles))))
+        || ('roles' in profile
+          && profile.roles is list
+          && profile.roles.hasAny(expectedRoles));
+    }
+
+    function profileHasRole(uid, expectedRole) {
+      return profileExists(uid)
+        && hasRole(get(/databases/$(database)/documents/users/$(uid)).data, expectedRole);
     }
 
     function admin() {
-      return verified() && profileExists(request.auth.uid) && profileRole(request.auth.uid) == 'admin';
+      return verified() && profileHasRole(request.auth.uid, 'admin');
     }
 
     function responder() {
       return verified()
         && profileExists(request.auth.uid)
-        && profileRole(request.auth.uid) in ['responder', 'security', 'medical'];
+        && hasAnyRole(get(/databases/$(database)/documents/users/$(request.auth.uid)).data, ['responder', 'security', 'medical']);
     }
 
     function validCoordinates(data) {
@@ -44,8 +63,7 @@ service cloud.firestore {
       return uid == null
         || (uid is string
           && exists(/databases/$(database)/documents/users/$(uid))
-          && get(/databases/$(database)/documents/users/$(uid)).data.role
-            in ['responder', 'security', 'medical']);
+          && hasAnyRole(get(/databases/$(database)/documents/users/$(uid)).data, ['responder', 'security', 'medical']));
     }
 
     match /users/{userId} {

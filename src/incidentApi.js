@@ -160,13 +160,18 @@ export async function updateIncident(user, update) {
 export async function listResponders(user) {
   if (!user || user.role !== "admin") throw new Error("Admin access is required to view responders.");
   try {
-    const snapshot = await getDocs(query(
-      collection(db, "users"),
-      where("role", "in", ["responder", "security", "medical"]),
-      limit(100),
-    ));
-    return snapshot.docs
-      .map(item => ({ uid: item.id, name: item.data().fullName || item.data().email || "Responder" }))
+    const users = collection(db, "users");
+    const [legacyProfiles, roleArrays, roleFieldArrays] = await Promise.all([
+      getDocs(query(users, where("role", "in", ["responder", "security", "medical"]), limit(100))),
+      getDocs(query(users, where("roles", "array-contains-any", ["responder", "security", "medical"]), limit(100))),
+      getDocs(query(users, where("role", "array-contains-any", ["responder", "security", "medical"]), limit(100))),
+    ]);
+    const profiles = new Map();
+    for (const snapshot of [legacyProfiles, roleArrays, roleFieldArrays]) {
+      for (const item of snapshot.docs) profiles.set(item.id, item.data());
+    }
+    return [...profiles]
+      .map(([uid, profile]) => ({ uid, name: profile.fullName || profile.email || "Responder" }))
       .sort((a, b) => a.name.localeCompare(b.name));
   } catch (error) {
     fail(error, "Could not load the responder roster.");
