@@ -12,8 +12,8 @@ import { MAPPED_BUILDINGS } from "./maps/campusBuildings.js";
 import { checkCampusLocation, getCurrentLocation } from "./maps/location.js";
 import Signup from "./auth/Signup.jsx";
 import { auth } from "./lib/firebase.js";
-import { loadAppUser, signInUser, signOutUser } from "./auth/firebaseAuth.js";
-import { createCheckin, createIncident, getCheckin, listIncidents, updateIncident } from "./incidentApi.js";
+import { loadAppUser, requestPasswordReset, signInUser, signOutUser } from "./auth/firebaseAuth.js";
+import { assignIncident, createCheckin, createIncident, getCheckin, listIncidents, listResponders, subscribeIncidents, updateIncident } from "./incidentApi.js";
 
 
 /* ── GLOBAL STYLES ────────────────────────────────────────────── */
@@ -41,11 +41,13 @@ function LoginPage({ onLogin, onBack }) {
   const [pwdVal, setPwdVal]       = useState("");
   const [showPwd, setShowPwd]     = useState(false);
   const [loginError, setLoginError] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
+  const [resetSuccess, setResetSuccess] = useState(false);
   const [loading, setLoading]     = useState(false);
   const [shake, setShake]         = useState(false);
 
   async function handleSubmit() {
-    if (!/^\S+@ump\.ac\.za$/i.test(emailVal.trim()) || !pwdVal) {
+    if (!/^[^\s@]+@ump\.ac\.za$/i.test(emailVal.trim()) || !pwdVal) {
       setLoginError("Enter your @ump.ac.za email address and password.");
       return;
     }
@@ -53,9 +55,10 @@ function LoginPage({ onLogin, onBack }) {
     setLoading(true);
     try {
       const result = await signInUser(emailVal, pwdVal);
-      const isStaff = result.user.portal === "staff";
-      if ((portal === "staff") !== isStaff) {
-        setLoginError(portal === "staff" ? "This account is not provisioned for staff access." : "Use the Command Centre portal for this account.");
+      if (portal === "student" && result.user.portal !== "student") {
+        setLoginError("This account is assigned to the Staff Portal.");
+      } else if (portal === "staff" && result.user.portal === "student") {
+        setLoginError("This account is assigned to the Student Portal.");
       } else {
         onLogin(result);
       }
@@ -63,6 +66,26 @@ function LoginPage({ onLogin, onBack }) {
       setLoginError(error.message || "We could not sign you in. Check your details and verify your email address.");
       setShake(true);
       setTimeout(()=>setShake(false),600);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePasswordReset(event) {
+    event.preventDefault();
+    setResetMessage("");
+    setResetSuccess(false);
+    if (!/^[^\s@]+@ump\.ac\.za$/i.test(emailVal.trim())) {
+      setResetMessage("Enter your university email address ending in @ump.ac.za.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await requestPasswordReset(emailVal);
+      setResetSuccess(true);
+      setResetMessage("If an account exists for that address, Firebase will send a password reset link. Check your inbox and spam folder.");
+    } catch (error) {
+      setResetMessage(error.message || "Could not request a password reset. Try again.");
     } finally {
       setLoading(false);
     }
@@ -85,13 +108,28 @@ function LoginPage({ onLogin, onBack }) {
           <div style={{fontSize:26,fontWeight:800,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>CEIS Command Centre</div>
           <div style={{fontSize:12,color:"rgba(255,255,255,.4)",marginTop:4}}>Campus Emergency Intelligence System</div>
         </div>
-        {authView === "register" ? <Signup onBack={()=>setAuthView("portal")}/> : !portal ? (
+        {authView === "register" ? <Signup onBack={()=>setAuthView("portal")}/> : authView === "reset" ? (
+          <div style={{background:WHITE,borderRadius:16,overflow:"hidden",boxShadow:"0 24px 80px rgba(0,0,0,.45)"}}>
+            <div style={{background:`linear-gradient(135deg,${NAVY},${NAVY2})`,padding:"22px 28px",borderBottom:`3px solid ${GOLD}`}}>
+              <button type="button" onClick={()=>{setAuthView("portal");setResetMessage("");}} style={{background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.14)",color:"rgba(255,255,255,.7)",borderRadius:4,padding:"4px 10px",fontSize:11,cursor:"pointer",marginBottom:10}}>← Back to sign in</button>
+              <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,.55)",letterSpacing:2,textTransform:"uppercase",marginBottom:5}}>Firebase account recovery</div>
+              <div style={{fontSize:20,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>Reset your password</div>
+            </div>
+            <form onSubmit={handlePasswordReset} style={{padding:"26px 28px"}}>
+              <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:15}}>UMP email address
+                <input type="email" autoComplete="username" value={emailVal} onChange={event=>setEmailVal(event.target.value)} required pattern="[^\s@]+@ump\.ac\.za" title="Use an address ending in @ump.ac.za." placeholder="name@ump.ac.za" style={{display:"block",width:"100%",marginTop:7,padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/>
+              </label>
+              {resetMessage&&<div role="status" style={{fontSize:12,color:resetSuccess?GREEN:RED,background:resetSuccess?`${GREEN}14`:REDL,borderRadius:6,padding:10,margin:"10px 0 14px"}}>{resetMessage}</div>}
+              <button type="submit" disabled={loading} style={{width:"100%",padding:13,marginTop:13,background:NAVY,color:WHITE,border:0,borderRadius:7,fontSize:15,fontWeight:700,cursor:loading?"wait":"pointer"}}>{loading?"Sending…":"Send reset link"}</button>
+            </form>
+          </div>
+        ) : !portal ? (
           <div style={{animation:"fadeIn .4s ease"}}>
             <div style={{background:"rgba(255,255,255,.06)",backdropFilter:"blur(12px)",borderRadius:16,border:"1px solid rgba(255,255,255,.12)",overflow:"hidden"}}>
               <div style={{padding:"22px 28px 14px",textAlign:"center",color:"rgba(255,255,255,.65)",fontSize:13}}>Select your access portal to continue</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,padding:"14px 24px 28px"}}>{[
                 {key:"student",title:"Student Portal",sub:"Report incidents, check in, view safety status",icon:"🎓"},
-                {key:"staff",title:"Command Centre",sub:"Provisioned staff access",icon:"🛡️"},
+                {key:"staff",title:"Staff Portal",sub:"Incident reporting for UMP staff",icon:"🛡️"},
               ].map(item=><button key={item.key} onClick={()=>setPortal(item.key)} style={{background:"rgba(255,255,255,.08)",border:"1.5px solid rgba(255,255,255,.14)",borderRadius:12,padding:"22px 16px",cursor:"pointer",textAlign:"center",color:WHITE}}><div style={{fontSize:32,marginBottom:10}}>{item.icon}</div><div style={{fontSize:14,fontWeight:700,marginBottom:5}}>{item.title}</div><div style={{fontSize:11.5,color:"rgba(255,255,255,.58)",lineHeight:1.5}}>{item.sub}</div></button>)}</div>
             </div>
             <div style={{textAlign:"center",marginTop:18}}><button onClick={()=>setAuthView("register")} style={{background:"none",border:"1px solid rgba(255,255,255,.28)",borderRadius:7,padding:"10px 18px",color:WHITE,fontWeight:600,cursor:"pointer"}}>Create student account</button>{onBack&&<div><button onClick={onBack} style={{marginTop:12,background:"none",border:0,color:"rgba(255,255,255,.6)",cursor:"pointer"}}>← Back to Landing</button></div>}</div>
@@ -103,10 +141,11 @@ function LoginPage({ onLogin, onBack }) {
               <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,.55)",letterSpacing:2,textTransform:"uppercase",marginBottom:5}}>{portal==="student"?"Student Portal":"Command Centre Access"}</div><div style={{fontSize:20,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>Sign In</div>
             </div>
             <form onSubmit={event=>{event.preventDefault();handleSubmit();}} style={{padding:"26px 28px"}}>
-              <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:15}}>UMP email address<input type="email" autoComplete="username" value={emailVal} onChange={event=>setEmailVal(event.target.value)} required placeholder="name@ump.ac.za" style={{display:"block",width:"100%",marginTop:7,padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/></label>
+              <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:15}}>UMP email address<input type="email" autoComplete="username" value={emailVal} onChange={event=>setEmailVal(event.target.value)} required pattern="[^\s@]+@ump\.ac\.za" title="Use an address ending in @ump.ac.za." placeholder="name@ump.ac.za" style={{display:"block",width:"100%",marginTop:7,padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/></label>
               <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:6}}>Password<div style={{position:"relative",marginTop:7}}><input type={showPwd?"text":"password"} autoComplete="current-password" value={pwdVal} onChange={event=>setPwdVal(event.target.value)} required style={{width:"100%",padding:"11px 42px 11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/><button type="button" onClick={()=>setShowPwd(value=>!value)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:0,cursor:"pointer"}}>{showPwd?"🙈":"👁"}</button></div></label>
               {loginError&&<div role="status" style={{fontSize:12,color:RED,background:REDL,borderRadius:6,padding:10,margin:"10px 0 14px"}}>{loginError}</div>}
               <button type="submit" disabled={loading} style={{width:"100%",padding:13,marginTop:13,background:portal==="student"?NAVY:RED,color:WHITE,border:0,borderRadius:7,fontSize:15,fontWeight:700,cursor:loading?"wait":"pointer"}}>{loading?"Signing in…":"Sign in"}</button>
+              <button type="button" onClick={()=>{setResetMessage("");setAuthView("reset");}} style={{display:"block",margin:"15px auto 0",padding:4,border:0,background:"none",color:NAVY,fontSize:12,fontWeight:700,cursor:"pointer"}}>Forgot password?</button>
             </form>
           </div>
         )}
@@ -199,7 +238,7 @@ function StudentPortal({ user, authUser, onLogout }) {
       
       <div style={{borderLeft:"1px solid rgba(255,255,255,0.15)",paddingLeft:12}}>
         <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:1.8,textTransform:"uppercase"}}>
-          Student Portal
+          {user.portal === "staff" ? "Staff Portal" : "Student Portal"}
         </div>
         <div style={{fontSize:14,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>
           {user.name}
@@ -495,11 +534,20 @@ function CommandCentre({ user, authUser, onLogout }) {
   const [filterType, setFilterType] = useState("all");
   const [filterPri, setFilterPri]   = useState("all");
   const [dispatchMsg, setDispatchMsg] = useState("");
+  const [responders, setResponders] = useState([]);
+  const [selectedResponders, setSelectedResponders] = useState({});
   const [dataError, setDataError] = useState("");
   useEffect(() => {
     let active = true;
-    listIncidents(authUser).then(rows => { if (active) setIncidents(rows); }).catch(error => { if (active) setDataError(error.message); });
-    return () => { active = false; };
+    const unsubscribe = subscribeIncidents(
+      authUser,
+      rows => { if (active) setIncidents(rows); },
+      error => { if (active) setDataError(error.message); },
+    );
+    listResponders(authUser)
+      .then(roster => { if (active) setResponders(roster); })
+      .catch(error => { if (active) setDataError(error.message); });
+    return () => { active = false; unsubscribe(); };
   }, [authUser]);
   async function updateStatus(id, status) {
     try {
@@ -509,18 +557,24 @@ function CommandCentre({ user, authUser, onLogout }) {
       setDataError("");
     } catch (error) { setDataError(error.message); }
   }
-  async function assignResponder(id, responder) {
+  async function assignResponder(id, responderUid) {
+    const responder = responders.find(item => item.uid === responderUid);
+    if (!responder) {
+      setDataError("Select a provisioned responder before dispatching.");
+      return;
+    }
     try {
-      const updated = await updateIncident(authUser, { id, responder, status:"TEAM_DISPATCHED" });
+      const updated = await assignIncident(authUser, id, responder);
       setIncidents(prev => prev.map(i => i.id===id ? updated : i));
       if (selectedInc?.id===id) setSelectedInc(updated);
       setDataError("");
     } catch (error) { setDataError(error.message); return; }
-    setDispatchMsg(`Team dispatched: ${responder}`);
+    setDispatchMsg(`Dispatch sent to ${responder.name}`);
     setTimeout(()=>setDispatchMsg(""),3000);
   }
 
   const active = incidents.filter(i=>!["RESOLVED","CLOSED"].includes(i.status));
+  const isToday = value => value && new Date(value).toDateString() === new Date().toDateString();
   const p1count = active.filter(i=>i.priority==="P1").length;
   const filtered = incidents.filter(i => (filterType==="all"||i.type===filterType) && (filterPri==="all"||i.priority===filterPri));
 
@@ -528,12 +582,6 @@ function CommandCentre({ user, authUser, onLogout }) {
     ["dashboard","📡","Dashboard"],["incidents","🚨","Incidents"],["map","🗺","Live Map"],
     ["dispatch","⚡","Assignments"],["input","📥","Report Input"],
   ];
-  const canAccess = (view) => {
-    if (user.access === "staff") return view === "input";
-    if (user.access==="medical"  && ["dispatch"].includes(view)) return false;
-    return true;
-  };
-
   return (
     <div style={{minHeight:"100vh",background:PAPER,fontFamily:"'IBM Plex Sans',sans-serif"}}>
       <style>{STYLES}</style>
@@ -573,7 +621,7 @@ function CommandCentre({ user, authUser, onLogout }) {
       {/* NAV */}
       <div style={{background:WHITE,borderBottom:`1px solid ${BD}`,position:"sticky",top:p1count>0?96:60,zIndex:99}}>
         <div style={{maxWidth:1400,margin:"0 auto",padding:"0 3%",display:"flex",gap:0}}>
-          {NAVITEMS.filter(([k])=>canAccess(k)).map(([k,ico,lbl])=>(
+          {NAVITEMS.map(([k,ico,lbl])=>(
             <button key={k} onClick={()=>setView(k)} style={{padding:"11px 18px",background:"none",border:"none",borderBottom:`2px solid ${view===k?RED:"transparent"}`,color:view===k?RED:MID,fontSize:12.5,fontWeight:view===k?700:500,cursor:"pointer",display:"flex",alignItems:"center",gap:6,marginBottom:-1,transition:"all .2s"}}>
               <span>{ico}</span>{lbl}
             </button>
@@ -593,8 +641,8 @@ function CommandCentre({ user, authUser, onLogout }) {
                 { label:"Active Incidents", value:active.length, color:ORANGE, sub:"across campus" },
                 { label:"Critical (P1)",    value:p1count, color:RED,    sub:"need immediate response" },
                 { label:"High (P2)",        value:active.filter(i=>i.priority==="P2").length, color:"#B85000", sub:"urgent response" },
-                { label:"Resolved Today",   value:incidents.filter(i=>i.status==="RESOLVED").length, color:GREEN, sub:"incidents closed" },
-                { label:"Total Logged",     value:incidents.length, color:NAVY, sub:"all incidents today" },
+                { label:"Resolved Today",   value:incidents.filter(i=>["RESOLVED","CLOSED"].includes(i.status) && isToday(i.resolvedAt)).length, color:GREEN, sub:"incidents closed" },
+                { label:"Reported Today",   value:incidents.filter(i=>isToday(i.createdAt)).length, color:NAVY, sub:"new incident reports" },
               ].map((k,i)=>(
                 <div key={i} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:9,borderTop:`3px solid ${k.color}`,padding:"14px 16px"}}>
                   <div style={{fontSize:9.5,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1.2,marginBottom:6}}>{k.label}</div>
@@ -713,7 +761,7 @@ function CommandCentre({ user, authUser, onLogout }) {
                   {/* Status update */}
                   <div style={{fontSize:10,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Update Status</div>
                   <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
-                    {STATUS_FLOW.map(s=>(
+                    {STATUS_FLOW.filter(s=>s!=="TEAM_DISPATCHED").map(s=>(
                       <button key={s} onClick={()=>updateStatus(selectedInc.id,s)}
                         style={{padding:"6px 12px",background:selectedInc.status===s?NAVY:WHITE,color:selectedInc.status===s?WHITE:SL,border:`1.5px solid ${selectedInc.status===s?NAVY:BD}`,borderRadius:5,fontSize:11,fontWeight:selectedInc.status===s?700:500,cursor:"pointer",transition:"all .15s"}}>
                         {STATUS_LABEL[s]}
@@ -723,12 +771,21 @@ function CommandCentre({ user, authUser, onLogout }) {
                   {/* Quick dispatch */}
                   <div style={{fontSize:10,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Quick Dispatch</div>
                   {dispatchMsg&&<div style={{padding:"8px 12px",background:GREENL,border:`1px solid ${GREEN}28`,borderRadius:6,fontSize:12,color:GREEN,marginBottom:10}}>✓ {dispatchMsg}</div>}
-                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                    {[["Security","Sgt. Mthembu + Unit 2"],["Medical","Sr. Mahlangu + Emergency Kit"],["Fire + Security","Fire Response Team + Security"],["All Units","All available response units"]].map(([l,r])=>(
-                      <button key={l} onClick={()=>assignResponder(selectedInc.id,r)} style={{padding:"9px 14px",background:PAPER,border:`1px solid ${BD}`,borderRadius:6,cursor:"pointer",textAlign:"left",fontSize:12.5,color:NK,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <span>{l}</span><span style={{fontSize:11,color:MID}}>→ {r}</span>
-                      </button>
-                    ))}
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    <select
+                      aria-label="Choose responder for selected incident"
+                      value={selectedResponders[selectedInc.id] || ""}
+                      onChange={event=>setSelectedResponders(value=>({...value,[selectedInc.id]:event.target.value}))}
+                      style={{flex:1,minWidth:0,padding:"9px 10px",border:`1px solid ${BD}`,borderRadius:6,color:NK,background:WHITE}}
+                    >
+                      <option value="">Select responder</option>
+                      {responders.map(person=><option key={person.uid} value={person.uid}>{person.name}</option>)}
+                    </select>
+                    <button
+                      disabled={!selectedResponders[selectedInc.id]}
+                      onClick={()=>assignResponder(selectedInc.id,selectedResponders[selectedInc.id])}
+                      style={{padding:"9px 12px",background:NAVY,color:WHITE,border:0,borderRadius:6,fontWeight:700,cursor:"pointer",opacity:selectedResponders[selectedInc.id]?1:0.55}}
+                    >Dispatch</button>
                   </div>
                 </div>
               </div>
@@ -811,7 +868,8 @@ function CommandCentre({ user, authUser, onLogout }) {
         {view==="dispatch"&&(
           <div style={{animation:"fadeIn .35s ease"}}>
             <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,fontWeight:700,color:NK,marginBottom:6}}>Response Dispatch Engine</h2>
-            <p style={{fontSize:14,color:SL,marginBottom:20}}>Assign and track response teams across all active incidents</p>
+            <p style={{fontSize:14,color:SL,marginBottom:20}}>Assign provisioned responders to active incidents. Dispatches appear in protected responder queues.</p>
+            {dispatchMsg&&<div role="status" style={{background:GREENL,color:GREEN,padding:12,borderRadius:7,marginBottom:14}}>{dispatchMsg}</div>}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
               {/* P1+P2 queue */}
               <div>
@@ -824,12 +882,23 @@ function CommandCentre({ user, authUser, onLogout }) {
                     </div>
                     <div style={{fontSize:14,fontWeight:700,color:NK,marginBottom:4,fontFamily:"'IBM Plex Serif',serif"}}>{inc.loc}</div>
                     <div style={{fontSize:12.5,color:SL,marginBottom:8}}>{inc.desc}</div>
-                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                      {[["Security",NAVY],["Medical",GREEN],["Fire",RED]].map(([label,col])=>(
-                        <button key={label} onClick={()=>assignResponder(inc.id,`${label} Team`)} style={{padding:"6px 14px",background:`${col}10`,border:`1px solid ${col}30`,color:col,borderRadius:5,fontSize:12,fontWeight:700,cursor:"pointer"}}>
-                          Dispatch {label}
-                        </button>
-                      ))}
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                      <select
+                        aria-label={`Responder for ${inc.reference || inc.id}`}
+                        value={selectedResponders[inc.id] || ""}
+                        onChange={event=>setSelectedResponders(value=>({...value,[inc.id]:event.target.value}))}
+                        style={{minWidth:180,padding:"8px 10px",border:`1px solid ${BD}`,borderRadius:5,color:NK,background:WHITE}}
+                      >
+                        <option value="">Select responder</option>
+                        {responders.map(person=><option key={person.uid} value={person.uid}>{person.name}</option>)}
+                      </select>
+                      <button
+                        onClick={()=>assignResponder(inc.id,selectedResponders[inc.id])}
+                        disabled={!responders.length || !selectedResponders[inc.id]}
+                        style={{padding:"8px 14px",background:NAVY,border:0,color:WHITE,borderRadius:5,fontSize:12,fontWeight:700,cursor:"pointer",opacity:!responders.length || !selectedResponders[inc.id]?0.55:1}}
+                      >
+                        Dispatch
+                      </button>
                     </div>
                     <div style={{marginTop:8,fontSize:11.5,color:MID}}>Current: {inc.responder} · Status: <span style={{color:ORANGE,fontWeight:600}}>{STATUS_LABEL[inc.status]}</span></div>
                   </div>
@@ -838,32 +907,17 @@ function CommandCentre({ user, authUser, onLogout }) {
                   <div style={{background:GREENL,border:`1px solid ${GREEN}28`,borderRadius:9,padding:"20px",textAlign:"center",color:GREEN,fontSize:13,fontWeight:600}}>✓ No critical incidents requiring dispatch</div>
                 )}
               </div>
-              {/* Response units */}
+              {/* Provisioned responders */}
               <div>
-                <div style={{fontSize:12,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Response Units — Status</div>
-                {[
-                  { unit:"Security Unit 1",  officer:"Sgt. T. Mthembu",    status:"available",   skills:["security","crowd"],     loc:"Gate 1" },
-                  { unit:"Security Unit 2",  officer:"Cst. N. Mahlatsi",   status:"deployed",    skills:["security"],             loc:"Building 16" },
-                  { unit:"Medical Response", officer:"Sr. Z. Mahlangu",    status:"deployed",    skills:["medical","first_aid"],  loc:"Building 35" },
-                  { unit:"Fire Response",    officer:"Chief S. Joubert",    status:"available",   skills:["fire","hazmat"],        loc:"Main Gate" },
-                  { unit:"Student Support",  officer:"Ms. L. Ndlovu",      status:"available",   skills:["support","welfare"],    loc:"Student Centre" },
-                  { unit:"Facilities",       officer:"Mr. P. Pretorius",   status:"available",   skills:["infra","maintenance"],  loc:"Building 25" },
-                ].map((u,i)=>(
-                  <div key={i} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:8,padding:"12px 14px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div>
-                      <div style={{fontSize:13,fontWeight:700,color:NK}}>{u.unit}</div>
-                      <div style={{fontSize:11.5,color:SL,marginTop:2}}>{u.officer} · {u.loc}</div>
-                      <div style={{display:"flex",gap:4,marginTop:5}}>
-                        {u.skills.map(s=><span key={s} style={{padding:"2px 7px",background:PAPER2,border:`1px solid ${BD}`,borderRadius:3,fontSize:10,color:MID}}>{s}</span>)}
-                      </div>
-                    </div>
-                    <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
-                      <div style={{padding:"4px 10px",background:u.status==="available"?GREENL:ORANGEL,border:`1px solid ${u.status==="available"?GREEN:ORANGE}28`,borderRadius:4,fontSize:11,fontWeight:700,color:u.status==="available"?GREEN:ORANGE}}>
-                        {u.status==="available"?"● Available":"● Deployed"}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                <div style={{fontSize:12,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Provisioned Responders</div>
+                {responders.map(person=>{
+                  const assigned = incidents.filter(inc=>inc.responderUid===person.uid && !["RESOLVED","CLOSED"].includes(inc.status)).length;
+                  return <div key={person.uid} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:8,padding:"12px 14px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div><div style={{fontSize:13,fontWeight:700,color:NK}}>{person.name}</div><div style={{fontSize:11.5,color:SL,marginTop:2}}>Responder account</div></div>
+                    <div style={{padding:"4px 10px",background:assigned?ORANGEL:GREENL,border:`1px solid ${assigned?ORANGE:GREEN}28`,borderRadius:4,fontSize:11,fontWeight:700,color:assigned?ORANGE:GREEN}}>{assigned?`● ${assigned} active`:"● Available"}</div>
+                  </div>;
+                })}
+                {!responders.length&&<div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:8,padding:16,fontSize:12,color:SL}}>No responder accounts are provisioned yet. Assign a trusted Firebase user the responder role in their Firestore profile.</div>}
               </div>
             </div>
           </div>
@@ -876,33 +930,14 @@ function CommandCentre({ user, authUser, onLogout }) {
             <p style={{fontSize:14,color:SL,marginBottom:22}}>Layer 1 of 6 — Manual incident logging by security or admin staff. All inputs are processed by the detection engine.</p>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18}}>
               <OperatorIncidentForm incidents={incidents} setIncidents={setIncidents} authUser={authUser}/>
-              {/* IoT / Sensor inputs */}
               <div>
                 <div style={{background:WHITE,borderRadius:10,border:`1px solid ${BD}`,overflow:"hidden",marginBottom:14}}>
                   <div style={{padding:"13px 18px",borderBottom:`1px solid ${BD}`,background:PAPER}}>
-                    <div style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1}}>Sensor / IoT Inputs</div>
-                    <div style={{fontSize:14,fontWeight:700,color:NK,fontFamily:"'IBM Plex Serif',serif",marginTop:3}}>Automated Triggers</div>
+                    <div style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1}}>Automated Alerts</div>
+                    <div style={{fontSize:14,fontWeight:700,color:NK,fontFamily:"'IBM Plex Serif',serif",marginTop:3}}>Campus sensor integrations</div>
                   </div>
-                  <div style={{padding:"14px 18px"}}>
-                    {[
-                      { sensor:"Smoke Sensor",    loc:"Chemistry Lab B19",     status:"TRIGGERED", color:RED,    time:"14:28", value:"Smoke concentration: HIGH" },
-                      { sensor:"Panic Button",     loc:"Student Centre B16",    status:"OK",        color:GREEN,  time:"13:10", value:"Last press: None today" },
-                      { sensor:"CCTV Motion",      loc:"Library B2 — Rear",     status:"ALERT",     color:ORANGE, time:"13:45", value:"Unusual activity detected" },
-                      { sensor:"Crowd Counter",    loc:"Multi-Purpose Hall B36", status:"WARNING",   color:GOLD,   time:"12:44", value:"Occupancy: 87% capacity" },
-                      { sensor:"Weather API",      loc:"Campus Wide",           status:"OK",        color:GREEN,  time:"14:00", value:"Clear · 24°C · Wind: 14km/h" },
-                    ].map((s,i)=>(
-                      <div key={i} style={{display:"flex",gap:12,padding:"10px 0",borderBottom:i<4?`1px solid ${BD}`:"none",alignItems:"center"}}>
-                        <div style={{width:8,height:8,borderRadius:"50%",background:s.color,flexShrink:0,animation:["TRIGGERED","ALERT"].includes(s.status)?`blink 1.5s infinite`:"none"}}/>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:12.5,fontWeight:700,color:NK}}>{s.sensor} <span style={{fontSize:10.5,color:MID,fontWeight:400}}>· {s.loc}</span></div>
-                          <div style={{fontSize:11.5,color:SL}}>{s.value}</div>
-                        </div>
-                        <div style={{textAlign:"right",flexShrink:0}}>
-                          <div style={{fontSize:10.5,fontWeight:700,color:s.color}}>{s.status}</div>
-                          <div style={{fontSize:10,color:MID}}>{s.time}</div>
-                        </div>
-                      </div>
-                    ))}
+                  <div style={{padding:"20px 18px",fontSize:13,color:SL,lineHeight:1.6}}>
+                    No campus sensor integrations are connected. Only alerts from verified incident reports and responder dispatches are currently shown.
                   </div>
                 </div>
               </div>
@@ -971,6 +1006,95 @@ function OperatorIncidentForm({ incidents, setIncidents, authUser }) {
   );
 }
 
+function ResponderPortal({ user, authUser, onLogout }) {
+  const [incidents, setIncidents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updatingId, setUpdatingId] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    const unsubscribe = subscribeIncidents(
+      authUser,
+      rows => {
+        if (active) {
+          setIncidents(rows);
+          setLoading(false);
+        }
+      },
+      issue => {
+        if (active) {
+          setError(issue.message);
+          setLoading(false);
+        }
+      },
+    );
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [authUser]);
+
+  async function advanceIncident(incident, status) {
+    setUpdatingId(incident.id);
+    setError("");
+    try {
+      await updateIncident(authUser, { id: incident.id, status });
+    } catch (issue) {
+      setError(issue.message);
+    } finally {
+      setUpdatingId("");
+    }
+  }
+
+  const activeIncidents = incidents.filter(incident => !["RESOLVED", "CLOSED"].includes(incident.status));
+  const nextStatus = incident => ({
+    TEAM_DISPATCHED: "ACKNOWLEDGED",
+    ACKNOWLEDGED: "ON_SCENE",
+    ON_SCENE: "RESOLVED",
+  })[incident.status];
+
+  return (
+    <main style={{minHeight:"100vh",background:PAPER,fontFamily:"'IBM Plex Sans',sans-serif"}}>
+      <style>{STYLES}</style>
+      <header style={{background:NAVY,borderBottom:`3px solid ${GOLD}`,color:WHITE}}>
+        <div style={{maxWidth:1100,margin:"0 auto",padding:"12px 5%",display:"flex",alignItems:"center",justifyContent:"space-between",gap:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <img src={LOGO} alt="UMP" style={{height:36,objectFit:"contain",mixBlendMode:"lighten"}}/>
+            <div><div style={{fontSize:10,color:"rgba(255,255,255,.58)",letterSpacing:1.5,textTransform:"uppercase"}}>Protected responder workspace</div><div style={{fontSize:15,fontWeight:700}}>{user.name}</div></div>
+          </div>
+          <button onClick={onLogout} style={{background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.18)",color:WHITE,borderRadius:5,padding:"8px 13px",cursor:"pointer"}}>Sign out</button>
+        </div>
+      </header>
+      <section style={{maxWidth:1100,margin:"0 auto",padding:"28px 5% 56px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"end",gap:16,flexWrap:"wrap",marginBottom:20}}>
+          <div><h1 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:28,color:NK,marginBottom:5}}>Assigned response alerts</h1><p style={{fontSize:14,color:SL}}>Only incidents dispatched to your responder account appear here.</p></div>
+          <div style={{padding:"10px 14px",background:WHITE,border:`1px solid ${BD}`,borderRadius:8,fontWeight:700,color:NAVY}}>{activeIncidents.length} active assignment{activeIncidents.length===1?"":"s"}</div>
+        </div>
+        {error&&<div role="alert" style={{background:REDL,color:RED,padding:12,borderRadius:7,marginBottom:16}}>{error}</div>}
+        {loading?<div role="status" style={{padding:24,textAlign:"center",color:SL}}>Loading your assignments…</div>
+          : incidents.length===0?<div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:10,padding:32,textAlign:"center",color:SL}}>No incidents have been assigned to you.</div>
+            :<div style={{display:"grid",gap:12}}>
+              {incidents.map(incident=>{
+                const priority = PRIORITY[incident.priority] || PRIORITY.P3;
+                const targetStatus = nextStatus(incident);
+                return <article key={incident.id} style={{background:WHITE,border:`1px solid ${BD}`,borderLeft:`5px solid ${priority.color}`,borderRadius:10,padding:18,boxShadow:"0 4px 14px rgba(15,35,70,.05)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"start",flexWrap:"wrap"}}>
+                    <div><div style={{fontSize:11,color:MID,fontFamily:"'IBM Plex Mono',monospace"}}>{incident.reference || incident.id} · {incident.time}</div><h2 style={{fontSize:18,color:NK,margin:"5px 0"}}>{INC_TYPES[incident.type]?.label || "Incident"} — Building {incident.building}</h2></div>
+                    <div style={{display:"flex",gap:8}}><span style={{padding:"5px 9px",borderRadius:5,background:`${priority.color}14`,color:priority.color,fontWeight:800,fontSize:12}}>{incident.priority}</span><span style={{padding:"5px 9px",borderRadius:5,background:PAPER2,color:NAVY,fontWeight:700,fontSize:12}}>{STATUS_LABEL[incident.status] || incident.status}</span></div>
+                  </div>
+                  <p style={{color:SL,fontSize:14,lineHeight:1.6,margin:"10px 0"}}>{incident.desc}</p>
+                  <div style={{fontSize:12,color:MID,marginBottom:14}}>Reported by {incident.reporter || "Campus user"}{incident.lat != null&&incident.lng != null?` · Location ${incident.lat.toFixed(5)}, ${incident.lng.toFixed(5)}`:""}</div>
+                  {targetStatus&&<button disabled={updatingId===incident.id} onClick={()=>advanceIncident(incident,targetStatus)} style={{padding:"10px 14px",background:NAVY,color:WHITE,border:0,borderRadius:6,fontWeight:700,cursor:updatingId===incident.id?"wait":"pointer",opacity:updatingId===incident.id?0.65:1}}>{updatingId===incident.id?"Updating…":`Mark ${STATUS_LABEL[targetStatus] || targetStatus}`}</button>}
+                  {!targetStatus&&<div style={{fontSize:12,fontWeight:700,color:GREEN}}>✓ Assignment resolved</div>}
+                </article>;
+              })}
+            </div>}
+      </section>
+    </main>
+  );
+}
+
 /* ══════════════════════════════════════════════════════════════
    APP ROUTER
    ══════════════════════════════════════════════════════════════ */
@@ -1028,6 +1152,7 @@ export default function CommandCenterApp({ onBack }) {
   const user = session?.user;
   if (authLoading) return <div role="status" style={{padding:24,textAlign:"center"}}>Loading your secure session…</div>;
   if (!user) return <LoginPage onLogin={handleLogin} onBack={onBack} />;
-  if (user.portal==="student") return <StudentPortal user={user} authUser={session.firebaseUser} onLogout={handleLogout} />;
-  return <CommandCentre user={user} authUser={session.firebaseUser} onLogout={handleLogout} />;
+  if (user.portal === "admin") return <CommandCentre user={user} authUser={user} onLogout={handleLogout} />;
+  if (user.portal === "responder") return <ResponderPortal user={user} authUser={user} onLogout={handleLogout} />;
+  return <StudentPortal user={user} authUser={user} onLogout={handleLogout} />;
 }

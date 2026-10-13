@@ -5,6 +5,7 @@ import {
   getDoc,
   getDocs,
   limit,
+  onSnapshot,
   orderBy,
   query,
   serverTimestamp,
@@ -16,7 +17,6 @@ import { db } from "./lib/firebase.js";
 const INCIDENT_TYPES = new Set(["medical", "fire", "security", "hazard", "infrastructure", "wellbeing", "other"]);
 const PRIORITIES = new Set(["P1", "P2", "P3", "P4"]);
 const STATUSES = new Set(["NEW", "ACKNOWLEDGED", "TEAM_DISPATCHED", "ON_SCENE", "RESOLVED", "CLOSED"]);
-
 function fail(error, fallback) {
   if (error.code === "permission-denied") {
     throw new Error("You do not have permission to perform this action. Check your verified account and CEIS role.");
@@ -35,6 +35,7 @@ function present(id, row) {
     id,
     reference: row.reference,
     reportedBy: row.reportedBy,
+    responderUid: row.responderUid ?? null,
     type: row.type,
     priority: row.priority,
     building: row.building,
@@ -60,12 +61,31 @@ function present(id, row) {
 export async function listIncidents(user, mine = false) {
   if (!user) throw new Error("Sign in to access incident reports.");
   try {
-    const constraints = [orderBy("createdAt", "desc"), limit(500)];
-    if (mine) constraints.unshift(where("reportedBy", "==", user.uid));
-    const snapshot = await getDocs(query(collection(db, "incidents"), ...constraints));
+    const snapshot = await getDocs(buildIncidentQuery(user, mine));
     return snapshot.docs.map(item => present(item.id, item.data()));
   } catch (error) {
     fail(error, "Could not load incident reports.");
+  }
+}
+
+function buildIncidentQuery(user, mine = false) {
+  const constraints = [orderBy("createdAt", "desc")];
+  if (user.role === "responder") constraints.unshift(where("responderUid", "==", user.uid));
+  else if (user.role !== "admin" || mine) constraints.unshift(where("reportedBy", "==", user.uid));
+  return query(collection(db, "incidents"), ...constraints);
+}
+
+export function subscribeIncidents(user, onRows, onError, mine = false) {
+  if (!user) throw new Error("Sign in to access incident reports.");
+  try {
+    return onSnapshot(
+      buildIncidentQuery(user, mine),
+      snapshot => onRows(snapshot.docs.map(item => present(item.id, item.data()))),
+      error => onError(new Error(error.message || "Could not monitor incident reports.")),
+    );
+  } catch (error) {
+    onError(new Error(error.message || "Could not monitor incident reports."));
+    return () => {};
   }
 }
 
@@ -81,6 +101,8 @@ export async function createIncident(user, incident) {
   const data = {
     reference,
     reportedBy: user.uid,
+    responderUid: null,
+    dispatchedByUid: null,
     type: incident.type,
     priority: incident.priority,
     building: String(incident.building),
@@ -109,15 +131,22 @@ export async function createIncident(user, incident) {
 }
 
 export async function updateIncident(user, update) {
-  if (!user) throw new Error("Sign in to update incident reports.");
+  if (!user || !["admin", "responder"].includes(user.role)) {
+    throw new Error("Only admins or assigned responders can update incident reports.");
+  }
   if (typeof update.id !== "string" || !STATUSES.has(update.status)) throw new Error("Provide a valid incident and status.");
+  if (user.role === "responder" && !["ACKNOWLEDGED", "ON_SCENE", "RESOLVED"].includes(update.status)) {
+    throw new Error("Responders may acknowledge, mark on scene, or resolve assigned incidents.");
+  }
   const changes = { status: update.status, updatedAt: serverTimestamp() };
-  if (update.responder !== undefined) {
+  if (user.role === "admin" && update.responder !== undefined) {
     if (typeof update.responder !== "string" || update.responder.length > 120) throw new Error("Responder name is invalid.");
     changes.responder = update.responder;
   }
-  if (update.status === "TEAM_DISPATCHED") changes.dispatchedAt = serverTimestamp();
-  if (["RESOLVED", "CLOSED"].includes(update.status)) changes.resolvedAt = serverTimestamp();
+  if (user.role === "admin" && update.status === "TEAM_DISPATCHED") changes.dispatchedAt = serverTimestamp();
+  if (user.role === "admin" || update.status === "RESOLVED") {
+    if (["RESOLVED", "CLOSED"].includes(update.status)) changes.resolvedAt = serverTimestamp();
+  }
   try {
     const incidentRef = doc(db, "incidents", update.id);
     await updateDoc(incidentRef, changes);
@@ -125,6 +154,42 @@ export async function updateIncident(user, update) {
     return present(saved.id, saved.data());
   } catch (error) {
     fail(error, "Incident update could not be saved.");
+  }
+}
+
+export async function listResponders(user) {
+  if (!user || user.role !== "admin") throw new Error("Admin access is required to view responders.");
+  try {
+    const snapshot = await getDocs(query(
+      collection(db, "users"),
+      where("role", "in", ["responder", "security", "medical"]),
+      limit(100),
+    ));
+    return snapshot.docs
+      .map(item => ({ uid: item.id, name: item.data().fullName || item.data().email || "Responder" }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    fail(error, "Could not load the responder roster.");
+  }
+}
+
+export async function assignIncident(user, incidentId, responder) {
+  if (!user || user.role !== "admin") throw new Error("Admin access is required to dispatch responders.");
+  if (!incidentId || !responder?.uid || !responder?.name) throw new Error("Choose a valid responder.");
+  try {
+    const incidentRef = doc(db, "incidents", incidentId);
+    await updateDoc(incidentRef, {
+      responderUid: responder.uid,
+      responder: responder.name,
+      dispatchedByUid: user.uid,
+      status: "TEAM_DISPATCHED",
+      dispatchedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    const saved = await getDoc(incidentRef);
+    return present(saved.id, saved.data());
+  } catch (error) {
+    fail(error, "Responder dispatch could not be saved.");
   }
 }
 

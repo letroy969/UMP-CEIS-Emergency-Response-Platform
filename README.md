@@ -4,12 +4,13 @@ Campus safety reporting and incident management for the University of Mpumalanga
 
 ## Capabilities
 
-- Student accounts with Firebase email verification.
-- Student incident reports, report history, and safety check-ins.
-- Staff review of incidents, status updates, and responder/team assignment records.
+- UMP-only accounts with Firebase email verification and password recovery.
+- Student and staff incident reports, report history, and safety check-ins.
+- Protected admin incident monitoring, analytics, status management, and responder dispatch.
+- A protected responder workspace with live alerts for assigned incidents and response status updates.
 - Campus map and general first-aid guidance.
 
-Incident reports, assignments, status changes, user profiles, and safety check-ins are stored in Cloud Firestore. Firebase Authentication manages accounts, sign-in, and email verification. Assignments are records for staff coordination; the application does not send responder notifications or contact emergency services. First-aid and symptom guidance is informational and is not a diagnosis.
+Incident reports, assignments, status changes, user profiles, and safety check-ins are stored in Cloud Firestore. Firebase Authentication manages accounts, sign-in, password recovery, and email verification. Responders see in-app, real-time alerts while signed in; the application does not send push/SMS notifications or contact emergency services. First-aid and symptom guidance is informational and is not a diagnosis.
 
 ## Stack
 
@@ -25,14 +26,17 @@ Requirements: Node.js 18+ and npm 9+.
 
 1. Install dependencies with `npm install`.
 2. In the Firebase Console, enable **Authentication → Email/Password** and create a **Cloud Firestore** database.
-3. Add `localhost` and your deployed hostname under Firebase Authentication's authorized domains.
-4. Copy `.env.example` to `.env.local` and fill in the Firebase web app configuration values from **Project settings → Your apps**. Set the same `VITE_FIREBASE_*` values in the Vercel project environment for production.
-5. Deploy `firebase.json`, `firestore.rules`, and `firestore.indexes.json` with `npx firebase-tools deploy --only firestore --project ump-ceis` or publish the rules and create the indexes in the Firebase Console. The rules permit users to create only student profiles; trusted staff roles must be assigned by an administrator in the Firebase Console.
-6. Run the local frontend with `npm run dev`.
+3. Under **Authentication → Settings → Password policy**, enforce a minimum length of 12 and require lowercase letters, uppercase letters, numbers, and non-alphanumeric characters. The signup form checks the same policy.
+4. Add `localhost` and your deployed hostname under Firebase Authentication's authorized domains.
+5. Copy `.env.example` to `.env.local` and fill in the Firebase web app configuration values from **Project settings → Your apps**. Set the same `VITE_FIREBASE_*` values in the Vercel project environment for production.
+6. Deploy `firebase.json`, `firestore.rules`, and `firestore.indexes.json` with `npx firebase-tools deploy --only firestore --project ump-ceis` or publish the rules and create the indexes in the Firebase Console.
+7. Run the local frontend with `npm run dev`.
 
 Firebase web configuration is used by the browser SDK. Never put Firebase Admin service-account credentials in Vite variables or frontend code.
 
-Student signup requires an `@ump.ac.za` address and Firebase email verification. This confirms control of that mailbox only; it does not verify current enrolment. Staff access is provisioned separately by an administrator by changing the user's `role` in their Firestore `users/{uid}` profile to `staff`, `admin`, `security`, or `medical`. Signup form input cannot grant staff roles.
+Self-service signup is for students only and requires an `@ump.ac.za` address, a password that meets the configured policy, and Firebase email verification. Verification confirms control of that mailbox only; it does not verify current enrolment or employment. Users choose between the Student and Staff sign-in portals, but portal selection does not grant privileges. Staff, admin, and responder accounts must be provisioned by a trusted administrator by setting the user's `role` in their Firestore `users/{uid}` profile to `staff`, `admin`, or `responder` (legacy `security` and `medical` roles are also treated as responders). For the first administrator, create and verify an account, then promote its profile using a trusted Firebase Console account. Never let a user promote their own role.
+
+Students and staff use the same incident form and can read only reports they submitted. Admins can monitor all reports, view system analytics, update statuses, and assign incidents to provisioned responders. Responders can see only incidents assigned to their account and advance them through acknowledgement, on-scene, and resolved states. Firestore Security Rules enforce these permissions independently of the UI.
 
 ## Firestore data
 

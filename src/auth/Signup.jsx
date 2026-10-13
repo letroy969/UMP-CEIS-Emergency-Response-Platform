@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BD, GREEN, MID, NAVY, RED, REDL, SL, WHITE } from "../constants.js";
-import { registerUser } from "./firebaseAuth.js";
+import { isUmpEmail, registerUser, validateNewPassword } from "./firebaseAuth.js";
 
 export default function Signup({ onBack }) {
   const [fullName, setFullName] = useState("");
@@ -15,6 +15,9 @@ export default function Signup({ onBack }) {
     event.preventDefault();
     setMessage("");
     setSuccess(false);
+    if (!isUmpEmail(email)) { setMessage("Use your university email address ending in @ump.ac.za."); return; }
+    const passwordError = validateNewPassword(password);
+    if (passwordError) { setMessage(passwordError); return; }
     if (password !== confirm) { setMessage("The passwords do not match."); return; }
     setLoading(true);
     try {
@@ -41,8 +44,8 @@ export default function Signup({ onBack }) {
       </div>
       <form onSubmit={handleSubmit} style={{padding:"23px 28px"}}>
         <label style={labelStyle}>Full name<input value={fullName} onChange={e=>setFullName(e.target.value)} autoComplete="name" minLength={2} maxLength={100} required style={inputStyle}/></label>
-        <label style={labelStyle}>UMP email address<input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="student@ump.ac.za" autoComplete="email" required pattern="[^\s@]+@ump\.ac\.za" style={inputStyle}/></label>
-        <label style={labelStyle}>Password<input value={password} onChange={e=>setPassword(e.target.value)} type="password" autoComplete="new-password" minLength={12} maxLength={128} required style={inputStyle}/><span style={{display:"block",fontSize:11,fontWeight:400,textTransform:"none",letterSpacing:0,color:SL,marginTop:5}}>Use 12–128 characters.</span></label>
+        <label style={labelStyle}>UMP email address<input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="student@ump.ac.za" autoComplete="email" required pattern="[^\s@]+@ump\.ac\.za" title="Use an address ending in @ump.ac.za." style={inputStyle}/></label>
+        <label style={labelStyle}>Password<input value={password} onChange={e=>setPassword(e.target.value)} type="password" autoComplete="new-password" minLength={12} maxLength={128} required style={inputStyle}/><span style={{display:"block",fontSize:11,fontWeight:400,textTransform:"none",letterSpacing:0,color:SL,marginTop:5}}>12–128 characters; include uppercase, lowercase, a number, and a symbol.</span></label>
         <label style={labelStyle}>Confirm password<input value={confirm} onChange={e=>setConfirm(e.target.value)} type="password" autoComplete="new-password" minLength={12} maxLength={128} required style={inputStyle}/></label>
         {message&&<p role="status" style={{background:success?`${GREEN}14`:REDL,color:success?GREEN:RED,padding:11,borderRadius:7,fontSize:12.5,lineHeight:1.55,marginBottom:14}}>{message}</p>}
         <p style={{fontSize:11,color:SL,lineHeight:1.55,marginTop:13}}>Email verification confirms control of the address only; it does not verify current UMP enrolment or employment. Staff accounts are provisioned separately by an administrator.</p>

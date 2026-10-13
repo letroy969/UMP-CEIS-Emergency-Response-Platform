@@ -6,15 +6,32 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function verified() {
-      return signedIn() && request.auth.token.email_verified == true;
+    function campusEmail() {
+      return signedIn()
+        && request.auth.token.email is string
+        && request.auth.token.email.matches('^[^@]+@ump[.]ac[.]za$');
     }
 
-    function staff() {
+    function verified() {
+      return campusEmail() && request.auth.token.email_verified == true;
+    }
+
+    function profileExists(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid));
+    }
+
+    function profileRole(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.role;
+    }
+
+    function admin() {
+      return verified() && profileExists(request.auth.uid) && profileRole(request.auth.uid) == 'admin';
+    }
+
+    function responder() {
       return verified()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
-          in ['staff', 'admin', 'security', 'medical'];
+        && profileExists(request.auth.uid)
+        && profileRole(request.auth.uid) in ['responder', 'security', 'medical'];
     }
 
     function validCoordinates(data) {
@@ -23,8 +40,16 @@ service cloud.firestore {
           && data.longitude is number && data.longitude >= -180 && data.longitude <= 180);
     }
 
+    function validResponder(uid) {
+      return uid == null
+        || (uid is string
+          && exists(/databases/$(database)/documents/users/$(uid))
+          && get(/databases/$(database)/documents/users/$(uid)).data.role
+            in ['responder', 'security', 'medical']);
+    }
+
     match /users/{userId} {
-      allow create: if signedIn()
+      allow create: if campusEmail()
         && request.auth.uid == userId
         && request.resource.data.keys().hasOnly(['uid', 'email', 'fullName', 'role', 'createdAt'])
         && request.resource.data.uid == userId
@@ -35,7 +60,7 @@ service cloud.firestore {
         && request.resource.data.role == 'student'
         && request.resource.data.createdAt == request.time;
 
-      allow read: if signedIn() && request.auth.uid == userId;
+      allow read: if (signedIn() && request.auth.uid == userId) || admin();
 
       allow update: if signedIn()
         && request.auth.uid == userId
@@ -47,16 +72,21 @@ service cloud.firestore {
 
     match /incidents/{incidentId} {
       allow read: if verified()
-        && (resource.data.reportedBy == request.auth.uid || staff());
+        && (admin()
+          || resource.data.reportedBy == request.auth.uid
+          || (responder() && resource.data.responderUid == request.auth.uid));
 
       allow create: if verified()
         && request.resource.data.keys().hasOnly([
-          'reference', 'reportedBy', 'type', 'priority', 'building', 'description',
-          'status', 'responder', 'latitude', 'longitude', 'accuracyMeters',
-          'locationCapturedAt', 'locationSource', 'campusVerified', 'reporterName',
-          'createdAt', 'updatedAt', 'dispatchedAt', 'resolvedAt'
+          'reference', 'reportedBy', 'responderUid', 'dispatchedByUid',
+          'type', 'priority', 'building', 'description', 'status', 'responder',
+          'latitude', 'longitude', 'accuracyMeters', 'locationCapturedAt',
+          'locationSource', 'campusVerified', 'reporterName', 'createdAt',
+          'updatedAt', 'dispatchedAt', 'resolvedAt'
         ])
         && request.resource.data.reportedBy == request.auth.uid
+        && request.resource.data.responderUid == null
+        && request.resource.data.dispatchedByUid == null
         && request.resource.data.reference is string
         && request.resource.data.type in [
           'medical', 'fire', 'security', 'hazard', 'infrastructure', 'wellbeing', 'other'
@@ -73,12 +103,31 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
 
-      allow update: if staff()
+      allow update: if admin()
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'responder', 'updatedAt', 'dispatchedAt', 'resolvedAt'])
+          .hasOnly([
+            'status', 'responder', 'responderUid', 'dispatchedByUid',
+            'updatedAt', 'dispatchedAt', 'resolvedAt'
+          ])
         && request.resource.data.status in [
           'NEW', 'ACKNOWLEDGED', 'TEAM_DISPATCHED', 'ON_SCENE', 'RESOLVED', 'CLOSED'
         ]
+        && validResponder(request.resource.data.responderUid)
+        && (request.resource.data.status != 'TEAM_DISPATCHED'
+          || (request.resource.data.responderUid is string
+            && request.resource.data.dispatchedByUid == request.auth.uid))
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if responder()
+        && resource.data.responderUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'resolvedAt'])
+        && ((request.resource.data.status == 'ACKNOWLEDGED'
+            && resource.data.status == 'TEAM_DISPATCHED')
+          || (request.resource.data.status == 'ON_SCENE'
+            && resource.data.status == 'ACKNOWLEDGED')
+          || (request.resource.data.status == 'RESOLVED'
+            && resource.data.status == 'ON_SCENE'
+            && request.resource.data.resolvedAt == request.time))
         && request.resource.data.updatedAt == request.time;
 
       allow delete: if false;
@@ -86,7 +135,7 @@ service cloud.firestore {
 
     match /safetyCheckins/{checkinId} {
       allow read: if verified()
-        && (resource.data.userId == request.auth.uid || staff());
+        && (resource.data.userId == request.auth.uid || admin());
 
       allow create: if verified()
         && request.resource.data.keys().hasOnly([
