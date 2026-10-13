@@ -27,7 +27,7 @@ Requirements: Node.js 18+ and npm 9+.
 1. Install dependencies with `npm install`.
 2. In the Firebase Console, enable **Authentication → Email/Password** and create a **Cloud Firestore** database.
 3. Under **Authentication → Settings → Password policy**, enforce a minimum length of 12 and require lowercase letters, uppercase letters, numbers, and non-alphanumeric characters. The signup form checks the same policy.
-4. Under **Authentication → Settings → Authorized domains**, add `localhost` for local development and the exact hostname used by your deployed app. Local email links use `localhost` even if the dev page was opened as `127.0.0.1`.
+4. Under **Authentication → Settings → Authorized domains**, add `localhost` for local development and the exact hostname used by your deployed app. Local email verification links use `localhost` even if the dev page was opened as `127.0.0.1`. Password-reset emails use Firebase's hosted handler without a custom continue URL.
 5. Copy `.env.example` to `.env.local` and fill in the Firebase web app configuration values from **Project settings → Your apps**. Set the same `VITE_FIREBASE_*` values in the Vercel project environment for production.
 6. Deploy `firebase.json`, `firestore.rules`, and `firestore.indexes.json` with `npx firebase-tools deploy --only firestore --project ump-ceis` or publish the rules and create the indexes in the Firebase Console.
 7. Run the local frontend with `npm run dev`.

@@ -138,10 +138,7 @@ export async function requestPasswordReset(email) {
     throw new Error("Use your university email address ending in @ump.ac.za.");
   }
   try {
-    await sendPasswordResetEmail(auth, email.trim().toLowerCase(), {
-      url: emailActionUrl("/"),
-      handleCodeInApp: false,
-    });
+    await sendPasswordResetEmail(auth, email.trim().toLowerCase());
   } catch (error) {
     // Keep the response account-neutral so the form does not reveal registration status.
     if (!["auth/user-not-found", "auth/invalid-email"].includes(error.code)) {
