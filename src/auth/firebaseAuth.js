@@ -26,8 +26,8 @@ export function validateNewPassword(password) {
   if (password.length < 12 || password.length > 128) {
     return "Use 12–128 characters.";
   }
-  if (!/[a-z]/.test(password) || !/[A-Z]/.test(password)
-    || !/\d/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+  if (!/\p{Ll}/u.test(password) || !/\p{Lu}/u.test(password)
+    || !/\p{Nd}/u.test(password) || !/[\p{P}\p{S}]/u.test(password)) {
     return "Include an uppercase letter, lowercase letter, number, and symbol.";
   }
   return "";
@@ -85,6 +85,10 @@ export async function loadAppUser(firebaseUser) {
 }
 
 export async function registerUser({ fullName, email, password }) {
+  const normalizedName = fullName.trim();
+  if (normalizedName.length < 2 || normalizedName.length > 100) {
+    throw new Error("Enter a name between 2 and 100 characters.");
+  }
   if (!isUmpEmail(email)) {
     throw new Error("Use your university email address ending in @ump.ac.za.");
   }
@@ -92,14 +96,14 @@ export async function registerUser({ fullName, email, password }) {
   if (passwordError) throw new Error(passwordError);
   try {
     const credential = await createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
-    await updateProfile(credential.user, { displayName: fullName.trim() });
     await setDoc(doc(db, "users", credential.user.uid), {
       uid: credential.user.uid,
       email: credential.user.email,
-      fullName: fullName.trim(),
+      fullName: normalizedName,
       role: "student",
       createdAt: serverTimestamp(),
     });
+    await updateProfile(credential.user, { displayName: normalizedName });
     await sendEmailVerification(credential.user, {
       url: emailActionUrl("/verify-email"),
       handleCodeInApp: true,

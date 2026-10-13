@@ -48,7 +48,6 @@ export default function Signup({ onBack }) {
         <label style={labelStyle}>Password<input value={password} onChange={e=>setPassword(e.target.value)} type="password" autoComplete="new-password" minLength={12} maxLength={128} required style={inputStyle}/><span style={{display:"block",fontSize:11,fontWeight:400,textTransform:"none",letterSpacing:0,color:SL,marginTop:5}}>12–128 characters; include uppercase, lowercase, a number, and a symbol.</span></label>
         <label style={labelStyle}>Confirm password<input value={confirm} onChange={e=>setConfirm(e.target.value)} type="password" autoComplete="new-password" minLength={12} maxLength={128} required style={inputStyle}/></label>
         {message&&<p role="status" style={{background:success?`${GREEN}14`:REDL,color:success?GREEN:RED,padding:11,borderRadius:7,fontSize:12.5,lineHeight:1.55,marginBottom:14}}>{message}</p>}
-        <p style={{fontSize:11,color:SL,lineHeight:1.55,marginTop:13}}>Email verification confirms control of the address only; it does not verify current UMP enrolment or employment. Staff accounts are provisioned separately by an administrator.</p>
         <button type="submit" disabled={loading} style={{position:"sticky",bottom:0,zIndex:2,width:"100%",padding:13,marginTop:14,background:NAVY,color:WHITE,border:0,borderRadius:7,fontSize:14,fontWeight:700,cursor:loading?"wait":"pointer",opacity:loading ? .75 : 1,boxShadow:"0 -8px 16px rgba(255,255,255,.92)"}}>{loading?"Creating account…":"Create account"}</button>
       </form>
     </div>
