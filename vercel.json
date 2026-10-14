@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/firebase-messaging-sw.js", "destination": "/api/index?path=/firebase-messaging-sw.js" },
+    { "source": "/api/chat", "destination": "/api/chat.js" },
     { "source": "/api/:path*", "destination": "/api/index?path=/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]

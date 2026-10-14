@@ -286,7 +286,7 @@ const HERO_INCIDENTS = [
   },
 ];
 
-const HERO_BACKGROUND_IMAGE = new URL("../Home page  src/emergency-numbers-south-africa.webp", import.meta.url).href;
+const HERO_BACKGROUND_IMAGE = new URL("../Home page  src/UMP-Gate-New-scaled.jpg", import.meta.url).href;
 
 function HeroIncidentSlideshow() {
   const [active, setActive] = useState(0);

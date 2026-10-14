@@ -3,12 +3,11 @@ import { createHash } from "node:crypto";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { authenticate, enforceRateLimit, hasRole, isResponder, requireRole } from "./_lib/auth.js";
 import { getFirebaseServices } from "./_lib/firebaseAdmin.js";
-import { askGroq, validateChatMessages } from "./_lib/groqAssistant.js";
+import { handleChat } from "./chat.js";
 import { notifyUsers, usersWithRole } from "./_lib/notifications.js";
 import { coordinates, fail, incidentInput, STATUSES, text } from "./_lib/validation.js";
 
 const app = express();
-const chatRateLimits = new Map();
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "32kb", strict: true }));
@@ -40,23 +39,6 @@ app.use((req, _res, next) => {
 
 function route(method, path, ...handlers) {
   app[method]([path, `/api${path}`, `/api/index${path}`], ...handlers);
-}
-
-function enforceChatRateLimit(ip) {
-  const now = Date.now();
-  const windowMs = 60000;
-  const entry = chatRateLimits.get(ip);
-  if (entry && now - entry.startedAt < windowMs && entry.count >= 12) {
-    fail("Too many assistant requests. Wait a minute and try again.", 429);
-  }
-  if (!entry || now - entry.startedAt >= windowMs) {
-    chatRateLimits.set(ip, { startedAt: now, count: 1 });
-  } else {
-    entry.count += 1;
-  }
-  for (const [key, value] of chatRateLimits) {
-    if (now - value.startedAt >= windowMs) chatRateLimits.delete(key);
-  }
 }
 
 function incidentForClient(id, row) {
@@ -408,13 +390,7 @@ route("post", "/alerts", authenticate, async (req, res) => {
   res.status(201).json({ id: alertRef.id, recipientCount: userIds.length, delivery });
 });
 
-route("post", "/chat", async (req, res) => {
-  const messages = validateChatMessages(req.body?.messages);
-  const clientId = createHash("sha256").update(req.ip || "unknown").digest("hex");
-  enforceChatRateLimit(clientId);
-  res.set("cache-control", "no-store");
-  res.json(await askGroq(messages));
-});
+route("post", "/chat", handleChat);
 
 route("get", "/firebase-public-config", (_req, res) => {
   const config = {
