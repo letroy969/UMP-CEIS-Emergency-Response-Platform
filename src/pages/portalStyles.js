@@ -13,8 +13,8 @@ export const STYLES = `
   @keyframes ping{0%{transform:scale(1);opacity:1}75%,100%{transform:scale(2.2);opacity:0}}
   .student-portal-shell{position:relative;isolation:isolate;background:#F0F3F8;}
   .student-portal-background{position:fixed;z-index:-1;inset:0;overflow:hidden;pointer-events:none;}
-  .student-portal-background img{position:absolute;inset:-12px;width:calc(100% + 24px);height:calc(100% + 24px);object-fit:cover;filter:blur(7px) brightness(.78);transform:scale(1.02);}
-  .student-portal-background>div{position:absolute;inset:0;background:rgba(239,243,249,.79);}
+  .student-portal-background img{position:absolute;inset:-12px;width:calc(100% + 24px);height:calc(100% + 24px);object-fit:cover;filter:blur(4px) brightness(.78);transform:scale(1.02);}
+  .student-portal-background>div{position:absolute;inset:0;background:rgba(239,243,249,.72);}
   @media(prefers-reduced-motion:reduce){.student-portal-background img{transform:none;}}
   .ceis-icon-action{transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
   .ceis-icon-action:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(15,35,70,.12)}

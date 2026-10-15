@@ -395,7 +395,6 @@ function StudentPortal({ user, authUser, onLogout, onProfileUpdated, onOpenMedic
           <div style={{animation:"fadeIn .35s ease"}}>
             <SOSActivation user={authUser} />
             <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:26,fontWeight:700,color:NK,marginBottom:6}}>Welcome back, {user.name.split(" ")[0]}</h2>
-            <p style={{fontSize:14,color:SL,marginBottom:28}}>{user.faculty} · Year {user.year} · ID: {user.id}</p>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:28}}>
               {[
                 { title:"Report Emergency",  sub:"Fire, medical, security threats",  Icon:Siren, color:RED,   action:()=>navigateToView("report") },
