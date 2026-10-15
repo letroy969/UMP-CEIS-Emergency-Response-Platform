@@ -1,13 +1,35 @@
 import { useState, useRef, useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import {
+  Ambulance,
+  CheckCircle2,
+  ChevronDown,
+  ClipboardList,
+  CircleUserRound,
+  Eye,
+  EyeOff,
+  FileText,
+  GraduationCap,
+  Hospital,
+  Home,
+  LifeBuoy,
+  Map,
+  Radio,
+  Settings,
+  Shield,
+  ShieldCheck,
+  Siren,
+  TriangleAlert,
+} from "lucide-react";
+import {
   NAVY, NAVY2, NAVY3, NAVYL, RED, REDL, ORANGE, GREEN, GREENL,
-  GOLD, WHITE, PAPER, BD, NK, SL, MID,
+  GOLD, WHITE, BD, NK, SL, MID,
   LOGO,
   INC_TYPES, PRIORITY, STATUS_LABEL,
   MBOMBELA_BUILDINGS,
 } from "./constants.js";
 import CampusMap from "./components/CampusMap.jsx";
+import IncidentEvidenceCapture from "./components/IncidentEvidenceCapture.jsx";
 import { MAPPED_BUILDINGS } from "./maps/campusBuildings.js";
 import { checkCampusLocation, getCurrentLocation } from "./maps/location.js";
 import Signup from "./auth/Signup.jsx";
@@ -18,9 +40,14 @@ import { canAccessPortal } from "./auth/roles.js";
 import { isRegistrationInProgress, loadAppUser, requestPasswordReset, signInUser, signOutUser } from "./auth/firebaseAuth.js";
 import AdminPortal from "./pages/AdminPortal.jsx";
 import ResponderPortal from "./pages/ResponderPortal.jsx";
+import StudentProfile from "./pages/StudentProfile.jsx";
 import { STYLES } from "./pages/portalStyles.js";
-import { createCheckin, createIncident, getCheckin, listIncidents } from "./incidentApi.js";
+import { createCheckin, createIncident, getCheckin, listIncidents, uploadIncidentAttachment } from "./incidentApi.js";
 
+const STUDENT_PORTAL_BACKGROUND = new URL(
+  "../Home page  src/UMP-Great-Hall-IMG-Western-Lobby-03.webp",
+  import.meta.url,
+).href;
 
 /* ══════════════════════════════════════════════════════════════
    LOGIN PAGE
@@ -124,11 +151,11 @@ function LoginPage({ onLogin, onBack }) {
             <div style={{background:"rgba(255,255,255,.06)",backdropFilter:"blur(12px)",borderRadius:16,border:"1px solid rgba(255,255,255,.12)",overflow:"hidden"}}>
               <div style={{padding:"22px 28px 14px",textAlign:"center",color:"rgba(255,255,255,.65)",fontSize:13}}>Select your access portal to continue</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,padding:"14px 24px 28px"}}>{[
-                {key:"student",title:"Student Portal",sub:"Report incidents, check in, view safety status",icon:"🎓"},
-                {key:"staff",title:"Staff Portal",sub:"Incident reporting for UMP staff",icon:"🛡️"},
-                {key:"admin",title:"Admin Portal",sub:"Manage incidents, analytics, and responder dispatch",icon:"⚙️"},
-                {key:"responder",title:"Responder Portal",sub:"View and respond to assigned incidents",icon:"🚑"},
-              ].map(item=><button key={item.key} onClick={()=>setPortal(item.key)} style={{background:"rgba(255,255,255,.08)",border:"1.5px solid rgba(255,255,255,.14)",borderRadius:12,padding:"22px 16px",cursor:"pointer",textAlign:"center",color:WHITE}}><div style={{fontSize:32,marginBottom:10}}>{item.icon}</div><div style={{fontSize:14,fontWeight:700,marginBottom:5}}>{item.title}</div><div style={{fontSize:11.5,color:"rgba(255,255,255,.58)",lineHeight:1.5}}>{item.sub}</div></button>)}</div>
+                {key:"student",title:"Student Portal",sub:"Report incidents, check in, view safety status",Icon:GraduationCap},
+                {key:"staff",title:"Staff Portal",sub:"Incident reporting for UMP staff",Icon:Shield},
+                {key:"admin",title:"Admin Portal",sub:"Manage incidents, analytics, and responder dispatch",Icon:Settings},
+                {key:"responder",title:"Responder Portal",sub:"View and respond to assigned incidents",Icon:Ambulance},
+              ].map(({key,title,sub,Icon})=><button key={key} onClick={()=>setPortal(key)} className="ceis-icon-action" style={{background:"rgba(255,255,255,.08)",border:"1.5px solid rgba(255,255,255,.14)",borderRadius:12,padding:"22px 16px",cursor:"pointer",textAlign:"center",color:WHITE}}><Icon size={30} strokeWidth={1.7} aria-hidden="true" style={{marginBottom:10}}/><div style={{fontSize:14,fontWeight:700,marginBottom:5}}>{title}</div><div style={{fontSize:11.5,color:"rgba(255,255,255,.58)",lineHeight:1.5}}>{sub}</div></button>)}</div>
             </div>
             <div style={{textAlign:"center",marginTop:18}}><button onClick={()=>setAuthView("register")} style={{background:"none",border:"1px solid rgba(255,255,255,.28)",borderRadius:7,padding:"10px 18px",color:WHITE,fontWeight:600,cursor:"pointer"}}>Create student account</button>{onBack&&<div><button onClick={onBack} style={{marginTop:12,background:"none",border:0,color:"rgba(255,255,255,.6)",cursor:"pointer"}}>← Back to Landing</button></div>}</div>
           </div>
@@ -140,7 +167,7 @@ function LoginPage({ onLogin, onBack }) {
             </div>
             <form onSubmit={event=>{event.preventDefault();handleSubmit();}} style={{padding:"26px 28px"}}>
               <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:15}}>UMP email address<input type="email" autoComplete="username" value={emailVal} onChange={event=>setEmailVal(event.target.value)} required pattern="[^\s@]+@ump\.ac\.za" title="Use an address ending in @ump.ac.za." placeholder="name@ump.ac.za" style={{display:"block",width:"100%",marginTop:7,padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/></label>
-              <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:6}}>Password<div style={{position:"relative",marginTop:7}}><input type={showPwd?"text":"password"} autoComplete="current-password" value={pwdVal} onChange={event=>setPwdVal(event.target.value)} required style={{width:"100%",padding:"11px 42px 11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/><button type="button" onClick={()=>setShowPwd(value=>!value)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:0,cursor:"pointer"}}>{showPwd?"🙈":"👁"}</button></div></label>
+              <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:6}}>Password<div style={{position:"relative",marginTop:7}}><input type={showPwd?"text":"password"} autoComplete="current-password" value={pwdVal} onChange={event=>setPwdVal(event.target.value)} required style={{width:"100%",padding:"11px 42px 11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/><button type="button" aria-label={showPwd?"Hide password":"Show password"} aria-pressed={showPwd} onClick={()=>setShowPwd(value=>!value)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:0,cursor:"pointer",color:MID,padding:4}}>{showPwd?<EyeOff size={18} aria-hidden="true"/>:<Eye size={18} aria-hidden="true"/>}</button></div></label>
               {loginError&&<div role="status" style={{fontSize:12,color:RED,background:REDL,borderRadius:6,padding:10,margin:"10px 0 14px"}}>{loginError}</div>}
               <button type="submit" disabled={loading} style={{width:"100%",padding:13,marginTop:13,background:portal==="student"?NAVY:RED,color:WHITE,border:0,borderRadius:7,fontSize:15,fontWeight:700,cursor:loading?"wait":"pointer"}}>{loading?"Signing in…":"Sign in"}</button>
               <button type="button" onClick={()=>{setResetMessage("");setAuthView("reset");}} style={{display:"block",margin:"15px auto 0",padding:4,border:0,background:"none",color:NAVY,fontSize:12,fontWeight:700,cursor:"pointer"}}>Forgot password?</button>
@@ -156,12 +183,19 @@ function LoginPage({ onLogin, onBack }) {
 /* ══════════════════════════════════════════════════════════════
    STUDENT PORTAL
    ══════════════════════════════════════════════════════════════ */
-function StudentPortal({ user, authUser, onLogout }) {
+function StudentPortal({ user, authUser, onLogout, onProfileUpdated, onOpenMedicalTriage }) {
   const [view, setView]         = useState("home");
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [profileHasUnsavedChanges, setProfileHasUnsavedChanges] = useState(false);
   const [incidents, setIncidents] = useState([]);
-  const [form, setForm]         = useState({ type:"medical", building:"", desc:"", priority:"P3", photo:null });
+  const [form, setForm]         = useState({ type:"medical", building:"", desc:"", priority:"P3" });
+  const [evidenceFiles, setEvidenceFiles] = useState([]);
   const [reportLocation, setReportLocation] = useState(null);
-  const [submitted, setSubmitted] = useState(false);
+  const [submittedReport, setSubmittedReport] = useState(null);
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [evidenceProgress, setEvidenceProgress] = useState(null);
+  const [evidenceUploadError, setEvidenceUploadError] = useState("");
+  const [isRecordingEvidence, setIsRecordingEvidence] = useState(false);
   const [safeStatus, setSafeStatus] = useState(null);
   const [myReports, setMyReports] = useState([]);
   const [selectedBldg, setSelectedBldg] = useState(null);
@@ -184,7 +218,8 @@ function StudentPortal({ user, authUser, onLogout }) {
     try {
       const location = await getCurrentLocation();
       setReportLocation(location);
-      setLocationState(`Approximate device location captured (±${Math.round(location.accuracyMeters)} m). Confirm or adjust the pin on the map.`);
+      setForm(current => ({ ...current, building: "" }));
+      setLocationState(`Device location captured (±${Math.round(location.accuracyMeters)} m). This GPS location will be used; building selection is skipped.`);
     } catch (error) {
       setLocationState(error.message || "Location is unavailable. You can choose a building or pin the location on the map.");
     } finally {
@@ -193,8 +228,10 @@ function StudentPortal({ user, authUser, onLogout }) {
   }
 
   async function submitReport() {
-    if (submittingReport.current || !form.building || !form.desc) return;
+    if (submittingReport.current || isRecordingEvidence || (!reportLocation && !form.building) || locating) return;
     submittingReport.current = true;
+    setIsSubmittingReport(true);
+    setDataError("");
     const mappedBuilding = MAPPED_BUILDINGS.find((building) => building.id === form.building);
     const location = reportLocation || (mappedBuilding ? {
       latitude: mappedBuilding.lat,
@@ -207,27 +244,77 @@ function StudentPortal({ user, authUser, onLogout }) {
     let newInc;
     try {
       newInc = await createIncident(authUser, {
-        type:form.type, priority:form.priority, building:form.building, desc:form.desc,
+        type:form.type, priority:form.priority,
+        building:reportLocation ? "" : form.building,
+        buildingName:reportLocation ? (mappedBuilding?.name || null) : MBOMBELA_BUILDINGS.find(building => building.id === form.building)?.name,
+        desc:form.desc,
         lat:location?.latitude ?? null, lng:location?.longitude ?? null,
         accuracy:location?.accuracyMeters ?? null, locationCapturedAt:location?.capturedAt ?? null,
         locationSource:location?.source ?? null,
         campusVerified:campusCheck === "inside" ? true : campusCheck === "outside" ? false : null,
       });
-    } catch (error) { setDataError(error.message); submittingReport.current=false; return; }
-    setDataError("");
-    setIncidents(p=>[newInc,...p]);
-    setMyReports(p=>[newInc,...p]);
-    setSubmitted(true);
-    setTimeout(()=>{setSubmitted(false);setForm({type:"medical",building:"",desc:"",priority:"P3",photo:null});setReportLocation(null);setLocationState("");submittingReport.current=false;setView("home");},5000);
+    } catch (error) {
+      setDataError(error.message);
+      submittingReport.current = false;
+      setIsSubmittingReport(false);
+      return;
+    }
+
+    const uploadedAttachments = [];
+    let uploadError = "";
+    for (const [index, file] of evidenceFiles.entries()) {
+      setEvidenceProgress({ index: index + 1, total: evidenceFiles.length, percent: 0 });
+      try {
+        const attachment = await uploadIncidentAttachment(authUser, newInc.id, file, percent => {
+          setEvidenceProgress({ index: index + 1, total: evidenceFiles.length, percent: Math.round(percent * 100) });
+        });
+        uploadedAttachments.push(attachment);
+      } catch (error) {
+        uploadError = `${error.message} Your incident was saved as ${newInc.reference}.`;
+        break;
+      }
+    }
+    newInc = { ...newInc, attachments: uploadedAttachments };
+    setIncidents(current => [newInc, ...current]);
+    setMyReports(current => [newInc, ...current]);
+    setEvidenceUploadError(uploadError);
+    setEvidenceProgress(null);
+    setSubmittedReport({ type: form.type, reference: newInc.reference });
+    submittingReport.current = false;
+    setIsSubmittingReport(false);
+  }
+
+  function resetIncidentForm() {
+    setSubmittedReport(null);
+    setForm({ type:"medical", building:"", desc:"", priority:"P3" });
+    setEvidenceFiles([]);
+    setReportLocation(null);
+    setLocationState("");
+    setEvidenceUploadError("");
+    setEvidenceProgress(null);
+    setIsRecordingEvidence(false);
+    setView("home");
   }
 
   const NAVITEMS = [
-    ["home","🏠","Home"],["report","🚨","Report"],["map","🗺","Campus Map"],["checkin","✅","Safe Check"],["my","📋","My Reports"]
+    ["home",Home,"Home"],["report",Siren,"Report"],["map",Map,"Campus Map"],["checkin",ShieldCheck,"Safe Check"],["my",ClipboardList,"My Reports"],["profile",CircleUserRound,"My Profile"]
   ];
+  function navigateToView(nextView) {
+    if (nextView === view) return;
+    if (view === "profile" && profileHasUnsavedChanges
+      && !window.confirm("You have unsaved profile changes. Leave without saving?")) return;
+    setView(nextView);
+    if (nextView === "report") void captureReportLocation();
+    setAccountMenuOpen(false);
+  }
 
   return (
-    <div style={{minHeight:"100vh",background:PAPER,fontFamily:"'IBM Plex Sans',sans-serif"}}>
+    <div className="student-portal-shell" style={{minHeight:"100vh",background:"transparent",fontFamily:"'IBM Plex Sans',sans-serif"}}>
       <style>{STYLES}</style>
+      <div className="student-portal-background" aria-hidden="true">
+        <img src={STUDENT_PORTAL_BACKGROUND} alt="" />
+        <div />
+      </div>
       {/* Header */}
 <div style={{background:NAVY,borderBottom:`3px solid ${GOLD}`,position:"sticky",top:0,zIndex:100}}>
   <div style={{maxWidth:1100,margin:"0 auto",padding:"0 5%",height:60,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -235,17 +322,26 @@ function StudentPortal({ user, authUser, onLogout }) {
     <div style={{display:"flex",alignItems:"center",gap:12}}>
       <img src={LOGO} alt="UMP" style={{height:36,objectFit:"contain",mixBlendMode:"lighten"}}/>
       
-      <div style={{borderLeft:"1px solid rgba(255,255,255,0.15)",paddingLeft:12}}>
+      <button type="button" onClick={()=>navigateToView("profile")} aria-label={`Open profile for ${user.name}`} style={{border:0,background:"transparent",padding:0,textAlign:"left",cursor:"pointer"}}>
         <div style={{fontSize:9,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:1.8,textTransform:"uppercase"}}>
           {user.portal === "staff" ? "Staff Portal" : "Student Portal"}
         </div>
         <div style={{fontSize:14,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>
           {user.name}
         </div>
-      </div>
+      </button>
     </div>
 
-    <div style={{display:"flex",gap:8}}>
+    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+      <div style={{position:"relative"}}>
+        <button type="button" aria-label="Open account menu" aria-expanded={accountMenuOpen} onClick={()=>setAccountMenuOpen(open=>!open)} style={{display:"flex",alignItems:"center",gap:5,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.14)",color:"rgba(255,255,255,0.8)",borderRadius:5,padding:"6px 9px",cursor:"pointer"}}>
+          <CircleUserRound size={17} aria-hidden="true"/><ChevronDown size={14} aria-hidden="true"/>
+        </button>
+        {accountMenuOpen&&<div role="menu" style={{position:"absolute",right:0,top:"calc(100% + 8px)",minWidth:180,background:WHITE,border:`1px solid ${BD}`,borderRadius:7,boxShadow:"0 8px 24px rgba(0,0,0,.18)",padding:5,zIndex:120}}>
+          <button type="button" role="menuitem" onClick={()=>navigateToView("profile")} style={{width:"100%",textAlign:"left",padding:"9px 10px",border:0,borderRadius:5,background:WHITE,color:NK,fontWeight:600,cursor:"pointer"}}>My Profile</button>
+          <button type="button" role="menuitem" onClick={()=>{if(view!=="profile"||!profileHasUnsavedChanges||window.confirm("You have unsaved profile changes. Sign out without saving?"))onLogout();}} style={{width:"100%",textAlign:"left",padding:"9px 10px",border:0,borderRadius:5,background:WHITE,color:RED,fontWeight:600,cursor:"pointer"}}>Sign Out</button>
+        </div>}
+      </div>
       {safeStatus && (
         <div
           style={{
@@ -258,13 +354,13 @@ function StudentPortal({ user, authUser, onLogout }) {
             color:safeStatus==="safe"?GREEN:RED
           }}
         >
-          {safeStatus==="safe" ? "✓ Safe" : "⚠ Needs Help"}
+          <span style={{display:"inline-flex",alignItems:"center",gap:5}}>{safeStatus==="safe" ? <><CheckCircle2 size={14} aria-hidden="true"/>Safe</> : <><TriangleAlert size={14} aria-hidden="true"/>Needs Help</>}</span>
         </div>
       )}
 
       <PushNotificationsButton user={authUser} compact />
       <button
-        onClick={onLogout}
+        onClick={()=>{if(view!=="profile"||!profileHasUnsavedChanges||window.confirm("You have unsaved profile changes. Sign out without saving?"))onLogout();}}
         style={{
           background:"rgba(255,255,255,0.07)",
           border:"1px solid rgba(255,255,255,0.14)",
@@ -284,15 +380,16 @@ function StudentPortal({ user, authUser, onLogout }) {
       {/* Nav */}
       <div style={{background:WHITE,borderBottom:`1px solid ${BD}`,position:"sticky",top:60,zIndex:99}}>
         <div style={{maxWidth:1100,margin:"0 auto",padding:"0 5%",display:"flex",gap:0}}>
-          {NAVITEMS.map(([k,ico,lbl])=>(
-            <button key={k} onClick={()=>setView(k)} style={{padding:"12px 20px",background:"none",border:"none",borderBottom:`2px solid ${view===k?GOLD:"transparent"}`,color:view===k?NAVY:MID,fontSize:13,fontWeight:view===k?700:500,cursor:"pointer",display:"flex",alignItems:"center",gap:6,transition:"all .2s",marginBottom:-1}}>
-              <span>{ico}</span>{lbl}
+          {NAVITEMS.map(([k,Icon,lbl])=>(
+            <button key={k} onClick={()=>navigateToView(k)} aria-current={view===k?"page":undefined} className="ceis-icon-action" style={{padding:"12px 20px",background:"none",border:"none",borderBottom:`2px solid ${view===k?GOLD:"transparent"}`,color:view===k?NAVY:MID,fontSize:13,fontWeight:view===k?700:500,cursor:"pointer",display:"flex",alignItems:"center",gap:6,transition:"all .2s",marginBottom:-1}}>
+              <Icon size={17} strokeWidth={1.8} aria-hidden="true"/>{lbl}
             </button>
           ))}
         </div>
       </div>
 
       <div style={{maxWidth:1100,margin:"0 auto",padding:"28px 5% 60px"}}>
+        {view==="profile"&&<StudentProfile user={user} authUser={authUser} onLogout={onLogout} onBack={()=>{setProfileHasUnsavedChanges(false);setView("home");}} onUserUpdated={profile=>onProfileUpdated(profile)} onUnsavedChangesChange={setProfileHasUnsavedChanges}/>}
         {/* HOME */}
         {view==="home"&&(
           <div style={{animation:"fadeIn .35s ease"}}>
@@ -301,12 +398,12 @@ function StudentPortal({ user, authUser, onLogout }) {
             <p style={{fontSize:14,color:SL,marginBottom:28}}>{user.faculty} · Year {user.year} · ID: {user.id}</p>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:28}}>
               {[
-                { title:"Report Emergency",  sub:"Fire, medical, security threats",  icon:"🚨", color:RED,   action:()=>setView("report") },
-                { title:"Safety Check-In",   sub:"Mark yourself as safe or in need", icon:"✅", color:GREEN, action:()=>setView("checkin") },
-                { title:"Active Incidents",  sub:`${incidents.filter(i=>!["RESOLVED","CLOSED"].includes(i.status)).length} incidents on campus`, icon:"📡", color:ORANGE, action:()=>setView("map") },
+                { title:"Report Emergency",  sub:"Fire, medical, security threats",  Icon:Siren, color:RED,   action:()=>navigateToView("report") },
+                { title:"Safety Check-In",   sub:"Mark yourself as safe or in need", Icon:ShieldCheck, color:GREEN, action:()=>setView("checkin") },
+                { title:"Active Incidents",  sub:`${incidents.filter(i=>!["RESOLVED","CLOSED"].includes(i.status)).length} incidents on campus`, Icon:Radio, color:ORANGE, action:()=>setView("map") },
               ].map((c,i)=>(
-                <button key={i} onClick={c.action} style={{background:WHITE,border:`1.5px solid ${BD}`,borderRadius:10,padding:"20px",textAlign:"left",cursor:"pointer",transition:"all .2s",borderTop:`3px solid ${c.color}`}}>
-                  <div style={{fontSize:28,marginBottom:10}}>{c.icon}</div>
+                <button key={i} onClick={c.action} className="ceis-icon-action" style={{background:WHITE,border:`1.5px solid ${BD}`,borderRadius:10,padding:"20px",textAlign:"left",cursor:"pointer",transition:"all .2s",borderTop:`3px solid ${c.color}`}}>
+                  <c.Icon size={28} strokeWidth={1.7} color={c.color} aria-hidden="true" style={{marginBottom:10}}/>
                   <div style={{fontSize:14,fontWeight:700,color:NK,fontFamily:"'IBM Plex Serif',serif",marginBottom:4}}>{c.title}</div>
                   <div style={{fontSize:12.5,color:SL}}>{c.sub}</div>
                 </button>
@@ -316,12 +413,16 @@ function StudentPortal({ user, authUser, onLogout }) {
             <div style={{background:NAVY,borderRadius:10,padding:"18px 22px",marginBottom:20}}>
               <div style={{fontSize:10.5,fontWeight:700,color:"rgba(255,255,255,0.5)",letterSpacing:1.8,textTransform:"uppercase",marginBottom:12}}>Emergency Contacts</div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
-                {[["🚑","Medical Emergency","10177"],["🛡️","Campus Security","013 002 0010"],["🏥","Campus Clinic","013 002 0200"]].map(([ico,lbl,num])=>(
-                  <div key={num} style={{background:"rgba(255,255,255,0.08)",borderRadius:7,padding:"12px 14px"}}>
-                    <div style={{fontSize:20,marginBottom:5}}>{ico}</div>
-                    <div style={{fontSize:11,color:"rgba(255,255,255,0.55)"}}>{lbl}</div>
-                    <div style={{fontSize:15,fontWeight:800,color:WHITE,fontFamily:"'IBM Plex Mono',monospace"}}>{num}</div>
-                  </div>
+                {[
+                  {Icon:Ambulance,label:"Medical Emergency",number:"10177",href:"tel:10177"},
+                  {Icon:Shield,label:"Campus Security",number:"013 002 0010",href:"tel:0130020010"},
+                  {Icon:Hospital,label:"Campus Clinic",number:"013 002 0200",href:"tel:0130020200"},
+                ].map(({Icon,label,number,href})=>(
+                  <a key={number} href={href} className="ceis-icon-action" style={{display:"block",background:"rgba(255,255,255,0.08)",borderRadius:7,padding:"12px 14px",color:WHITE,textDecoration:"none"}} aria-label={`Call ${label}, ${number}`}>
+                    <Icon size={20} strokeWidth={1.8} aria-hidden="true" style={{marginBottom:5}}/>
+                    <div style={{fontSize:11,color:"rgba(255,255,255,0.65)"}}>{label}</div>
+                    <div style={{fontSize:15,fontWeight:800,color:WHITE,fontFamily:"'IBM Plex Mono',monospace"}}>{number}</div>
+                  </a>
                 ))}
               </div>
             </div>
@@ -342,11 +443,20 @@ function StudentPortal({ user, authUser, onLogout }) {
             <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,fontWeight:700,color:NK,marginBottom:6}}>Report an Incident</h2>
             <p style={{fontSize:14,color:SL,marginBottom:24}}>Reports are saved to the campus incident database for authorized staff review. The system does not notify responders automatically. For life-threatening emergencies, call 10177 directly.</p>
             {dataError&&<div role="alert" style={{background:REDL,color:RED,padding:12,borderRadius:7,marginBottom:16}}>{dataError}</div>}
-            {submitted?(
+            {submittedReport?(
               <div style={{background:GREENL,border:`1.5px solid ${GREEN}`,borderRadius:10,padding:"24px",textAlign:"center",animation:"fadeIn .4s ease"}}>
-                <div style={{fontSize:40,marginBottom:12}}>✅</div>
+                <CheckCircle2 size={40} strokeWidth={1.7} color={GREEN} aria-hidden="true" style={{marginBottom:12}}/>
                 <h3 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:20,color:GREEN,marginBottom:8}}>Report saved</h3>
-                <p style={{fontSize:14,color:SL}}>Your report is available to authorized campus staff. No responder was notified automatically.</p>
+                <p style={{fontSize:14,color:SL}}>Reference: <strong>{submittedReport.reference}</strong>. Your report is available to authorized campus staff. No responder was notified automatically.</p>
+                {evidenceProgress&&<p role="status" style={{fontSize:13,color:SL}}>Uploading evidence {evidenceProgress.index} of {evidenceProgress.total} · {evidenceProgress.percent}%</p>}
+                {evidenceUploadError&&<p role="alert" style={{fontSize:13,color:RED,background:WHITE,padding:10,borderRadius:6}}>{evidenceUploadError}</p>}
+                {submittedReport.type==="medical"&&(
+                  <div style={{margin:"16px auto",maxWidth:440,background:WHITE,border:`1px solid ${BD}`,borderRadius:8,padding:14}}>
+                    <p style={{fontSize:13,color:NK,lineHeight:1.6,margin:"0 0 10px"}}>Would guided medical triage help? It provides informational guidance only and does not diagnose or contact emergency services. Call 10177 for urgent medical help.</p>
+                    <button type="button" onClick={onOpenMedicalTriage} style={{minHeight:42,padding:"10px 14px",background:NAVY,color:WHITE,border:0,borderRadius:6,fontSize:13,fontWeight:700,cursor:"pointer"}}>Open medical triage</button>
+                  </div>
+                )}
+                <button type="button" onClick={resetIncidentForm} style={{minHeight:42,padding:"10px 14px",background:WHITE,color:NAVY,border:`1px solid ${BD}`,borderRadius:6,fontSize:13,fontWeight:600,cursor:"pointer"}}>Return to portal</button>
               </div>
             ):(
               <div style={{background:WHITE,borderRadius:12,border:`1px solid ${BD}`,padding:"26px"}}>
@@ -366,28 +476,40 @@ function StudentPortal({ user, authUser, onLogout }) {
                     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
                       {Object.entries(INC_TYPES).map(([k,v])=>(
                         <button key={k} onClick={()=>setForm(f=>({...f,type:k}))} style={{padding:"10px 8px",background:form.type===k?`${v.color}12`:WHITE,border:`1.5px solid ${form.type===k?v.color:BD}`,borderRadius:7,cursor:"pointer",textAlign:"center"}}>
-                          <div style={{fontSize:20,marginBottom:4}}>{v.icon}</div>
+                          <v.icon size={21} strokeWidth={1.8} color={v.color} aria-hidden="true" style={{marginBottom:4}}/>
                           <div style={{fontSize:11,fontWeight:600,color:form.type===k?v.color:SL}}>{v.label}</div>
                         </button>
                       ))}
                     </div>
                   )},
-                  { label:"Building / Location", content:(
-                    <select value={form.building} onChange={e=>setForm(f=>({...f,building:e.target.value}))} style={{width:"100%",padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,color:NK,outline:"none",background:WHITE}}>
-                      <option value="">Select building…</option>
-                      {MBOMBELA_BUILDINGS.map(b=><option key={b.id} value={b.id}>Building {b.id} — {b.name}</option>)}
-                    </select>
-                  )},
-                  { label:"Pin the incident location (optional)", content:(
+                  { label:"Incident location", content:(
                     <div>
-                      <button type="button" onClick={captureReportLocation} disabled={locating} style={{minHeight:42,padding:"9px 13px",marginBottom:8,background:WHITE,border:`1px solid ${BD}`,borderRadius:6,color:NAVY,fontSize:12.5,fontWeight:600,cursor:locating?"wait":"pointer"}}>{locating?"Getting location…":"Use my device location"}</button>
+                      <button type="button" onClick={captureReportLocation} disabled={locating} style={{minHeight:42,padding:"9px 13px",marginBottom:8,background:WHITE,border:`1px solid ${BD}`,borderRadius:6,color:NAVY,fontSize:12.5,fontWeight:600,cursor:locating?"wait":"pointer"}}>{locating?"Getting location…":reportLocation?"Refresh device location":"Retry device location"}</button>
                       {locationState&&<p role="status" style={{fontSize:12,color:SL,lineHeight:1.5,margin:"0 0 9px"}}>{locationState}</p>}
+                      {reportLocation
+                        ? <p style={{fontSize:12,color:GREEN,margin:"0 0 10px"}}>GPS/map coordinates will be submitted. Campus building selection is not required.</p>
+                        : locating
+                          ? <p role="status" style={{fontSize:12,color:SL,margin:"0 0 10px"}}>Trying to capture your current device location…</p>
+                          : <label style={{display:"block",fontSize:12,fontWeight:600,color:NK,marginBottom:10}}>If device location is unavailable, choose a campus building
+                              <select value={form.building} onChange={e=>setForm(f=>({...f,building:e.target.value}))} style={{display:"block",width:"100%",marginTop:7,padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,color:NK,outline:"none",background:WHITE}}>
+                                <option value="">Select campus building…</option>
+                                {MBOMBELA_BUILDINGS.map(building=><option key={building.id} value={building.id}>Building {building.id} — {building.name}</option>)}
+                              </select>
+                            </label>}
                       <CampusMap
                       compact
                       incidents={[]}
                       selectedBuilding={form.building}
                       location={reportLocation}
-                      onLocationChange={setReportLocation}
+                      onLocationChange={location=>{
+                        setReportLocation(location);
+                        if(location?.source!=="mapped-building")setForm(current=>({...current,building:""}));
+                      }}
+                      onBuildingClick={building=>{
+                        const mapped=MAPPED_BUILDINGS.find(item=>item.id===building.id);
+                        setForm(current=>({...current,building:building.id}));
+                        if(mapped)setReportLocation({latitude:mapped.lat,longitude:mapped.lng,accuracyMeters:null,capturedAt:new Date().toISOString(),source:"mapped-building"});
+                      }}
                       allowLocationSelection
                       />
                     </div>
@@ -402,8 +524,11 @@ function StudentPortal({ user, authUser, onLogout }) {
                       ))}
                     </div>
                   )},
-                  { label:"Description", content:(
-                    <textarea value={form.desc} onChange={e=>setForm(f=>({...f,desc:e.target.value}))} placeholder="Describe what is happening, number of people involved, any injuries, exact location within the building…" style={{width:"100%",minHeight:100,padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,color:NK,resize:"vertical",outline:"none",lineHeight:1.65}}/>
+                  { label:"Description (optional)", content:(
+                    <div>
+                      <textarea value={form.desc} maxLength={4000} onChange={e=>setForm(f=>({...f,desc:e.target.value}))} placeholder="Add details that could help responders, such as what is happening or any immediate hazards…" style={{width:"100%",minHeight:100,padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,color:NK,resize:"vertical",outline:"none",lineHeight:1.65}}/>
+                      <div style={{fontSize:11,color:MID,textAlign:"right",marginTop:3}}>{form.desc.length}/4000</div>
+                    </div>
                   )},
                 ].map((field,i)=>(
                   <div key={i} style={{marginBottom:20}}>
@@ -411,8 +536,13 @@ function StudentPortal({ user, authUser, onLogout }) {
                     {field.content}
                   </div>
                 ))}
-                <button onClick={submitReport} disabled={!form.building||!form.desc} style={{width:"100%",padding:"13px",background:!form.building||!form.desc?BD:RED,color:WHITE,border:"none",borderRadius:7,fontSize:15,fontWeight:700,cursor:!form.building||!form.desc?"not-allowed":"pointer"}}>
-                  🚨 Submit Incident Report
+                <div style={{marginBottom:20}}>
+                  <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:8}}>Attachments (optional)</label>
+                  <IncidentEvidenceCapture files={evidenceFiles} onFilesChange={setEvidenceFiles} disabled={isSubmittingReport} onRecordingChange={setIsRecordingEvidence}/>
+                </div>
+                {evidenceProgress&&<p role="status" style={{fontSize:12,color:SL,margin:"0 0 10px"}}>Uploading evidence {evidenceProgress.index} of {evidenceProgress.total} · {evidenceProgress.percent}%</p>}
+                <button onClick={submitReport} disabled={(!reportLocation&&!form.building)||locating||isSubmittingReport||isRecordingEvidence} style={{width:"100%",padding:"13px",background:(!reportLocation&&!form.building)||locating||isSubmittingReport||isRecordingEvidence?BD:RED,color:WHITE,border:"none",borderRadius:7,fontSize:15,fontWeight:700,cursor:(!reportLocation&&!form.building)||locating||isSubmittingReport||isRecordingEvidence?"not-allowed":"pointer"}}>
+                  <Siren size={18} strokeWidth={1.8} aria-hidden="true"/> {isSubmittingReport?"Saving report…":isRecordingEvidence?"Stop recording to submit":"Submit Incident Report"}
                 </button>
               </div>
             )}
@@ -441,7 +571,7 @@ function StudentPortal({ user, authUser, onLogout }) {
                       ):incidents.filter(i=>i.building===selectedBldg.id&&!["RESOLVED","CLOSED"].includes(i.status)).map(inc=>(
                         <div key={inc.id} style={{padding:"10px 12px",background:REDL,border:`1px solid ${RED}28`,borderRadius:7,marginBottom:8}}>
                           <div style={{fontSize:11,fontWeight:700,color:RED}}>{PRIORITY[inc.priority].label} · {INC_TYPES[inc.type]?.label}</div>
-                          <div style={{fontSize:12,color:NK,marginTop:4}}>{inc.desc}</div>
+                          <div style={{fontSize:12,color:NK,marginTop:4}}>{inc.desc||"No additional description supplied."}</div>
                           <div style={{fontSize:11,color:MID,marginTop:4}}>{inc.time} · {STATUS_LABEL[inc.status]}</div>
                         </div>
                       ))}
@@ -457,7 +587,7 @@ function StudentPortal({ user, authUser, onLogout }) {
                   <div style={{padding:"12px 16px",borderBottom:`1px solid ${BD}`,fontSize:12,fontWeight:700,color:NK}}>Active Incidents</div>
                   {incidents.filter(i=>!["RESOLVED","CLOSED"].includes(i.status)).map(inc=>(
                     <div key={inc.id} style={{padding:"10px 16px",borderBottom:`1px solid ${BD}`,display:"flex",gap:8,alignItems:"flex-start"}}>
-                      <span style={{fontSize:16}}>{INC_TYPES[inc.type]?.icon}</span>
+                      {(() => { const Icon=INC_TYPES[inc.type]?.icon || FileText; return <Icon size={17} strokeWidth={1.8} color={INC_TYPES[inc.type]?.color || MID} aria-hidden="true"/>; })()}
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:12,fontWeight:600,color:NK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{inc.loc}</div>
                         <div style={{fontSize:11,color:MID}}>{inc.time} · <span style={{color:PRIORITY[inc.priority].color,fontWeight:700}}>{inc.priority}</span></div>
@@ -478,7 +608,7 @@ function StudentPortal({ user, authUser, onLogout }) {
             <div style={{background:WHITE,borderRadius:12,border:`1px solid ${BD}`,padding:"26px"}}>
               {safeStatus&&(
                 <div style={{background:safeStatus==="safe"?GREENL:REDL,border:`1.5px solid ${safeStatus==="safe"?GREEN:RED}`,borderRadius:10,padding:"16px",textAlign:"center",marginBottom:20}}>
-                  <div style={{fontSize:32,marginBottom:8}}>{safeStatus==="safe"?"✅":"🆘"}</div>
+                  {safeStatus==="safe"?<CheckCircle2 size={32} color={GREEN} aria-hidden="true" style={{marginBottom:8}}/>:<LifeBuoy size={32} color={RED} aria-hidden="true" style={{marginBottom:8}}/>}
                   <div style={{fontSize:16,fontWeight:700,color:safeStatus==="safe"?GREEN:RED,fontFamily:"'IBM Plex Serif',serif"}}>
                     {safeStatus==="safe"?"You are marked as SAFE":"ASSISTANCE REQUEST SAVED — Call Security for immediate help"}
                   </div>
@@ -487,12 +617,12 @@ function StudentPortal({ user, authUser, onLogout }) {
               )}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
                 <button onClick={async()=>{try{await createCheckin(authUser,{status:"safe"});setSafeStatus("safe");setDataError("");}catch(error){setDataError(error.message);}}} style={{padding:"22px",background:safeStatus==="safe"?GREENL:WHITE,border:`2px solid ${safeStatus==="safe"?GREEN:BD}`,borderRadius:10,cursor:"pointer",textAlign:"center",transition:"all .2s"}}>
-                  <div style={{fontSize:36,marginBottom:8}}>✅</div>
+                  <CheckCircle2 size={36} color={GREEN} aria-hidden="true" style={{marginBottom:8}}/>
                   <div style={{fontSize:15,fontWeight:700,color:GREEN}}>I am SAFE</div>
                   <div style={{fontSize:12,color:SL,marginTop:4}}>I am in a safe location</div>
                 </button>
                 <button onClick={async()=>{try{await createCheckin(authUser,{status:"help"});setSafeStatus("help");setDataError("");}catch(error){setDataError(error.message);}}} style={{padding:"22px",background:safeStatus==="help"?REDL:WHITE,border:`2px solid ${safeStatus==="help"?RED:BD}`,borderRadius:10,cursor:"pointer",textAlign:"center",transition:"all .2s"}}>
-                  <div style={{fontSize:36,marginBottom:8}}>🆘</div>
+                  <LifeBuoy size={36} color={RED} aria-hidden="true" style={{marginBottom:8}}/>
                   <div style={{fontSize:15,fontWeight:700,color:RED}}>Need HELP</div>
                   <div style={{fontSize:12,color:SL,marginTop:4}}>I need emergency assistance</div>
                 </button>
@@ -510,10 +640,10 @@ function StudentPortal({ user, authUser, onLogout }) {
             ):myReports.map(inc=>(
               <div key={inc.id} style={{background:WHITE,borderRadius:10,border:`1px solid ${BD}`,padding:"16px 20px",marginBottom:10}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                  <div style={{display:"flex",gap:10,alignItems:"center"}}><span style={{fontSize:22}}>{INC_TYPES[inc.type]?.icon}</span><div><div style={{fontSize:13,fontWeight:700,color:NK}}>{inc.loc}</div><div style={{fontSize:12,color:MID}}>{inc.id} · {inc.time}</div></div></div>
+                  <div style={{display:"flex",gap:10,alignItems:"center"}}>{(() => { const Icon=INC_TYPES[inc.type]?.icon || FileText; return <Icon size={22} strokeWidth={1.8} color={INC_TYPES[inc.type]?.color || MID} aria-hidden="true"/>; })()}<div><div style={{fontSize:13,fontWeight:700,color:NK}}>{inc.loc}</div><div style={{fontSize:12,color:MID}}>{inc.id} · {inc.time}</div></div></div>
                   <span style={{padding:"3px 10px",background:`${PRIORITY[inc.priority].color}14`,color:PRIORITY[inc.priority].color,borderRadius:3,fontSize:11,fontWeight:700}}>{inc.priority} — {PRIORITY[inc.priority].label}</span>
                 </div>
-                <div style={{fontSize:13,color:SL,marginBottom:6}}>{inc.desc}</div>
+                <div style={{fontSize:13,color:SL,marginBottom:6}}>{inc.desc||"No additional description supplied."}</div>
                 <div style={{fontSize:12,color:inc.status==="RESOLVED"?GREEN:ORANGE,fontWeight:600}}>● {STATUS_LABEL[inc.status]}</div>
               </div>
             ))}
@@ -527,7 +657,7 @@ function StudentPortal({ user, authUser, onLogout }) {
 /* ══════════════════════════════════════════════════════════════
    ADMIN COMMAND CENTRE
    ══════════════════════════════════════════════════════════════ */
-export default function CommandCenterApp({ onBack }) {
+export default function CommandCenterApp({ onBack, onOpenMedicalTriage }) {
   const [session, setSession] = useState(null);
   const [activePortal, setActivePortal] = useState("");
   const [authLoading, setAuthLoading] = useState(true);
@@ -581,6 +711,10 @@ export default function CommandCenterApp({ onBack }) {
     setActivePortal(authResult.user.portal);
   }
 
+  function handleProfileUpdated(profile) {
+    setSession(current => current ? { ...current, user: { ...current.user, ...profile } } : current);
+  }
+
   async function handleLogout() {
     await signOutUser();
     setSession(null);
@@ -613,7 +747,7 @@ export default function CommandCenterApp({ onBack }) {
       )}
       {selectedPortal === "admin" && <AdminPortal user={activeUser} authUser={activeUser} onLogout={handleLogout} />}
       {selectedPortal === "responder" && <ResponderPortal user={activeUser} authUser={activeUser} onLogout={handleLogout} />}
-      {!["admin", "responder"].includes(selectedPortal) && <StudentPortal user={activeUser} authUser={activeUser} onLogout={handleLogout} />}
+      {!["admin", "responder"].includes(selectedPortal) && <StudentPortal user={activeUser} authUser={activeUser} onLogout={handleLogout} onProfileUpdated={handleProfileUpdated} onOpenMedicalTriage={onOpenMedicalTriage} />}
     </>
   );
 }

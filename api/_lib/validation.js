@@ -29,31 +29,49 @@ export function incidentInput(body, { sos = false } = {}) {
   const priority = sos ? "P1" : body.priority;
   if (!INCIDENT_TYPES.has(type)) fail("Choose a supported incident type.");
   if (!PRIORITIES.has(priority)) fail("Choose a supported priority.");
+  const rawDescription = body.description ?? body.desc;
+  const trimmedDescription = typeof rawDescription === "string" ? rawDescription.trim() : rawDescription;
   const description = sos
-    ? (typeof body.description === "string" ? body.description.trim().slice(0, 1000) || "SOS assistance requested." : "SOS assistance requested.")
-    : text(body.description ?? body.desc, "Description", { min: 3, max: 4000 });
+    ? (typeof trimmedDescription === "string" ? trimmedDescription.slice(0, 1000) || "SOS assistance requested." : "SOS assistance requested.")
+    : trimmedDescription == null || trimmedDescription === ""
+      ? ""
+      : text(trimmedDescription, "Description", { min: 3, max: 4000 });
 
   const latitude = body.latitude ?? body.lat;
   const longitude = body.longitude ?? body.lng;
   const coords = latitude == null && longitude == null ? {} : coordinates(latitude, longitude);
-  if (sos && !coords.latitude) fail("SOS requires location permission so responders can find you.");
+  if (sos && coords.latitude == null) fail("SOS requires location permission so responders can find you.");
 
   const building = typeof body.building === "string" && /^\d{1,3}$/.test(body.building.trim())
     ? body.building.trim()
-    : (sos ? "0" : null);
+    : (sos || coords.latitude != null ? "0" : null);
   if (!building) fail("Choose a valid campus building.");
+  const buildingName = typeof body.buildingName === "string"
+    ? text(body.buildingName, "Building name", { min: 1, max: 120 })
+    : null;
 
   const accuracy = body.accuracyMeters ?? body.accuracy;
   if (accuracy != null && (!Number.isFinite(accuracy) || accuracy < 0 || accuracy > 10000)) fail("Location accuracy is invalid.");
+  const locationCapturedAt = body.locationCapturedAt == null
+    ? null
+    : new Date(body.locationCapturedAt);
+  if (locationCapturedAt && !Number.isFinite(locationCapturedAt.getTime())) fail("Location capture time is invalid.");
+  const locationSource = body.locationSource == null
+    ? (coords.latitude != null ? "device-gps" : null)
+    : body.locationSource;
+  if (locationSource != null && !["device-gps", "map-pin", "mapped-building"].includes(locationSource)) {
+    fail("Location source is invalid.");
+  }
   return {
     type,
     priority,
     description,
     building,
+    buildingName,
     ...coords,
     accuracyMeters: accuracy ?? null,
-    locationCapturedAt: coords.latitude ? new Date() : null,
-    locationSource: coords.latitude ? "browser" : null,
+    locationCapturedAt: coords.latitude != null ? locationCapturedAt || new Date() : null,
+    locationSource: coords.latitude != null ? locationSource : null,
     campusVerified: typeof body.campusVerified === "boolean" ? body.campusVerified : null,
   };
 }

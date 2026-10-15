@@ -31,10 +31,21 @@ export default function App() {
     );
   }
 
+  if (screen === "triage") {
+    return (
+      <LandingSite
+        initialPage="triage"
+        onAccessSystem={() => setScreen("system")}
+        onBackToPortal={() => setScreen("system")}
+      />
+    );
+  }
+
   // screen === "system"
   return (
     <CommandCenterApp
       onBack={() => setScreen("landing")}
+      onOpenMedicalTriage={() => setScreen("triage")}
     />
   );
 }

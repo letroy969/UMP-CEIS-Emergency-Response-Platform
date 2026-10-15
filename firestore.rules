@@ -80,12 +80,68 @@ service cloud.firestore {
 
       allow read: if (signedIn() && request.auth.uid == userId) || admin();
 
-      allow update: if signedIn()
+      allow update: if verified()
         && request.auth.uid == userId
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['fullName', 'faculty', 'year', 'department']);
+          .hasOnly(['fullName', 'faculty', 'year', 'department'])
+        && request.resource.data.fullName is string
+        && request.resource.data.fullName.size() >= 2
+        && request.resource.data.fullName.size() <= 100
+        && (!('faculty' in request.resource.data)
+          || (request.resource.data.faculty is string && request.resource.data.faculty.size() <= 100))
+        && (!('department' in request.resource.data)
+          || (request.resource.data.department is string && request.resource.data.department.size() <= 100))
+        && (!('year' in request.resource.data)
+          || (request.resource.data.year is int && request.resource.data.year >= 1 && request.resource.data.year <= 8));
 
       allow delete: if false;
+
+      match /emergencyContacts/{contactId} {
+        function validContact(data) {
+          return data.keys().hasAll([
+              'uid', 'name', 'relationship', 'phone', 'order', 'createdAt', 'updatedAt'
+            ])
+            && data.keys().hasOnly([
+              'uid', 'name', 'relationship', 'phone', 'order', 'createdAt', 'updatedAt'
+            ])
+            && data.uid == userId
+            && data.name is string && data.name.size() >= 2 && data.name.size() <= 80
+            && data.name.matches('.*[^ ].*')
+            && data.relationship is string && data.relationship.size() >= 2 && data.relationship.size() <= 50
+            && data.relationship.matches('.*[^ ].*')
+            && data.phone is string && data.phone.matches('^[+][1-9][0-9]{7,14}$')
+            && data.order is int && data.order >= 0 && data.order <= 9;
+        }
+
+        allow read: if verified() && request.auth.uid == userId;
+        allow create: if verified()
+          && request.auth.uid == userId
+          && validContact(request.resource.data)
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.updatedAt == request.time;
+        allow update: if verified()
+          && request.auth.uid == userId
+          && validContact(request.resource.data)
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if verified() && request.auth.uid == userId;
+      }
+
+      match /private/{privateDocument} {
+        allow read: if verified()
+          && request.auth.uid == userId
+          && privateDocument == 'preferences';
+        allow create, update: if verified()
+          && request.auth.uid == userId
+          && privateDocument == 'preferences'
+          && request.resource.data.keys().hasAll(['reducedMotion', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['reducedMotion', 'updatedAt'])
+          && request.resource.data.reducedMotion is bool
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if verified()
+          && request.auth.uid == userId
+          && privateDocument == 'preferences';
+      }
     }
 
     match /incidents/{incidentId} {

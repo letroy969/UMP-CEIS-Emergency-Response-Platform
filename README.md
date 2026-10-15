@@ -8,6 +8,7 @@ See [REQUIREMENTS_REVIEW.md](REQUIREMENTS_REVIEW.md) for the implementation stat
 
 - UMP-only accounts with Firebase email verification and password recovery.
 - Student and staff incident reports, report history, and safety check-ins.
+- Optional report photos and short videos, stored privately and retained for 90 days.
 - Protected admin incident monitoring, analytics, status management, and responder dispatch.
 - A protected responder workspace with live alerts for assigned incidents and response status updates.
 - Campus map and general first-aid guidance.
@@ -27,14 +28,16 @@ Incident reports, assignments, status changes, user profiles, and safety check-i
 Requirements: Node.js 18+ and npm 9+.
 
 1. Install dependencies with `npm install`.
-2. In the Firebase Console, enable **Authentication → Email/Password** and create a **Cloud Firestore** database.
+2. In the Firebase Console, enable **Authentication → Email/Password**, create a **Cloud Firestore** database, and enable **Cloud Storage**.
 3. Under **Authentication → Settings → Password policy**, enforce a minimum length of 12 and require lowercase letters, uppercase letters, numbers, and non-alphanumeric characters. The signup form checks the same policy.
 4. Under **Authentication → Settings → Authorized domains**, add `localhost` for local development and the exact hostname used by your deployed app. Local email verification links use `localhost` even if the dev page was opened as `127.0.0.1`. Password-reset emails use Firebase's hosted handler without a custom continue URL.
 5. Copy `.env.example` to `.env.local` and fill in the Firebase web app configuration values from **Project settings → Your apps**. Set the same `VITE_FIREBASE_*` values in the Vercel project environment for production.
-6. Deploy `firebase.json`, `firestore.rules`, and `firestore.indexes.json` with `npx firebase-tools deploy --only firestore --project ump-ceis` or publish the rules and create the indexes in the Firebase Console.
-7. Set the server-only `GROQ_API_KEY` in `.env.local` for local chatbot use, then run the app and API together with `npm run dev`.
+6. Deploy Firestore and Storage rules with `npx firebase-tools deploy --only firestore,storage --project ump-ceis`, or publish the rules and create the indexes in the Firebase Console.
+7. Set `FIREBASE_PROJECT_ID`, `FIREBASE_SERVICE_ACCOUNT_JSON`, and `CRON_SECRET` as server-only environment variables locally and in Vercel. Locally, you can instead set `GOOGLE_APPLICATION_CREDENTIALS` to a service-account JSON file path or sign in using Google Application Default Credentials. The Firebase identity must be allowed to verify users and access Firestore; evidence uploads also need Storage object access. Authenticated reporting returns HTTP 503 until server credentials are configured; never paste service-account JSON into chat or prefix it with `VITE_`. Vercel runs `/api/cleanup-evidence` daily; its `CRON_SECRET` protects automatic deletion of evidence 90 days after upload.
+8. For anonymous SOS, register the web app with Firebase App Check and a reCAPTCHA v3 site key in the Firebase Console. Add the public site key as `VITE_FIREBASE_APP_CHECK_SITE_KEY` and set `FIREBASE_APP_CHECK_APP_ID` to the same Firebase web app's App ID on the API server. Generate a separate random server-only `SOS_RATE_LIMIT_SECRET` (at least 32 characters) for HMAC-keyed IP rate limits. The endpoint requires valid App Check, a fresh GPS fix with accuracy of 100 m or better inside the server-verified Mbombela campus polygon, and applies an 8-request/10-minute source limit. Configure and monitor reCAPTCHA/App Check before launch; these controls reduce abuse but cannot prove a caller's location or intent.
+9. Set the server-only `GROQ_API_KEY` in `.env.local` for local chatbot use, then run the app and API together with `npm run dev`.
 
-Firebase web configuration is used by the browser SDK. Never put Firebase Admin service-account credentials in Vite variables or frontend code.
+Firebase web configuration is used by the browser SDK. Never put Firebase Admin service-account credentials or `CRON_SECRET` in Vite variables or frontend code. For local ADC setup, run `gcloud auth application-default login` with an account authorized for the Firebase project, or set `GOOGLE_APPLICATION_CREDENTIALS` to a secure local service-account JSON file; restart Vite after updating `.env.local`.
 The UMP-CEIS chatbot requires a server-only `GROQ_API_KEY`; add it to the Vercel project environment and, for local development, to `.env.local`. The Vite development server mounts the existing API locally, so `npm run dev` serves the frontend and API together. Do not prefix the key with `VITE_` or expose it in browser code. The optional `GROQ_MODEL` variable overrides the default `openai/gpt-oss-120b` model. After changing either variable in Vercel, redeploy the application.
 
 Self-service signup is for students only and requires an `@ump.ac.za` address, a password that meets the configured policy, and Firebase email verification. Verification confirms control of that mailbox only; it does not verify current enrolment or employment. Users choose between the Student and Staff sign-in portals, but portal selection does not grant privileges. Staff, admin, and responder accounts must be provisioned by a trusted administrator in the Firestore `users/{uid}` profile. Use the `roles` array for multiple portals, for example `roles: ["student", "admin"]`; the older single `role` field remains supported. Legacy `security` and `medical` roles are also treated as responders. For the first administrator, create and verify an account, then promote its profile using a trusted Firebase Console account. Never let a user promote their own role.
@@ -54,3 +57,5 @@ The app no longer reads from Supabase. Existing Supabase accounts and records ar
 ## Emergency use
 
 The application does not automatically notify responders. For urgent assistance, call 10177 (SA EMS) or UMP Campus Security at +27 13 002 0010.
+
+Incident evidence is private: verified reporters can upload evidence to their own incident, while admins and the assigned responder can request short-lived view links. Evidence is limited to three files per report (images up to 10 MB each and one video up to 40 MB); recordings stop at two minutes. Storage Rules must be deployed before uploads work. Set `CRON_SECRET` in the Vercel project to enable its daily 90-day evidence-retention job.

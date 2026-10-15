@@ -1,6 +1,7 @@
 import express from "express";
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import { anonymousSosIncidentId, anonymousSosInput, anonymousSosRateLimitKey } from "./_lib/anonymousSos.js";
 import { authenticate, enforceRateLimit, hasRole, isResponder, requireRole } from "./_lib/auth.js";
 import { getFirebaseServices } from "./_lib/firebaseAdmin.js";
 import { handleChat } from "./chat.js";
@@ -19,7 +20,7 @@ app.use((req, res, next) => {
   if (origin && configuredOrigin && origin === configuredOrigin) {
     res.set("access-control-allow-origin", origin);
     res.set("vary", "Origin");
-    res.set("access-control-allow-headers", "authorization, content-type");
+    res.set("access-control-allow-headers", "authorization, content-type, x-firebase-appcheck");
     res.set("access-control-allow-methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS");
   }
   if (req.method === "OPTIONS") return res.sendStatus(origin && origin === configuredOrigin ? 204 : 403);
@@ -52,8 +53,19 @@ function incidentForClient(id, row) {
     type: row.type,
     priority: row.priority,
     building: row.building,
-    loc: row.latitude != null ? `${row.latitude.toFixed(5)}, ${row.longitude.toFixed(5)}` : `Building ${row.building}`,
+    buildingName: row.buildingName || null,
+    loc: row.buildingName || (row.latitude != null
+      ? `GPS location · ${row.latitude.toFixed(5)}, ${row.longitude.toFixed(5)}`
+      : `Building ${row.building}`),
     desc: row.description,
+    attachments: Array.isArray(row.attachments) ? row.attachments.map(item => ({
+      id: item.id,
+      name: item.name,
+      kind: item.kind,
+      contentType: item.contentType,
+      size: item.size,
+      createdAt: date(item.createdAt),
+    })) : [],
     status: row.status,
     responder: row.responder || "Pending assignment",
     lat: row.latitude ?? null,
@@ -113,18 +125,26 @@ async function autoAssignNearest(services, incident) {
   return null;
 }
 
-async function createIncidentRecord(services, user, input, { sos = false } = {}) {
-  const incidentRef = services.db.collection("incidents").doc();
+async function createIncidentRecord(services, user, input, {
+  sos = false,
+  anonymous = false,
+  idempotencyKey = null,
+} = {}) {
+  const incidentRef = idempotencyKey
+    ? services.db.collection("incidents").doc(anonymousSosIncidentId(idempotencyKey))
+    : services.db.collection("incidents").doc();
   const now = Timestamp.now();
   const data = {
-    reference: `INC-${createHash("sha256").update(`${user.uid}:${now.toMillis()}:${incidentRef.id}`).digest("hex").slice(0, 10).toUpperCase()}`,
-    reportedBy: user.uid,
+    reference: `INC-${createHash("sha256").update(`${user.uid || "anonymous"}:${now.toMillis()}:${incidentRef.id}`).digest("hex").slice(0, 10).toUpperCase()}`,
+    reportedBy: anonymous ? null : user.uid,
     responderUid: null,
     dispatchedByUid: null,
     type: input.type,
     priority: input.priority,
     building: input.building,
+    buildingName: input.buildingName,
     description: input.description,
+    attachments: [],
     status: "NEW",
     responder: null,
     latitude: input.latitude ?? null,
@@ -133,22 +153,39 @@ async function createIncidentRecord(services, user, input, { sos = false } = {})
     locationCapturedAt: input.locationCapturedAt || null,
     locationSource: input.locationSource ?? null,
     campusVerified: input.campusVerified ?? null,
-    reporterName: user.name,
+    reporterName: anonymous ? "Anonymous visitor" : user.name,
     isSOS: sos,
+    isAnonymous: anonymous,
     createdAt: now,
     updatedAt: now,
     dispatchedAt: null,
     resolvedAt: null,
   };
-  await services.db.runTransaction(async transaction => {
+  const duplicate = await services.db.runTransaction(async transaction => {
+    if (idempotencyKey) {
+      const existing = await transaction.get(incidentRef);
+      if (existing.exists) {
+        Object.assign(data, existing.data());
+        return true;
+      }
+    }
     transaction.create(incidentRef, data);
     transaction.create(incidentRef.collection("events").doc(), {
       event: sos ? "SOS_CREATED" : "INCIDENT_CREATED",
-      actorUid: user.uid,
+      actorUid: anonymous ? "anonymous" : user.uid,
+      actorType: anonymous ? "anonymous" : "user",
       status: "NEW",
       createdAt: now,
     });
+    return false;
   });
+
+  if (duplicate) {
+    const assignment = data.responderUid
+      ? { uid: data.responderUid, name: data.responder || "Responder" }
+      : null;
+    return { ref: incidentRef, data, assignment, duplicate: true };
+  }
 
   let assignment = null;
   if (sos) assignment = await autoAssignNearest(services, data);
@@ -181,7 +218,42 @@ async function createIncidentRecord(services, user, input, { sos = false } = {})
       dispatchedAt: Timestamp.now(),
     });
   }
-  return { ref: incidentRef, data, assignment };
+  return { ref: incidentRef, data, assignment, duplicate: false };
+}
+
+async function requireAnonymousAppCheck(req, _res, next) {
+  try {
+    const token = req.get("x-firebase-appcheck");
+    if (!token) {
+      const error = new Error("An App Check token is required for anonymous SOS.");
+      error.status = 403;
+      throw error;
+    }
+    const expectedAppId = process.env.FIREBASE_APP_CHECK_APP_ID || process.env.VITE_FIREBASE_APP_ID;
+    if (!expectedAppId) {
+      const error = new Error("Firebase App Check app id is not configured.");
+      error.status = 503;
+      error.publicMessage = "Anonymous SOS is unavailable until FIREBASE_APP_CHECK_APP_ID is configured on the API server.";
+      throw error;
+    }
+    const services = getFirebaseServices();
+    let verified;
+    try {
+      verified = await services.appCheck.verifyToken(token);
+    } catch {
+      const error = new Error("The App Check token could not be verified.");
+      error.status = 403;
+      throw error;
+    }
+    if (verified.appId !== expectedAppId) {
+      const error = new Error("This app is not authorized to submit anonymous SOS requests.");
+      error.status = 403;
+      throw error;
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
 }
 
 app.get("/health", (_req, res) => res.json({ ok: true, service: "ump-ceis-api" }));
@@ -228,6 +300,188 @@ route("post", "/incidents", authenticate, async (req, res) => {
   res.status(201).json({ incident: incidentForClient(created.ref.id, created.data) });
 });
 
+const EVIDENCE_TYPES = {
+  "image/jpeg": { kind: "image", extension: "jpg", maxBytes: 10 * 1024 * 1024 },
+  "image/png": { kind: "image", extension: "png", maxBytes: 10 * 1024 * 1024 },
+  "image/webp": { kind: "image", extension: "webp", maxBytes: 10 * 1024 * 1024 },
+  "video/webm": { kind: "video", extension: "webm", maxBytes: 40 * 1024 * 1024 },
+  "video/mp4": { kind: "video", extension: "mp4", maxBytes: 40 * 1024 * 1024 },
+};
+
+route("post", "/incidents/:id/attachments", authenticate, async (req, res) => {
+  const services = getFirebaseServices();
+  if (!services.storage) fail("Firebase Storage is not configured for incident evidence.", 503);
+  const incidentId = text(req.params.id, "Incident id", { max: 150 });
+  const attachmentId = text(req.body?.attachmentId, "Attachment id", { max: 48 });
+  const contentType = req.body?.contentType;
+  const fileType = EVIDENCE_TYPES[contentType];
+  if (!/^[a-f0-9-]{36}\.(jpg|png|webp|webm|mp4)$/.test(attachmentId) || !fileType) {
+    fail("The attachment identifier or file type is invalid.");
+  }
+  if (req.body?.kind !== fileType.kind) fail("The attachment type does not match its content.");
+
+  const incidentRef = services.db.collection("incidents").doc(incidentId);
+  const objectRef = services.storage.file(`incidents/${incidentId}/attachments/${attachmentId}`);
+  const [metadata] = await objectRef.getMetadata();
+  const size = Number(metadata.size);
+  if (metadata.contentType !== contentType || metadata.metadata?.uid !== req.user.uid
+    || !Number.isSafeInteger(size) || size <= 0 || size > fileType.maxBytes) {
+    fail("The uploaded attachment did not pass verification.", 400);
+  }
+
+  const attachment = {
+    id: attachmentId,
+    name: [...text(req.body?.name, "File name", { max: 180 })]
+      .map(character => {
+        const code = character.charCodeAt(0);
+        return code < 32 || code === 127 || character === "/" || character === "\\" ? "_" : character;
+      })
+      .join(""),
+    kind: fileType.kind,
+    contentType,
+    size,
+    createdAt: Timestamp.now(),
+  };
+  let savedAttachment;
+  await services.db.runTransaction(async transaction => {
+    const snapshot = await transaction.get(incidentRef);
+    if (!snapshot.exists) fail("Incident not found.", 404);
+    const incident = snapshot.data();
+    if (incident.reportedBy !== req.user.uid) fail("Only the incident reporter can add evidence.", 403);
+    const attachments = Array.isArray(incident.attachments) ? incident.attachments : [];
+    const existing = attachments.find(item => item.id === attachmentId);
+    if (existing) {
+      savedAttachment = existing;
+      return;
+    }
+    if (attachments.length >= 3 || (fileType.kind === "video" && attachments.some(item => item.kind === "video"))) {
+      fail("This incident has reached its attachment limit.", 409);
+    }
+    transaction.update(incidentRef, {
+      attachments: [...attachments, attachment],
+      updatedAt: Timestamp.now(),
+    });
+    transaction.create(incidentRef.collection("events").doc(), {
+      event: "EVIDENCE_ATTACHED",
+      actorUid: req.user.uid,
+      attachmentId,
+      createdAt: Timestamp.now(),
+    });
+    savedAttachment = attachment;
+  });
+  res.status(201).json({ attachment: incidentForClient(incidentId, { attachments: [savedAttachment] }).attachments[0] });
+});
+
+route("get", "/incidents/:id/attachments/:attachmentId/url", authenticate, async (req, res) => {
+  const services = getFirebaseServices();
+  if (!services.storage) fail("Firebase Storage is not configured for incident evidence.", 503);
+  const incidentId = text(req.params.id, "Incident id", { max: 150 });
+  const attachmentId = text(req.params.attachmentId, "Attachment id", { max: 48 });
+  const incidentRef = services.db.collection("incidents").doc(incidentId);
+  const snapshot = await incidentRef.get();
+  if (!snapshot.exists) fail("Incident not found.", 404);
+  const incident = snapshot.data();
+  const permitted = hasRole(req.user, "admin")
+    || incident.reportedBy === req.user.uid
+    || (isResponder(req.user) && incident.responderUid === req.user.uid);
+  if (!permitted) fail("You are not allowed to view evidence for this incident.", 403);
+  const attachment = (incident.attachments || []).find(item => item.id === attachmentId);
+  if (!attachment) fail("Attachment not found.", 404);
+  await incidentRef.collection("events").add({
+    event: "EVIDENCE_VIEW_LINK_ISSUED",
+    actorUid: req.user.uid,
+    attachmentId,
+    createdAt: Timestamp.now(),
+  });
+  const objectRef = services.storage.file(`incidents/${incidentId}/attachments/${attachmentId}`);
+  const [url] = await objectRef.getSignedUrl({
+    action: "read",
+    expires: Date.now() + 5 * 60 * 1000,
+    version: "v4",
+    responseDisposition: "inline",
+  });
+  res.set("cache-control", "no-store").json({ url, expiresInSeconds: 300 });
+});
+
+app.get("/cleanup-evidence", async (req, res, next) => {
+  const secret = process.env.CRON_SECRET || "";
+  const supplied = (req.get("authorization") || "").replace(/^Bearer\s+/i, "");
+  const expectedBytes = Buffer.from(secret);
+  const suppliedBytes = Buffer.from(supplied);
+  if (!secret || expectedBytes.length !== suppliedBytes.length || !timingSafeEqual(expectedBytes, suppliedBytes)) {
+    return res.sendStatus(secret ? 401 : 503);
+  }
+
+  try {
+    const services = getFirebaseServices();
+    if (!services.storage) fail("Firebase Storage is not configured for incident evidence.", 503);
+    const cutoff = Timestamp.fromMillis(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    let query = services.db.collection("incidents")
+      .where("createdAt", "<=", cutoff)
+      .orderBy("createdAt")
+      .limit(100);
+    let deleted = 0;
+    let hasMoreIncidents = true;
+    while (hasMoreIncidents) {
+      const snapshot = await query.get();
+      if (snapshot.empty) {
+        hasMoreIncidents = false;
+        continue;
+      }
+      for (const doc of snapshot.docs) {
+        const attachments = Array.isArray(doc.get("attachments")) ? doc.get("attachments") : [];
+        const expired = attachments.filter(item => item.createdAt?.toMillis?.() <= cutoff.toMillis());
+        if (!expired.length) continue;
+        await Promise.all(expired.map(item =>
+          services.storage.file(`incidents/${doc.id}/attachments/${item.id}`).delete({ ignoreNotFound: true }),
+        ));
+        const expiredIds = new Set(expired.map(item => item.id));
+        const now = Timestamp.now();
+        await doc.ref.update({
+          attachments: attachments.filter(item => !expiredIds.has(item.id)),
+          updatedAt: now,
+        });
+        await doc.ref.collection("events").add({
+          event: "EVIDENCE_AUTO_DELETED",
+          actorUid: "system",
+          attachmentCount: expired.length,
+          createdAt: now,
+        });
+        deleted += expired.length;
+      }
+      if (snapshot.size < 100) {
+        hasMoreIncidents = false;
+        continue;
+      }
+      query = services.db.collection("incidents")
+        .where("createdAt", "<=", cutoff)
+        .orderBy("createdAt")
+        .startAfter(snapshot.docs[snapshot.docs.length - 1])
+        .limit(100);
+    }
+    let pageToken;
+    do {
+      const [files, nextPage] = await services.storage.getFiles({
+        prefix: "incidents/",
+        autoPaginate: false,
+        maxResults: 100,
+        pageToken,
+      });
+      await Promise.all(files.map(async file => {
+        const [metadata] = await file.getMetadata();
+        if (Date.parse(metadata.timeCreated) <= cutoff.toMillis()) {
+          await file.delete({ ignoreNotFound: true });
+          deleted += 1;
+        }
+      }));
+      pageToken = nextPage?.pageToken;
+    } while (pageToken);
+    res.json({ deleted });
+  } catch (error) {
+    next(error);
+  }
+});
+
 route("post", "/sos", authenticate, async (req, res) => {
   const services = getFirebaseServices();
   await enforceRateLimit(services.db, `sos_${req.user.uid}`, 3);
@@ -250,6 +504,51 @@ route("post", "/sos", authenticate, async (req, res) => {
     incident: incidentForClient(created.ref.id, created.data),
     dispatch: created.assignment ? { assigned: true, responder: created.assignment.name, distanceKm: Number(created.assignment.distanceKm.toFixed(2)) } : { assigned: false },
     notifications: delivery,
+  });
+});
+
+route("post", "/sos/anonymous", requireAnonymousAppCheck, async (req, res) => {
+  const services = getFirebaseServices();
+  const rateKey = anonymousSosRateLimitKey(req.ip, process.env.SOS_RATE_LIMIT_SECRET);
+  await enforceRateLimit(services.db, `anonymous_sos_${rateKey}`, 8, 10 * 60 * 1000);
+  const requestId = req.body?.requestId;
+  if (typeof requestId !== "string" || !/^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i.test(requestId)) {
+    const error = new Error("A valid SOS request identifier is required.");
+    error.status = 400;
+    throw error;
+  }
+  const input = anonymousSosInput(req.body);
+  const created = await createIncidentRecord(
+    services,
+    { uid: null, name: "Anonymous visitor" },
+    input,
+    { sos: true, anonymous: true, idempotencyKey: requestId },
+  );
+
+  let delivery = null;
+  if (!created.duplicate) {
+    const adminIds = await usersWithRole(services, ["admin"]);
+    const audience = [...new Set([...adminIds, ...(created.assignment ? [created.assignment.uid] : [])])];
+    const title = created.assignment ? "Responder assigned to anonymous SOS" : "Anonymous campus SOS received";
+    const body = created.assignment
+      ? `${created.assignment.name} has been assigned to ${created.data.reference}.`
+      : `${created.data.reference}: SOS received. No available responder was found; administrator review is required.`;
+    delivery = await notifyUsers(services, {
+      userIds: audience,
+      title,
+      body,
+      data: { incidentId: created.ref.id, reference: created.data.reference, kind: "sos" },
+      emergency: true,
+    });
+  }
+
+  res.status(created.duplicate ? 200 : 201).json({
+    incident: incidentForClient(created.ref.id, created.data),
+    dispatch: created.assignment
+      ? { assigned: true, responder: created.assignment.name }
+      : { assigned: false },
+    notifications: delivery,
+    duplicate: created.duplicate,
   });
 });
 
@@ -425,7 +724,9 @@ app.use((error, _req, res, _next) => {
   const status = error.status || (error.code === "auth/id-token-expired" || error.code === "auth/argument-error" ? 401 : 500);
   if (status >= 500) console.error("CEIS API request failed", error);
   res.status(status).json({
-    error: status >= 500
+    error: status === 503
+      ? error.publicMessage || error.message || "The CEIS API is not configured for this operation."
+      : status >= 500
       ? error.publicMessage || "The request could not be completed."
       : error.message,
   });

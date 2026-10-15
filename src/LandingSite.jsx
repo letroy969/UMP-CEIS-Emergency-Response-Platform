@@ -1,5 +1,29 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import {
+  Ban,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  CircleStop,
+  LoaderCircle,
+  MapPin,
+  Mic,
+  Pause,
+  Pill,
+  Play,
+  Phone,
+  SkipForward,
+  Snowflake,
+  Siren,
+  TriangleAlert,
+  Volume2,
+  Zap,
+  X,
+} from "lucide-react";
 import { sendChatMessages } from "./chatbot/chatApi.js";
+import { activateAnonymousSOS, isAnonymousSOSConfigured } from "./incidentApi.js";
+import { checkCampusLocation, getCurrentLocation } from "./maps/location.js";
 import {
   LOGO, NAVY, NAVY2, NAVY3, NAVYL,
   RED, REDL, ORANGE, ORANGEL, GREEN, GREENL,
@@ -31,6 +55,10 @@ function Reveal({ children, delay = 0, y = 20, style = {} }) {
     }}>{children}</div>
   );
 }
+function RiskSymbol({ risk, size = 16 }) {
+  const Icon = risk.icon;
+  return <Icon size={size} strokeWidth={1.8} aria-hidden="true"/>;
+}
 
 function scrollTo(id) {
   const el = document.getElementById(id);
@@ -55,7 +83,6 @@ function IHotline()   { return <svg width={15} height={15} viewBox="0 0 15 15" f
 function IBot()       { return <svg width={20} height={20} viewBox="0 0 20 20" fill="none"><rect x={2} y={7} width={16} height={10} rx={3} stroke="currentColor" strokeWidth={1.4}/><circle cx={7} cy={12} r={1.4} fill="currentColor"/><circle cx={13} cy={12} r={1.4} fill="currentColor"/><path d="M7 7V5M13 7V5M7 5h6" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round"/><path d="M6 17v2M14 17v2" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round"/></svg> }
 function ISend()      { return <svg width={14} height={14} viewBox="0 0 14 14" fill="none"><path d="M12.5 1.5L1.5 6l4.5 2 2 4.5 4.5-11Z" stroke="currentColor" strokeWidth={1.3} strokeLinejoin="round"/></svg> }
 function IClose()     { return <svg width={12} height={12} viewBox="0 0 12 12" fill="none"><path d="M2 2l8 8M10 2L2 10" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round"/></svg> }
-function IArrowR()    { return <svg width={13} height={13} viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M8 3l3 3.5-3 3.5" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round"/></svg> }
 function ICheck()     { return <svg width={8} height={8} viewBox="0 0 8 8" fill="none"><path d="M1 4l2.5 2.5L7 1" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round"/></svg> }
 
 function EmergencyHelpPanel() {
@@ -342,7 +369,7 @@ function HeroIncidentSlideshow() {
 }
 
 /* ── HERO ────────────────────────────────────────────────────── */
-function Hero({ goPage }) {
+function Hero({ goPage, onSOS }) {
   return (
     <section id="hero" className="landing-hero" style={{ "--hero-campus-image": `url("${HERO_BACKGROUND_IMAGE}")`, background: `linear-gradient(160deg, ${NAVY3} 0%, ${NAVY} 45%, ${NAVYL} 100%)`, padding: "0 5%", position: "relative", overflow: "hidden", minHeight: "100vh", display: "flex", alignItems: "center" }}>
 
@@ -392,11 +419,9 @@ function Hero({ goPage }) {
                   onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.35)"; e.currentTarget.style.background = "transparent"; }}>
                   Learn How It Works
                 </button>
-                {/* Red CTA — emergency action colour signals urgency/authority */}
-                <button onClick={() => goPage("system")} style={{ padding: "12px 24px", background: RED, color: WHITE, border: `1.5px solid ${RED}`, borderRadius: 4, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif", letterSpacing: 0.4, display: "flex", alignItems: "center", gap: 8, transition: "background .2s", textTransform: "uppercase" }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#A02810"}
-                  onMouseLeave={e => e.currentTarget.style.background = RED}>
-                  Access System <IArrowR />
+                <button className="landing-sos-button" onClick={onSOS} aria-label="SOS: choose anonymous emergency help or continue with your profile">
+                  <Siren size={23} strokeWidth={2.2} aria-hidden="true" />
+                  <span><strong>SOS</strong><small>Emergency help</small></span>
                 </button>
               </div>
               <div className="hero-quick-actions" aria-label="Quick health resources">
@@ -488,7 +513,7 @@ function WhatIsIt() {
 function Features() {
   const [modal, setModal] = useState(null);
   const features = [
-    { Icon: ISOS, title: "Incident Reporting", tag: "Emergency Response", desc: "Submit an incident report with your identity, time, description, and optional location. An administrator can assign a responder from the command centre.", more: "Reports are stored in Firestore and access is restricted by account role. Location is captured only when the reporter grants browser permission. One-tap SOS, automatic nearest-officer dispatch, and emergency-service contact are not available.", c: RED },
+    { Icon: ISOS, title: "Incident Reporting", tag: "Emergency Response", desc: "Submit a report through the command centre, or open SOS options for anonymous on-campus help.", more: "Anonymous SOS requires Firebase App Check and a fresh GPS fix inside the server-verified Mbombela campus boundary. CEIS records the report without attaching an account identity, then reports whether a responder was assigned and which notifications were accepted; it does not confirm that a person or device received them. Call emergency services directly when immediate help is needed.", c: RED },
     { Icon: IAI, title: "Guided Incident Triage", tag: "Response Prioritisation", desc: "Use the interactive triage guide for a rule-based urgency estimate. Report priority is selected by the person submitting it.", more: "The triage guide is informational and separate from incident reporting. It does not automatically classify reports, assign priority codes, or dispatch responders, and it is not a medical diagnosis.", c: NAVY },
     { Icon: IShare, title: "Incident Location", tag: "Geospatial", desc: "Reports can include a location point when the reporter grants browser location permission. The command centre can display incident locations on the campus map.", more: "The app stores the location captured with a report. It does not continuously track people or responders, refresh positions in the background, or calculate routes.", c: NAVY },
     { Icon: IAlert, title: "Responder Updates", tag: "Communications", desc: "Assigned responders see incident updates in the signed-in responder workspace as Firestore changes arrive.", more: "This is an in-app update for signed-in users. SMS, push notifications, campus-wide broadcasts, PA integration, and delivery receipts are not configured.", c: ORANGE },
@@ -641,7 +666,7 @@ function HowItWorks() {
   const [active, setActive] = useState(0);
   const steps = [
     { title: "Open the Application", tag: "Step 01", desc: "Students and staff launch the UMP-CEIS mobile application on their registered device, authenticated via UMP university credentials. Available on iOS and Android.", note: "Available on iOS & Android", c: NAVY },
-    { title: "Trigger SOS or Report", tag: "Step 02", desc: "Press the SOS button for immediate dispatch, or use the symptom reporter for medical situations. The system logs timestamp, user identity, GPS coordinates, and initiates incident classification automatically.", note: "Single-tap emergency activation", c: RED },
+    { title: "Choose SOS or Report", tag: "Step 02", desc: "Choose anonymous SOS, which shares a fresh on-campus GPS location without attaching an account, or continue with your profile to open the command centre. Direct emergency call options remain available.", note: "Anonymous or profile-based", c: RED },
     { title: "Incident Is Classified", tag: "Step 03", desc: "The system automatically classifies the incident, assigns a priority code (P1/P2/P3), and determines the appropriate response type. Medical emergencies trigger guided first-aid instructions simultaneously.", note: "Sub-10 second classification", c: ORANGE },
     { title: "Location Shared Automatically", tag: "Step 04", desc: "GPS coordinates transmitted in real time to the command dashboard. Responders receive a live map with the precise incident location — eliminating all search-and-locate delays.", note: "Precise GPS dispatch routing", c: GREEN },
     { title: "Responders Dispatched", tag: "Step 05", desc: "Campus security and medical personnel receive an instant alert on the command dashboard and their mobile devices. The incident is tracked to full resolution with a complete audit timeline.", note: "Full lifecycle incident tracking", c: NAVY },
@@ -1319,7 +1344,7 @@ function SimBurns({ step, running }) {
       {/* Electrical warning */}
       {step === 5 && <>
         <rect x={248} y={70} width={32} height={60} rx={4} fill="#FCD34D" stroke="#F59E0B" strokeWidth={1.5}/>
-        <text x={252} y={108} fontSize={20} fontFamily="sans-serif">⚡</text>
+        <Zap x={242} y={88} size={20} color={ORANGE} aria-hidden="true"/>
         <path d="M248 100 L220 115" stroke={RED} strokeWidth={2.5} strokeDasharray="4 2"/>
         <text x={60} y={95} fontSize={10} fill={RED} fontFamily="monospace" fontWeight="bold">DO NOT TOUCH!</text>
         <text x={60} y={108} fontSize={9} fill={RED} fontFamily="monospace">Ensure power is off first</text>
@@ -1597,9 +1622,9 @@ function FirstAidPage({ setPage }) {
 
         {/* Mode switcher */}
         <div style={{ display: "flex", gap: 0, margin: "18px 0 20px", background: WHITE, border: `1px solid ${BD}`, borderRadius: 8, overflow: "hidden", width: "fit-content" }}>
-          {[["guide","📋","Read Guide"],["simulate","▶","Simulation"],["voice","🎙","Voice Mode"]].map(([m, ico, lbl]) => (
+          {[["guide",ClipboardList,"Read Guide"],["simulate",Play,"Simulation"],["voice",Mic,"Voice Mode"]].map(([m, Icon, lbl]) => (
             <button key={m} onClick={() => setMode(m)} style={{ padding: "9px 20px", background: mode === m ? g.color : "transparent", color: mode === m ? WHITE : SL, border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: mode === m ? 700 : 500, fontFamily: "'IBM Plex Sans',sans-serif", display: "flex", alignItems: "center", gap: 6, transition: "all .2s", borderRight: m !== "voice" ? `1px solid ${BD}` : "none" }}>
-              <span style={{ fontSize: 14 }}>{ico}</span>{lbl}
+              <Icon size={15} strokeWidth={1.8} aria-hidden="true"/>{lbl}
             </button>
           ))}
         </div>
@@ -1647,7 +1672,7 @@ function FirstAidPage({ setPage }) {
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button onClick={toggleSimulationGuide} aria-pressed={simAuto} style={{ padding: "7px 13px", background: simAuto ? RED : g.color, color: WHITE, border: "none", borderRadius: 5, fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif" }}>
-                      {simAuto ? "⏸ Pause guide" : simPaused ? "▶ Resume guide" : "▶ Start auto guide"}
+                      {simAuto ? <><Pause size={14} aria-hidden="true"/> Pause guide</> : simPaused ? <><Play size={14} aria-hidden="true"/> Resume guide</> : <><Play size={14} aria-hidden="true"/> Start auto guide</>}
                     </button>
                   </div>
                 </div>
@@ -1663,20 +1688,20 @@ function FirstAidPage({ setPage }) {
                 </div>
                 {/* Step nav */}
                 <div style={{ padding: "12px 16px", borderTop: `1px solid ${BD}`, display: "flex", alignItems: "center", gap: 8 }}>
-                  <button aria-label="Previous simulation step" disabled={simStep === 0} onClick={() => selectSimulationStep(Math.max(0, simStep - 1))} style={{ width: 36, height: 36, borderRadius: 6, border: `1px solid ${BD}`, background: simStep === 0 ? PAPER : WHITE, cursor: simStep === 0 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: simStep === 0 ? MID : NK, fontSize: 14 }}>‹</button>
+                  <button aria-label="Previous simulation step" disabled={simStep === 0} onClick={() => selectSimulationStep(Math.max(0, simStep - 1))} style={{ width: 36, height: 36, borderRadius: 6, border: `1px solid ${BD}`, background: simStep === 0 ? PAPER : WHITE, cursor: simStep === 0 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: simStep === 0 ? MID : NK, fontSize: 14 }}><ChevronLeft size={17} aria-hidden="true"/></button>
                   <div style={{ flex: 1, display: "flex", gap: 4 }}>
                     {g.steps.map((_, i) => (
                       <button key={i} aria-label={`Go to step ${i + 1}: ${g.steps[i].title}`} aria-current={i === simStep ? "step" : undefined} onClick={() => selectSimulationStep(i)} style={{ flex: 1, height: 8, borderRadius: 4, background: i === simStep ? g.color : i < simStep ? `${g.color}44` : BD, border: "none", cursor: "pointer", transition: "background .2s" }} />
                     ))}
                   </div>
-                  <button aria-label="Next simulation step" disabled={simStep === totalSteps - 1} onClick={() => selectSimulationStep(Math.min(totalSteps - 1, simStep + 1))} style={{ width: 36, height: 36, borderRadius: 6, border: `1px solid ${BD}`, background: simStep === totalSteps - 1 ? PAPER : WHITE, cursor: simStep === totalSteps - 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: simStep === totalSteps - 1 ? MID : NK, fontSize: 14 }}>›</button>
+                  <button aria-label="Next simulation step" disabled={simStep === totalSteps - 1} onClick={() => selectSimulationStep(Math.min(totalSteps - 1, simStep + 1))} style={{ width: 36, height: 36, borderRadius: 6, border: `1px solid ${BD}`, background: simStep === totalSteps - 1 ? PAPER : WHITE, cursor: simStep === totalSteps - 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: simStep === totalSteps - 1 ? MID : NK, fontSize: 14 }}><ChevronRight size={17} aria-hidden="true"/></button>
                 </div>
               </div>
 
               {/* Right: Steps list with highlight */}
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <div style={{ background: `${g.color}0d`, border: `1px solid ${g.color}22`, borderRadius: 8, padding: "10px 14px", marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, color: g.color === GOLD ? "#6B4800" : g.color, fontWeight: 600, fontFamily: "'IBM Plex Sans',sans-serif" }}>⚠ {g.warning}</span>
+                  <span style={{ fontSize: 12, color: g.color === GOLD ? "#6B4800" : g.color, fontWeight: 600, fontFamily: "'IBM Plex Sans',sans-serif",display:"inline-flex",alignItems:"center",gap:5 }}><TriangleAlert size={14} aria-hidden="true"/>{g.warning}</span>
                 </div>
                 {g.steps.map((s, i) => (
                   <button key={i} onClick={() => selectSimulationStep(i)} aria-current={i === simStep ? "step" : undefined} style={{ padding: "11px 14px", background: i === simStep ? `${g.color}10` : WHITE, border: `1.5px solid ${i === simStep ? g.color : BD}`, borderRadius: 8, cursor: "pointer", textAlign: "left", display: "flex", gap: 10, alignItems: "flex-start", transition: "all .15s" }}>
@@ -1722,27 +1747,27 @@ function FirstAidPage({ setPage }) {
                 <div style={{ display: "flex", gap: 9 }}>
                   {!voiceAuto && !voicePaused && (
                     <button onClick={startVoice} disabled={!supported} style={{ padding: "10px 24px", background: g.color, color: WHITE, border: "none", borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: supported ? "pointer" : "not-allowed", fontFamily: "'IBM Plex Sans',sans-serif", display: "flex", alignItems: "center", gap: 8 }}>
-                      ▶ Start Voice Guide
+                      <Play size={15} aria-hidden="true"/> Start Voice Guide
                     </button>
                   )}
                   {(voiceAuto || speaking) && (
                     <button onClick={pauseVoice} style={{ padding: "10px 20px", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", color: WHITE, borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif" }}>
-                      ⏸ Pause
+                      <Pause size={15} aria-hidden="true"/> Pause
                     </button>
                   )}
                   {voicePaused && (
                     <button onClick={resumeVoice} style={{ padding: "10px 20px", background: g.color, color: WHITE, border: "none", borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif" }}>
-                      ▶ Resume
+                      <Play size={15} aria-hidden="true"/> Resume
                     </button>
                   )}
                   {(voiceAuto || voicePaused || speaking) && (
                     <button onClick={stopVoice} style={{ padding: "10px 18px", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.6)", borderRadius: 6, fontSize: 13, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif" }}>
-                      ⏹ Stop
+                      <CircleStop size={15} aria-hidden="true"/> Stop
                     </button>
                   )}
                   {voiceAuto && voiceStep + 1 < totalSteps && (
                     <button onClick={() => { clearTimeout(voiceAdvanceTimer.current); setVoiceWaiting(false); cancel(); setVoiceStep(s => s + 1); }} style={{ padding: "10px 18px", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.6)", borderRadius: 6, fontSize: 13, cursor: "pointer", fontFamily: "'IBM Plex Sans',sans-serif" }}>
-                      ⏭ Skip
+                      <SkipForward size={15} aria-hidden="true"/> Skip
                     </button>
                   )}
                 </div>
@@ -1927,11 +1952,11 @@ function StepAnim({ type, color, running }) {
     layer: <><ellipse cx={130} cy={110} rx={72} ry={26} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/>{[0,1,2].map(i=><rect key={i} x={88} y={88-i*11} width={84} height={22} rx={4} fill={`rgba(30,64,175,${0.28+i*0.22})`} stroke="#3B82F6" strokeWidth={1}/>)}<text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">ADD LAYERS — DON&apos;T LIFT</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">stack on top · press harder</text>{running&&<text x={178} y={86} fontSize={9} fill={NAVY} fontFamily="monospace">{p?"ADD ↓":"HOLD"}</text>}</>,
     elevate: <><rect x={70} y={90} width={120} height={36} rx={11} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><path d={`M130 ${running?82-(p?6:0):84} L130 ${running?50-(p?3:0):55}`} stroke={color} strokeWidth={3} strokeLinecap="round"/><path d="M118 60 L130 46 L142 60" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"/><rect x={96} y={126} width={68} height={14} rx={4} fill="#6B7280" opacity={0.45}/><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">ELEVATE ABOVE HEART</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">bag · backpack · rolled clothing</text></>,
     tourniquet: <><rect x={78} y={74} width={104} height={60} rx={16} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><rect x={72} y={76} width={20} height={56} rx={5} fill={RED} opacity={0.75}/><text x={82} y={86} textAnchor="middle" fontSize={7} fill={WHITE} fontFamily="monospace" fontWeight="bold">5cm</text><text x={130} y={24} textAnchor="middle" fontSize={10} fill={RED} fontFamily="monospace" fontWeight="bold">TOURNIQUET — LAST RESORT</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">belt · tie · note the exact time</text>{running&&<text x={98} y={68} fontSize={9} fill={RED} fontFamily="monospace">{p?"TIGHTEN ↗":"NOTE TIME"}</text>}</>,
-    call: <><rect x={95} y={38} width={70} height={90} rx={10} fill="#1A2766" stroke={color} strokeWidth={2}/><rect x={101} y={48} width={58} height={42} rx={4} fill="#60A5FA" opacity={0.7}/><circle cx={130} cy={108} r={6} fill="rgba(255,255,255,0.3)"/><text x={130} y={72} textAnchor="middle" fontSize={16} fontFamily="sans-serif">📞</text><text x={130} y={24} textAnchor="middle" fontSize={12} fill={RED} fontFamily="monospace" fontWeight="bold">CALL 10177</text>{running&&[1,2,3].map(i=><circle key={i} cx={130} cy={80} r={i*9+(p?4:0)} fill="none" stroke={color} strokeWidth={1} opacity={0.4-i*0.1}/>)}<text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">keep line open · give location</text></>,
+    call: <><rect x={95} y={38} width={70} height={90} rx={10} fill="#1A2766" stroke={color} strokeWidth={2}/><rect x={101} y={48} width={58} height={42} rx={4} fill="#60A5FA" opacity={0.7}/><circle cx={130} cy={108} r={6} fill="rgba(255,255,255,0.3)"/><Phone x={119} y={60} size={22} color={WHITE} aria-hidden="true"/><text x={130} y={24} textAnchor="middle" fontSize={12} fill={RED} fontFamily="monospace" fontWeight="bold">CALL 10177</text>{running&&[1,2,3].map(i=><circle key={i} cx={130} cy={80} r={i*9+(p?4:0)} fill="none" stroke={color} strokeWidth={1} opacity={0.4-i*0.1}/>)}<text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">keep line open · give location</text></>,
     monitor: <><rect x={44} y={50} width={172} height={62} rx={8} fill="#0F172A" stroke={color} strokeWidth={1.5}/><path d={`M54 80 L80 80 L92 ${p&&running?55:80} L104 ${p&&running?105:80} L116 80 L128 80 L140 ${running?(f%3===0?58:82):80} L185 80 L196 80`} stroke={color} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round"/><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">MONITOR VITAL SIGNS</text><text x={130} y={128} textAnchor="middle" fontSize={9} fill={color} fontFamily="monospace">check every 30 seconds</text></>,
     recovery: <><ellipse cx={130} cy={106} rx={88} ry={26} fill="#DBEAFE" stroke="#93C5FD" strokeWidth={1.5}/><circle cx={56} cy={94} r={18} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><path d="M74 100 Q106 82 152 88 Q174 90 188 98" stroke="#93C5FD" strokeWidth={3.5} strokeLinecap="round"/><path d="M130 80 L130 58 Q136 50 148 54" stroke="#60A5FA" strokeWidth={2.5} fill="none" strokeLinecap="round"/><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">RECOVERY POSITION</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">side · knee forward · head tilted</text></>,
     cpr: <><ellipse cx={130} cy={106} rx={88} ry={24} fill="#DBEAFE" stroke="#93C5FD" strokeWidth={1.5}/><circle cx={52} cy={96} r={17} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><ellipse cx={130} cy={98} rx={36} ry={17} fill="#BFDBFE" stroke="#60A5FA"/><ellipse cx={130} cy={running?(p?88:96):92} rx={19} ry={10} fill={NAVY} opacity={0.88}/><text x={130} y={24} textAnchor="middle" fontSize={10} fill={RED} fontFamily="monospace" fontWeight="bold">{running?(p?"↓ COMPRESS":"↑ RELEASE"):"30:2 CPR"}</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">100–120 BPM · 5–6 cm deep</text></>,
-    medicine: <><rect x={102} y={38} width={56} height={76} rx={10} fill="#EDE9FE" stroke="#7C3AED" strokeWidth={1.5}/><rect x={102} y={38} width={56} height={38} rx={10} fill="#7C3AED" opacity={0.6}/><text x={130} y={64} textAnchor="middle" fontSize={18} fontFamily="sans-serif">💊</text><text x={130} y={100} textAnchor="middle" fontSize={9} fill="#4C1D95" fontFamily="monospace">CHEW SLOWLY</text><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">ADMINISTER MEDICATION</text><text x={130} y={130} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">aspirin · paracetamol · epipen</text>{running&&<circle cx={130} cy={34} r={p?7:4} fill="#7C3AED" opacity={0.45}/>}</>,
+    medicine: <><rect x={102} y={38} width={56} height={76} rx={10} fill="#EDE9FE" stroke="#7C3AED" strokeWidth={1.5}/><rect x={102} y={38} width={56} height={38} rx={10} fill="#7C3AED" opacity={0.6}/><Pill x={117} y={49} size={26} color={WHITE} aria-hidden="true"/><text x={130} y={100} textAnchor="middle" fontSize={9} fill="#4C1D95" fontFamily="monospace">CHEW SLOWLY</text><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">ADMINISTER MEDICATION</text><text x={130} y={130} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">aspirin · paracetamol · epipen</text>{running&&<circle cx={130} cy={34} r={p?7:4} fill="#7C3AED" opacity={0.45}/>}</>,
     tap: <><circle cx={130} cy={64} r={25} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><ellipse cx={130} cy={110} rx={34} ry={28} fill="#DBEAFE" stroke="#93C5FD" strokeWidth={1.5}/><path d={`M102 ${running&&p?77:82} L96 ${running&&p?68:74} M158 ${running&&p?77:82} L164 ${running&&p?68:74}`} stroke={ORANGE} strokeWidth={3.5} strokeLinecap="round"/><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">CHECK RESPONSIVENESS</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">tap · shout · 10 sec</text>{running&&<text x={88} y={56} fontSize={11} textAnchor="middle" fontFamily="sans-serif">{p?"TAP!":"..."}</text>}</>,
     airway: <><circle cx={130} cy={64} r={32} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><path d="M114 78 Q130 70 146 78" stroke={color} strokeWidth={2} fill="none" strokeLinecap="round"/><path d={`M130 96 Q130 ${running?(p?108:116):110} 130 ${running?(p?120:132):122}`} stroke="#60A5FA" strokeWidth={3.5} strokeLinecap="round"/><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">OPEN AIRWAY</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">tilt · chin lift · look listen feel</text>{running&&<text x={168} y={112} fontSize={9} fill={color} fontFamily="monospace">{p?"LOOK ▸":"FEEL ▸"}</text>}</>,
     gloves: <>{[64,148].map((x,i)=><g key={i}><path d={`M${x} 64 L${x} 98 Q${x} 115 ${x+22} 115 L${x+22} 64 Q${x+22} 47 ${x+11} 45 Q${x} 47 ${x} 64`} fill="#BBF7D0" stroke={GREEN} strokeWidth={1.5}/><path d={`M${x+4} 64 L${x+4} 52 M${x+10} 62 L${x+10} 49 M${x+16} 62 L${x+16} 49 M${x+21} 64 L${x+21} 52`} stroke={GREEN} strokeWidth={2} strokeLinecap="round"/></g>)}<text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">PROTECT YOURSELF FIRST</text><text x={130} y={128} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">gloves · plastic bag · cloth barrier</text></>,
@@ -1942,16 +1967,16 @@ function StepAnim({ type, color, running }) {
     epipen: <><rect x={116} y={22} width={24} height={80} rx={6} fill="#EF4444" opacity={0.88}/><rect x={122} y={100} width={12} height={18} rx={3} fill="#DC2626"/><ellipse cx={175} cy={106} rx={40} ry={20} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><path d={`M128 ${running?(p?100:105):104} L175 106`} stroke={RED} strokeWidth={2.5} strokeLinecap="round"/><text x={130} y={14} textAnchor="middle" fontSize={10} fill={RED} fontFamily="monospace" fontWeight="bold">EpiPen — OUTER THIGH</text><text x={130} y={130} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">through clothing · hold 10 sec</text></>,
     flat: <><rect x={22} y={96} width={216} height={30} rx={7} fill="#E8EDF5" stroke={BD} strokeWidth={1}/><circle cx={56} cy={94} r={18} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><ellipse cx={148} cy={100} rx={72} ry={18} fill="#DBEAFE" stroke="#93C5FD" strokeWidth={1}/><path d={`M174 ${running?(p?76:80):78} L174 96 M160 86 L174 ${running?(p?76:80):78} L188 86`} stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"/><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">LAY FLAT · ELEVATE LEGS</text></>,
     water: <><path d="M110 18 Q116 6 130 12 Q144 6 150 18 L156 72 Q156 96 130 96 Q104 96 104 72 Z" fill="#60A5FA" opacity={0.55} stroke="#3B82F6" strokeWidth={1.5}/>{running&&[0,1,2,3].map(i=><ellipse key={i} cx={102+i*12} cy={108+(f+i*3)%7*5} rx={2.5} ry={4+i} fill="#60A5FA" opacity={0.5}/>)}<rect x={80} y={102} width={100} height={30} rx={7} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1}/><text x={130} y={140} textAnchor="middle" fontSize={9} fill="#1D4ED8" fontFamily="monospace" fontWeight="bold">COOL WATER · 20 MIN</text><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace">NOT ice · NOT cold</text></>,
-    noice: <>{["❌ Ice","❌ Butter","❌ Cream","❌ Toothpaste"].map((t,i)=><g key={i}><rect x={24+(i%2)*122} y={34+Math.floor(i/2)*52} width={110} height={38} rx={7} fill={REDL} stroke={RED} strokeWidth={1.2}/><text x={79+(i%2)*122} y={58+Math.floor(i/2)*52} textAnchor="middle" fontSize={11} fill={RED} fontFamily="monospace" fontWeight="bold">{t}</text></g>)}<text x={130} y={14} textAnchor="middle" fontSize={10} fill={RED} fontFamily="monospace" fontWeight="bold">COOL RUNNING WATER ONLY</text></>,
+    noice: <>{["Ice","Butter","Cream","Toothpaste"].map((t,i)=><g key={i}><rect x={24+(i%2)*122} y={34+Math.floor(i/2)*52} width={110} height={38} rx={7} fill={REDL} stroke={RED} strokeWidth={1.2}/><Ban x={31+(i%2)*122} y={46+Math.floor(i/2)*52} size={14} color={RED} aria-hidden="true"/><text x={88+(i%2)*122} y={58+Math.floor(i/2)*52} textAnchor="middle" fontSize={11} fill={RED} fontFamily="monospace" fontWeight="bold">{t}</text></g>)}<text x={130} y={14} textAnchor="middle" fontSize={10} fill={RED} fontFamily="monospace" fontWeight="bold">COOL RUNNING WATER ONLY</text></>,
     remove: <><rect x={76} y={84} width={108} height={50} rx={16} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><rect x={76} y={84} width={42} height={50} rx={16} fill="#4B5563" opacity={0.45}/><path d={`M76 110 L${running?(p?46:52):50} ${running?(p?96:100):98}`} stroke={ORANGE} strokeWidth={2.5} strokeLinecap="round"/><path d="M50 98 L38 86 M50 98 L42 108" stroke={ORANGE} strokeWidth={2} strokeLinecap="round"/><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">REMOVE — IF NOT STUCK</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={RED} fontFamily="monospace">stop immediately if stuck to skin</text></>,
     cover: <><rect x={76} y={96} width={108} height={40} rx={16} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><rect x={72} y={86} width={116} height={22} rx={7} fill="#DBEAFE" stroke="#93C5FD" strokeWidth={1.5} opacity={0.88}/><text x={130} y={100} textAnchor="middle" fontSize={9} fill={NAVY} fontFamily="monospace">loose cover only</text><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">COVER LOOSELY</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">cling film · sterile dressing</text></>,
     clear: <><ellipse cx={130} cy={108} rx={60} ry={24} fill="#DBEAFE" stroke="#93C5FD" strokeWidth={1.5}/>{[46,104,180,200].map((x,i)=><rect key={i} x={x} y={[88,96,84,92][i]} width={16} height={22} rx={3} fill={BD} opacity={0.55}/>)}{running&&[46,180,200].map((x,i)=><path key={i} d={`M${x+8} ${[88,84,92][i]} L${[24,200,218][i]} 62`} stroke={color} strokeWidth={2} strokeDasharray="3 2" opacity={0.65}/>)}<text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">CLEAR THE AREA</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">remove all hard and sharp objects</text></>,
     head: <><ellipse cx={130} cy={108} rx={84} ry={22} fill="#DBEAFE" stroke="#93C5FD" strokeWidth={1.5}/><circle cx={60} cy={96} r={19} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><ellipse cx={60} cy={114} rx={20} ry={12} fill="#6B7280" opacity={0.5}/><text x={60} y={118} textAnchor="middle" fontSize={8} fill={WHITE} fontFamily="monospace">jacket</text><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">PROTECT THE HEAD</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">jacket · bag · sweater underneath</text></>,
     timer: <><circle cx={130} cy={82} r={48} fill={WHITE} stroke={color} strokeWidth={2}/><circle cx={130} cy={82} r={3} fill={NAVY}/><path d="M130 82 L130 46" stroke={NAVY} strokeWidth={3} strokeLinecap="round"/><path d={`M130 82 L${130+36*Math.sin((f*22.5)*Math.PI/180)} ${82-36*Math.cos((f*22.5)*Math.PI/180)}`} stroke={color} strokeWidth={2.5} strokeLinecap="round"/><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">TIME THE SEIZURE</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={RED} fontFamily="monospace">5 min = call 10177</text></>,
     comfort: <><circle cx={130} cy={68} r={28} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><path d="M118 76 Q130 88 142 76" stroke="#F59E0B" strokeWidth={2} fill="none" strokeLinecap="round"/>{running&&[0,1,2].map(i=><circle key={i} cx={94+i*22} cy={36} r={p?6+i:4+i} fill={color} opacity={0.28+i*0.1}/>)}<text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">REASSURE THE PATIENT</text><text x={130} y={110} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">speak calmly · stay present</text></>,
-    still: <><rect x={72} y={88} width={116} height={40} rx={11} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><line x1={60} y1={72} x2={200} y2={72} stroke={RED} strokeWidth={3.5} strokeDasharray="10 5" strokeLinecap="round"/><text x={130} y={66} textAnchor="middle" fontSize={9} fill={RED} fontFamily="monospace">DO NOT MOVE</text>{running&&<text x={130} y={42} textAnchor="middle" fontSize={12} fill={RED} fontFamily="monospace" fontWeight="bold">{p?"⛔ STOP":"⛔ STILL"}</text>}<text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">hold in exact position found</text></>,
+    still: <><rect x={72} y={88} width={116} height={40} rx={11} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><line x1={60} y1={72} x2={200} y2={72} stroke={RED} strokeWidth={3.5} strokeDasharray="10 5" strokeLinecap="round"/><text x={130} y={66} textAnchor="middle" fontSize={9} fill={RED} fontFamily="monospace">DO NOT MOVE</text>{running&&<><CircleStop x={82} y={28} size={24} color={RED} aria-hidden="true"/><text x={148} y={45} textAnchor="middle" fontSize={12} fill={RED} fontFamily="monospace" fontWeight="bold">{p?"STOP":"STILL"}</text></>}<text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">hold in exact position found</text></>,
     splint: <><rect x={62} y={78} width={136} height={40} rx={14} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><rect x={54} y={75} width={14} height={47} rx={3} fill="#92400E" opacity={0.7}/><rect x={192} y={75} width={14} height={47} rx={3} fill="#92400E" opacity={0.7}/><line x1={62} y1={88} x2={198} y2={88} stroke={color} strokeWidth={2} strokeDasharray="7 4"/><line x1={62} y1={108} x2={198} y2={108} stroke={color} strokeWidth={2} strokeDasharray="7 4"/><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">IMPROVISED SPLINT</text><text x={130} y={138} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">newspaper · cardboard · umbrella</text></>,
-    ice: <><rect x={82} y={40} width={96} height={66} rx={12} fill="#DBEAFE" stroke="#3B82F6" strokeWidth={2}/><text x={130} y={82} textAnchor="middle" fontSize={24} fontFamily="sans-serif">🧊</text><rect x={76} y={106} width={108} height={32} rx={9} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.2}/><text x={130} y={140} textAnchor="middle" fontSize={9} fill="#1D4ED8" fontFamily="monospace">20 min ON · 20 min OFF</text><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace">wrap in cloth first!</text></>,
+    ice: <><rect x={82} y={40} width={96} height={66} rx={12} fill="#DBEAFE" stroke="#3B82F6" strokeWidth={2}/><Snowflake x={118} y={60} size={24} color="#1D4ED8" aria-hidden="true"/><rect x={76} y={106} width={108} height={32} rx={9} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.2}/><text x={130} y={140} textAnchor="middle" fontSize={9} fill="#1D4ED8" fontFamily="monospace">20 min ON · 20 min OFF</text><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace">wrap in cloth first!</text></>,
     cool: <><ellipse cx={130} cy={108} rx={38} ry={26} fill="#DBEAFE" stroke="#93C5FD" strokeWidth={1.5}/><circle cx={130} cy={94} r={20} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/>{running&&[0,1,2,3,4].map(i=><path key={i} d={`M${32+i*44} 46 Q${54+i*44} ${36+(p?6:0)} ${76+i*44} 46`} stroke="#60A5FA" strokeWidth={1.5} fill="none" opacity={0.5+i*0.06}/>)}<text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">COOL ENVIRONMENT</text><text x={130} y={140} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">shade · airflow · remove clothing</text></>,
     hydrate: <><rect x={104} y={46} width={52} height={78} rx={9} fill="#DBEAFE" stroke="#3B82F6" strokeWidth={1.5}/><rect x={104} y={46+(running?78-f*4.9:28)} width={52} height={running?f*4.9:28} rx={4} fill="#60A5FA" opacity={0.6}/><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">HYDRATE SLOWLY</text><text x={130} y={136} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">250ml every 15 minutes</text></>,
     cloth: <><circle cx={130} cy={64} r={26} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/><rect x={96} y={44} width={68} height={18} rx={5} fill="#DBEAFE" stroke="#60A5FA" strokeWidth={1.5} opacity={running?(p?0.95:0.45):0.7}/><text x={130} y={24} textAnchor="middle" fontSize={10} fill={color} fontFamily="monospace" fontWeight="bold">COOL CLOTH</text><text x={130} y={102} textAnchor="middle" fontSize={9} fill="#1D4ED8" fontFamily="monospace">forehead · neck · wrists · armpits</text><text x={130} y={114} textAnchor="middle" fontSize={9} fill={MID} fontFamily="monospace">replace as it warms up</text></>,
@@ -2151,7 +2176,7 @@ function TriagePage({ setPage }) {
             </div>
           </div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
-            {phase>=2&&riskResult&&<div style={{padding:"5px 12px",background:`${riskResult.color}22`,border:`1px solid ${riskResult.color}44`,borderRadius:4,fontSize:11.5,fontWeight:700,color:riskResult.color,fontFamily:"'IBM Plex Sans',sans-serif"}}>{riskResult.icon} {riskResult.level} Risk</div>}
+            {phase>=2&&riskResult&&<div style={{padding:"5px 12px",background:`${riskResult.color}22`,border:`1px solid ${riskResult.color}44`,borderRadius:4,fontSize:11.5,fontWeight:700,color:riskResult.color,fontFamily:"'IBM Plex Sans',sans-serif",display:"flex",alignItems:"center",gap:5}}><RiskSymbol risk={riskResult} size={14}/>{riskResult.level} Risk</div>}
             <button onClick={()=>setPage("system")} style={{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.7)",borderRadius:4,padding:"6px 12px",fontSize:11.5,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>Command Centre</button>
             <button onClick={()=>{cancel();setPage("landing");}} style={{background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.14)",color:"rgba(255,255,255,0.7)",borderRadius:4,padding:"6px 14px",fontSize:12,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>← Back</button>
           </div>
@@ -2212,7 +2237,7 @@ function TriagePage({ setPage }) {
             {detailIdx>0&&<button onClick={()=>setDetailIdx(i=>i-1)} style={{padding:"12px 22px",background:WHITE,border:`1.5px solid ${BD}`,borderRadius:6,fontSize:14,fontWeight:600,color:NK,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>← Back</button>}
             <button onClick={launch} style={{padding:"12px 16px",background:WHITE,border:`1.5px solid ${BD}`,borderRadius:6,fontSize:13,fontWeight:600,color:NAVY,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>Skip details</button>
             <button onClick={()=>{ if(detailIdx+1<detailItems.length){setDetailIdx(i=>i+1);}else{launch();}}} style={{flex:1,padding:"13px",background:RED,color:WHITE,border:"none",borderRadius:7,fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:9,animation:"pulse 1.8s ease-in-out infinite"}}>
-              {detailIdx+1<detailItems.length?"Continue →":"🚨 START FIRST AID NOW"}
+              {detailIdx+1<detailItems.length?"Continue →":<><Siren size={18} strokeWidth={1.8} aria-hidden="true"/>START FIRST AID NOW</>}
             </button>
           </div>
         </div>
@@ -2259,7 +2284,7 @@ function TriagePage({ setPage }) {
                     <span style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.55)",letterSpacing:1.4,textTransform:"uppercase",fontFamily:"'IBM Plex Sans',sans-serif",flex:1}}>
                       {speaking?`Speaking — Step ${aidStep+1} of ${aidSteps.length}`:stepPause?"Brief pause · next step in 4 seconds":`Step ${aidStep+1} of ${aidSteps.length}`}
                     </span>
-                    {riskResult&&<span style={{padding:"3px 10px",background:`${riskResult.color}22`,border:`1px solid ${riskResult.color}44`,borderRadius:3,fontSize:10.5,fontWeight:700,color:riskResult.color,fontFamily:"'IBM Plex Sans',sans-serif"}}>{riskResult.icon} {riskResult.level}</span>}
+                    {riskResult&&<span style={{padding:"3px 10px",background:`${riskResult.color}22`,border:`1px solid ${riskResult.color}44`,borderRadius:3,fontSize:10.5,fontWeight:700,color:riskResult.color,fontFamily:"'IBM Plex Sans',sans-serif",display:"inline-flex",alignItems:"center",gap:4}}><RiskSymbol risk={riskResult} size={13}/>{riskResult.level}</span>}
                   </div>
                   <div style={{fontSize:10,fontWeight:700,color:ORANGE,letterSpacing:1.8,textTransform:"uppercase",fontFamily:"'IBM Plex Sans',sans-serif",marginBottom:9}}>Step {String(aidStep+1).padStart(2,"0")}</div>
                   <p style={{fontSize:18,color:NK,lineHeight:1.75,fontFamily:"'IBM Plex Serif',serif",fontWeight:600,marginBottom:22}}>{s.text}</p>
@@ -2278,10 +2303,10 @@ function TriagePage({ setPage }) {
                   <div style={{display:"flex",gap:9,marginTop:22}}>
                     {aidStep>0&&<button onClick={prevStep} style={{padding:"10px 18px",background:WHITE,border:`1.5px solid ${BD}`,borderRadius:6,fontSize:13,fontWeight:600,color:NK,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>‹ Prev</button>}
                     <button onClick={()=>{cancel();speakAidStep(aidStep);}} style={{padding:"10px 18px",background:WHITE,border:`1.5px solid ${ORANGE}`,borderRadius:6,fontSize:13,fontWeight:600,color:ORANGE,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>
-                      🔊 Repeat
+                      <Volume2 size={15} aria-hidden="true"/> Repeat
                     </button>
                     <button onClick={toggleAutoAdvance} aria-pressed={autoAdvance} style={{padding:"10px 14px",background:autoAdvance?NAVY:WHITE,border:`1.5px solid ${NAVY}`,borderRadius:6,fontSize:12.5,fontWeight:700,color:autoAdvance?WHITE:NAVY,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>
-                      {autoAdvance?"⏸ Pause guide":"▶ Resume auto guide"}
+                      {autoAdvance?<><Pause size={14} aria-hidden="true"/> Pause guide</>:<><Play size={14} aria-hidden="true"/> Resume auto guide</>}
                     </button>
                     <button onClick={nextStep} style={{flex:1,padding:"12px",background:aidStep===aidSteps.length-1?GREEN:RED,color:WHITE,border:"none",borderRadius:6,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif",animation:"pulse 2s ease-in-out infinite"}}>
                       {aidStep===aidSteps.length-1?"✓ Complete — Aid Done":"Next Step →"}
@@ -2295,7 +2320,7 @@ function TriagePage({ setPage }) {
                     <div style={{padding:"10px 14px",background:PAPER,borderBottom:`1px solid ${BD}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                       <span style={{fontSize:10,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1.2,fontFamily:"'IBM Plex Sans',sans-serif"}}>Live Simulation</span>
                       <button onClick={()=>setSimRunning(r=>!r)} style={{padding:"4px 11px",background:simRunning?REDL:GREENL,border:`1px solid ${simRunning?RED:GREEN}28`,borderRadius:4,fontSize:11,fontWeight:700,color:simRunning?RED:GREEN,cursor:"pointer",fontFamily:"'IBM Plex Sans',sans-serif"}}>
-                        {simRunning?"⏸ Pause":"▶ Animate"}
+                        {simRunning?<><Pause size={14} aria-hidden="true"/> Pause</>:<><Play size={14} aria-hidden="true"/> Animate</>}
                       </button>
                     </div>
                     <div style={{padding:"14px 12px",background:PAPER}}>
@@ -2321,12 +2346,12 @@ function TriagePage({ setPage }) {
       {/* PHASE 3 — COMPLETE */}
       {phase===3&&(
         <div style={{maxWidth:640,margin:"80px auto",textAlign:"center",padding:"0 5% 60px",animation:"fadeIn .4s ease"}}>
-          <div style={{fontSize:52,marginBottom:20}}>✅</div>
+          <CheckCircle2 size={52} strokeWidth={1.6} color={GREEN} aria-hidden="true" style={{marginBottom:20}}/>
           <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:28,fontWeight:700,color:NK,marginBottom:10}}>First Aid Complete</h2>
           <p style={{fontSize:15,color:SL,fontFamily:"'IBM Plex Sans',sans-serif",lineHeight:1.75,marginBottom:28}}>All steps have been delivered. Stay with the patient, keep them calm, and continue monitoring until emergency services arrive.</p>
           {riskResult&&(
             <div style={{background:`${riskResult.color}0d`,border:`1.5px solid ${riskResult.color}30`,borderRadius:10,padding:"16px 20px",marginBottom:24}}>
-              <div style={{fontSize:24,marginBottom:6}}>{riskResult.icon}</div>
+              <div style={{marginBottom:6}}><RiskSymbol risk={riskResult} size={24}/></div>
               <div style={{fontSize:15,fontWeight:700,color:riskResult.color,fontFamily:"'IBM Plex Serif',serif"}}>Rule-based urgency estimate: {riskResult.level}</div>
               <p style={{fontSize:12.5,color:SL,lineHeight:1.55,marginTop:6}}>This estimate is not a diagnosis and cannot determine that someone is safe. Call emergency services if you are concerned.</p>
             </div>
@@ -2342,20 +2367,156 @@ function TriagePage({ setPage }) {
   );
 }
 
+function SOSChoiceModal({ open, onClose, onProfile }) {
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
+  const closeButton = useRef(null);
+  const requestId = useRef(null);
 
+  useEffect(() => {
+    if (!open) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeButton.current?.focus();
+    const onKeyDown = event => {
+      if (event.key === "Escape" && !sending) onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open, onClose, sending]);
+
+  if (!open) return null;
+
+  async function submitAnonymousSOS() {
+    setError("");
+    setSending(true);
+    try {
+      if (!isAnonymousSOSConfigured()) {
+        throw new Error("Anonymous SOS is not configured yet. Call campus security or continue with your profile while CEIS App Check is being set up.");
+      }
+      const position = await getCurrentLocation();
+      const campusStatus = checkCampusLocation(position);
+      if (campusStatus === "outside") {
+        throw new Error("Anonymous SOS is available only within the UMP Mbombela campus boundary. Call emergency services or campus security if you need help elsewhere.");
+      }
+      if (campusStatus !== "inside") {
+        throw new Error("Your GPS fix is too uncertain to verify that you are on campus. Try again outdoors or call campus security directly.");
+      }
+      if (!requestId.current) {
+        if (!globalThis.crypto?.randomUUID) throw new Error("This browser cannot securely identify an SOS request. Call campus security directly.");
+        requestId.current = globalThis.crypto.randomUUID();
+      }
+      const response = await activateAnonymousSOS(position, requestId.current);
+      setResult(response);
+      requestId.current = null;
+    } catch (submitError) {
+      setError(submitError.message || "The anonymous SOS could not be submitted. Call campus security directly.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function close() {
+    setError("");
+    setResult(null);
+    requestId.current = null;
+    onClose();
+  }
+
+  const responderAssigned = result?.dispatch?.assigned;
+  const pushAccepted = result?.notifications?.push?.sent || 0;
+
+  return (
+    <div
+      className="sos-dialog-backdrop"
+      onMouseDown={event => { if (event.target === event.currentTarget && !sending) close(); }}
+    >
+      <section className="sos-dialog" role="dialog" aria-modal="true" aria-labelledby="sos-dialog-title" aria-describedby="sos-dialog-description">
+        <header className="sos-dialog-header">
+          <div className="sos-dialog-heading">
+            <span className="sos-dialog-icon"><Siren size={21} aria-hidden="true" /></span>
+            <div>
+              <h2 id="sos-dialog-title">{result ? "SOS received" : "Request emergency help"}</h2>
+              <p>{result ? result.incident?.reference : "Choose how you want to contact the CEIS response team."}</p>
+            </div>
+          </div>
+          <button ref={closeButton} type="button" className="sos-dialog-close" onClick={close} disabled={sending} aria-label="Close SOS options">
+            <X size={19} aria-hidden="true" />
+          </button>
+        </header>
+        <div className="sos-dialog-content">
+          {result ? (
+            <div className="sos-result" role="status" aria-live="polite">
+              <CheckCircle2 size={30} aria-hidden="true" />
+              <h3>CEIS received your SOS</h3>
+              <p id="sos-dialog-description">
+                Reference <strong>{result.incident?.reference}</strong>. {responderAssigned
+                  ? `A responder (${result.dispatch.responder}) has been assigned in the CEIS system.`
+                  : "No responder assignment is confirmed yet; the report is available for administrator review."}
+              </p>
+              {pushAccepted > 0 && (
+                <p className="sos-delivery-note">
+                  {pushAccepted} emergency push notification{pushAccepted === 1 ? "" : "s"} accepted by the notification service. Device delivery or acknowledgement is not confirmed.
+                </p>
+              )}
+              {result.duplicate && <p className="sos-delivery-note">This was recognized as the same request and was not submitted twice.</p>}
+            </div>
+          ) : (
+            <>
+              <p id="sos-dialog-description" className="sos-dialog-intro">
+                If someone is in immediate danger, you can call emergency services or campus security directly. Calling is the fastest way to reach them.
+              </p>
+              <div className="sos-location-note">
+                <MapPin size={19} aria-hidden="true" />
+                <p><strong>Anonymous SOS</strong> shares your current GPS location with CEIS, without attaching your account identity. It is accepted only when a fresh, accurate location is verified inside the UMP Mbombela campus boundary.</p>
+              </div>
+              {error && <p className="sos-error" role="alert">{error}</p>}
+              <div className="sos-dialog-actions">
+                <button type="button" className="sos-submit-anonymous" onClick={submitAnonymousSOS} disabled={sending}>
+                  {sending ? <><LoaderCircle size={18} className="sos-spinner" aria-hidden="true" /> Getting location and sending…</> : <><Siren size={18} aria-hidden="true" /> Send anonymous SOS</>}
+                </button>
+                <button type="button" className="sos-submit-profile" onClick={onProfile} disabled={sending}>
+                  Continue with profile
+                </button>
+              </div>
+            </>
+          )}
+          <div className="sos-direct-calls" aria-label="Direct emergency calls">
+            <span>Need help right away?</span>
+            <a href="tel:0130020010">Campus Security · 013 002 0010</a>
+            <a href="tel:10177">EMS · 10177</a>
+          </div>
+          {result && <button type="button" className="sos-done-button" onClick={close}>Done</button>}
+          <p className="sos-privacy-note">Anonymous means your CEIS account is not attached. Your location and SOS report are recorded for response. Do not use this for a test or false report.</p>
+        </div>
+      </section>
+    </div>
+  );
+}
 
 /* ── HOSPITAL FINDER PAGE ─────────────────────────────────────── */
 /* ── APP ─────────────────────────────────────────────────────── */
-export default function LandingSite({ onAccessSystem }) {
-  const [page, setPage] = useState("landing");
+export default function LandingSite({ onAccessSystem, onBackToPortal, initialPage = "landing" }) {
+  const [page, setPage] = useState(initialPage);
+  const [sosOpen, setSosOpen] = useState(false);
 
   // "system" page now delegates to the real Command Centre login
   function goPage(p) {
     if (p === "system") { onAccessSystem(); return; }
     setPage(p);
   }
+  const openSOS = useCallback(() => setSosOpen(true), []);
+  const closeSOS = useCallback(() => setSosOpen(false), []);
+  const continueWithProfile = useCallback(() => {
+    setSosOpen(false);
+    onAccessSystem();
+  }, [onAccessSystem]);
 
-  if (page === "triage")    return <TriagePage setPage={goPage} />;
+  if (page === "triage")    return <><TriagePage setPage={goPage} />{onBackToPortal&&<button type="button" onClick={onBackToPortal} style={{position:"fixed",zIndex:9500,top:12,left:12,minHeight:40,padding:"9px 13px",border:"1px solid #C8D0E0",borderRadius:6,background:"#FFFFFF",color:"#1A2766",fontSize:12,fontWeight:700,cursor:"pointer"}}>Return to student portal</button>}</>;
   if (page === "firstaid")  return <FirstAidPage setPage={goPage} />;
   return (
     <div style={{ fontFamily: "'IBM Plex Sans','Segoe UI',sans-serif", background: PAPER, color: NK }}>
@@ -2368,10 +2529,55 @@ export default function LandingSite({ onAccessSystem }) {
         @keyframes slideUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
         @keyframes botPulse{0%{transform:scale(1);opacity:0.55}100%{transform:scale(1.75);opacity:0}}
         @keyframes dotBounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+        @keyframes sosPulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.48),0 8px 22px rgba(106,12,18,.25)}55%{box-shadow:0 0 0 13px rgba(220,38,38,0),0 8px 26px rgba(106,12,18,.32)}}
+        @keyframes sosIconPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+        @keyframes sosSpin{to{transform:rotate(360deg)}}
+        .landing-sos-button{min-height:62px;min-width:190px;padding:9px 21px;background:linear-gradient(135deg,#e52d35,#b51220);color:#fff;border:2px solid rgba(255,255,255,.84);border-radius:9px;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:15px;font-weight:800;letter-spacing:.8px;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 8px 22px rgba(106,12,18,.25);animation:sosPulse 1.65s ease-out infinite;transition:transform .18s,background .18s}
+        .landing-sos-button:hover{transform:translateY(-2px);background:linear-gradient(135deg,#f23b43,#c11725)}
+        .landing-sos-button:focus-visible,.sos-dialog button:focus-visible,.sos-dialog a:focus-visible{outline:3px solid #fbbf24;outline-offset:3px}
+        .landing-sos-button>svg{animation:sosIconPulse 1.65s ease-in-out infinite}
+        .landing-sos-button span{display:flex;flex-direction:column;align-items:flex-start;line-height:1.05}
+        .landing-sos-button strong{font-size:20px;letter-spacing:1.5px}
+        .landing-sos-button small{font-size:10px;font-weight:600;letter-spacing:.35px;margin-top:4px}
+        .sos-dialog-backdrop{position:fixed;inset:0;z-index:10000;background:rgba(7,12,29,.78);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;padding:18px}
+        .sos-dialog{width:min(560px,100%);max-height:min(88vh,760px);overflow:auto;background:#fff;border:1px solid #e3e6ee;border-radius:14px;box-shadow:0 28px 90px rgba(0,0,0,.4);font-family:'IBM Plex Sans',sans-serif;animation:slideUp .2s ease}
+        .sos-dialog-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 21px;background:#172451;color:#fff;border-radius:13px 13px 0 0}
+        .sos-dialog-heading{display:flex;align-items:center;gap:12px}
+        .sos-dialog-icon{width:42px;height:42px;border-radius:11px;background:#c91925;display:grid;place-items:center}
+        .sos-dialog-header h2{font-family:'IBM Plex Serif',serif;font-size:19px;line-height:1.2}
+        .sos-dialog-header p{font-size:12px;color:rgba(255,255,255,.75);margin-top:4px}
+        .sos-dialog-close{width:38px;height:38px;display:grid;place-items:center;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.26);border-radius:8px;cursor:pointer}
+        .sos-dialog-close:disabled{opacity:.55;cursor:wait}
+        .sos-dialog-content{padding:22px}
+        .sos-dialog-intro{font-size:13px;line-height:1.65;color:#414b60;margin-bottom:15px}
+        .sos-location-note{display:flex;gap:12px;align-items:flex-start;padding:14px;background:#fff7ed;color:#85410c;border:1px solid #fed7aa;border-radius:9px;font-size:12.5px;line-height:1.6}
+        .sos-location-note svg{flex:none;margin-top:1px}
+        .sos-location-note strong{display:block;color:#662d08;margin-bottom:3px}
+        .sos-dialog-actions{display:grid;gap:10px;margin-top:17px}
+        .sos-submit-anonymous,.sos-submit-profile,.sos-done-button{min-height:48px;padding:12px 16px;border-radius:8px;font:700 13px 'IBM Plex Sans',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px}
+        .sos-submit-anonymous{color:#fff;background:#bd1824;border:1px solid #a50f1b}
+        .sos-submit-anonymous:hover:not(:disabled){background:#a50f1b}
+        .sos-submit-profile{color:#172451;background:#fff;border:1px solid #b9c2d5}
+        .sos-submit-profile:hover:not(:disabled){background:#f3f5f9}
+        .sos-submit-anonymous:disabled,.sos-submit-profile:disabled{opacity:.65;cursor:wait}
+        .sos-spinner{animation:sosSpin 1s linear infinite}
+        .sos-error{margin-top:14px;padding:11px 12px;color:#9f1821;background:#fff1f1;border:1px solid #ffc8cb;border-radius:7px;font-size:12.5px;line-height:1.55}
+        .sos-direct-calls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:18px;padding-top:15px;border-top:1px solid #e4e7ed;font-size:11px}
+        .sos-direct-calls span{width:100%;font-weight:700;color:#414b60}
+        .sos-direct-calls a{display:inline-flex;min-height:38px;align-items:center;padding:8px 10px;color:#172451;background:#f1f3f8;border-radius:6px;text-decoration:none;font-weight:700}
+        .sos-direct-calls a:first-of-type{color:#a50f1b;background:#fff0f0}
+        .sos-privacy-note{margin-top:14px;color:#6b7280;font-size:10.5px;line-height:1.55}
+        .sos-result{text-align:center;padding:5px 4px 11px;color:#166534}
+        .sos-result h3{margin:9px 0 7px;color:#172451;font:700 18px 'IBM Plex Serif',serif}
+        .sos-result p{color:#414b60;font-size:12.5px;line-height:1.6}
+        .sos-result .sos-delivery-note{margin-top:9px;color:#667085;font-size:11px}
+        .sos-done-button{width:100%;margin-top:14px;color:#fff;background:#172451;border:1px solid #172451}
+        @media(max-width:700px){.landing-sos-button{min-width:170px;min-height:58px}.sos-dialog-content{padding:18px}.sos-dialog-header{padding:15px 17px}}
+        @media(prefers-reduced-motion:reduce){.landing-sos-button,.landing-sos-button>svg{animation:none!important}.landing-sos-button:hover{transform:none}}
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${BD};border-radius:3px}
       `}</style>
       <Navbar goPage={goPage} />
-      <Hero goPage={goPage} />
+      <Hero goPage={goPage} onSOS={openSOS} />
       <WhatIsIt />
       <Features />
       <WhoFor />
@@ -2380,6 +2586,7 @@ export default function LandingSite({ onAccessSystem }) {
       <Contact />
       <Footer setPage={goPage} />
       <ChatBot goPage={goPage} />
+      <SOSChoiceModal open={sosOpen} onClose={closeSOS} onProfile={continueWithProfile} />
     </div>
   );
 }

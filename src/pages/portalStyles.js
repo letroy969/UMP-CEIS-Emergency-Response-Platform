@@ -11,4 +11,14 @@ export const STYLES = `
   @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
   @keyframes ping{0%{transform:scale(1);opacity:1}75%,100%{transform:scale(2.2);opacity:0}}
+  .student-portal-shell{position:relative;isolation:isolate;background:#F0F3F8;}
+  .student-portal-background{position:fixed;z-index:-1;inset:0;overflow:hidden;pointer-events:none;}
+  .student-portal-background img{position:absolute;inset:-12px;width:calc(100% + 24px);height:calc(100% + 24px);object-fit:cover;filter:blur(7px) brightness(.78);transform:scale(1.02);}
+  .student-portal-background>div{position:absolute;inset:0;background:rgba(239,243,249,.79);}
+  @media(prefers-reduced-motion:reduce){.student-portal-background img{transform:none;}}
+  .ceis-icon-action{transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+  .ceis-icon-action:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(15,35,70,.12)}
+  .ceis-icon-action svg{transition:transform .18s ease}
+  .ceis-icon-action:hover svg{transform:scale(1.08)}
+  .ceis-icon-action:focus-visible{outline:3px solid ${BD};outline-offset:3px}
 `;

@@ -14,7 +14,7 @@ function localApiPlugin() {
 }
 
 export default defineConfig(({ mode }) => {
-  const serverEnv = loadEnv(mode, process.cwd(), 'GROQ_')
+  const serverEnv = loadEnv(mode, process.cwd(), '')
   for (const [key, value] of Object.entries(serverEnv)) {
     if (process.env[key] === undefined) process.env[key] = value
   }

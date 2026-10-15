@@ -1,10 +1,23 @@
 import { useEffect, useState } from "react";
+import {
+  BarChart3,
+  Clock3,
+  FileText,
+  Inbox,
+  Map,
+  MapPin,
+  Radio,
+  Siren,
+  UserRound,
+  Zap,
+} from "lucide-react";
 import { NAVY, NAVY2, RED, REDL, ORANGE, ORANGEL, GREEN, GREENL, GOLD, WHITE, PAPER, PAPER2, BD, NK, SL, MID, INC_TYPES, PRIORITY, STATUS_FLOW, STATUS_LABEL, MBOMBELA_BUILDINGS, ZONE_COLORS } from "../constants.js";
 import CampusMap from "../components/CampusMap.jsx";
 import { MAPPED_BUILDINGS } from "../maps/campusBuildings.js";
 import { checkCampusLocation } from "../maps/location.js";
 import { STYLES } from "./portalStyles.js";
 import { assignIncident, createIncident, listResponders, subscribeIncidents, updateIncident } from "../incidentApi.js";
+import IncidentEvidenceList from "../components/IncidentEvidenceList.jsx";
 import PushNotificationsButton from "../components/PushNotificationsButton.jsx";
 import CampusAlertComposer from "../components/CampusAlertComposer.jsx";
 import IncidentAnalyticsPanel from "../components/IncidentAnalyticsPanel.jsx";
@@ -62,9 +75,9 @@ export default function AdminPortal({ user, authUser, onLogout }) {
   const filtered = incidents.filter(i => (filterType==="all"||i.type===filterType) && (filterPri==="all"||i.priority===filterPri));
 
   const NAVITEMS = [
-    ["analytics","📊","Analytics"],
-    ["dashboard","📡","Dashboard"],["incidents","🚨","Incidents"],["map","🗺","Live Map"],
-    ["dispatch","⚡","Assignments"],["input","📥","Report Input"],
+    ["analytics",BarChart3,"Analytics"],
+    ["dashboard",Radio,"Dashboard"],["incidents",Siren,"Incidents"],["map",Map,"Live Map"],
+    ["dispatch",Zap,"Assignments"],["input",Inbox,"Report Input"],
   ];
   return (
     <div style={{minHeight:"100vh",background:PAPER,fontFamily:"'IBM Plex Sans',sans-serif"}}>
@@ -73,9 +86,9 @@ export default function AdminPortal({ user, authUser, onLogout }) {
       {/* P1 ALERT BANNER */}
       {p1count>0&&(
         <div style={{background:RED,padding:"8px 5%",display:"flex",alignItems:"center",justifyContent:"center",gap:12,animation:"blink 2s ease-in-out infinite"}}>
-          <span style={{fontSize:16}}>🚨</span>
+          <Siren size={17} aria-hidden="true"/>
           <span style={{fontSize:13,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Mono',monospace"}}>{p1count} CRITICAL INCIDENT{p1count>1?"S":""} ACTIVE — IMMEDIATE RESPONSE REQUIRED</span>
-          <span style={{fontSize:16}}>🚨</span>
+          <Siren size={17} aria-hidden="true"/>
         </div>
       )}
 
@@ -108,9 +121,9 @@ export default function AdminPortal({ user, authUser, onLogout }) {
       {/* NAV */}
       <div style={{background:WHITE,borderBottom:`1px solid ${BD}`,position:"sticky",top:p1count>0?96:60,zIndex:99}}>
         <div style={{maxWidth:1400,margin:"0 auto",padding:"0 3%",display:"flex",gap:0}}>
-          {NAVITEMS.map(([k,ico,lbl])=>(
-            <button key={k} onClick={()=>setView(k)} style={{padding:"11px 18px",background:"none",border:"none",borderBottom:`2px solid ${view===k?RED:"transparent"}`,color:view===k?RED:MID,fontSize:12.5,fontWeight:view===k?700:500,cursor:"pointer",display:"flex",alignItems:"center",gap:6,marginBottom:-1,transition:"all .2s"}}>
-              <span>{ico}</span>{lbl}
+          {NAVITEMS.map(([k,Icon,lbl])=>(
+            <button key={k} onClick={()=>setView(k)} aria-current={view===k?"page":undefined} className="ceis-icon-action" style={{padding:"11px 18px",background:"none",border:"none",borderBottom:`2px solid ${view===k?RED:"transparent"}`,color:view===k?RED:MID,fontSize:12.5,fontWeight:view===k?700:500,cursor:"pointer",display:"flex",alignItems:"center",gap:6,marginBottom:-1,transition:"all .2s"}}>
+              <Icon size={16} strokeWidth={1.8} aria-hidden="true"/>{lbl}
             </button>
           ))}
         </div>
@@ -162,11 +175,11 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                 </div>
                 <div style={{maxHeight:380,overflowY:"auto"}}>
                   {active.map(inc=>(
-                    <button key={inc.id} onClick={()=>{setSelectedInc(inc);setView("incidents");}} style={{width:"100%",padding:"12px 16px",background:"none",border:"none",borderBottom:`1px solid ${BD}`,cursor:"pointer",textAlign:"left",display:"flex",gap:10,alignItems:"flex-start",transition:"background .15s"}}>
-                      <span style={{fontSize:20,flexShrink:0,marginTop:1}}>{INC_TYPES[inc.type]?.icon}</span>
+                    <button key={inc.id} onClick={()=>{setSelectedInc(inc);setView("incidents");}} className="ceis-icon-action" style={{width:"100%",padding:"12px 16px",background:"none",border:"none",borderBottom:`1px solid ${BD}`,cursor:"pointer",textAlign:"left",display:"flex",gap:10,alignItems:"flex-start",transition:"background .15s"}}>
+                      {(() => { const Icon=INC_TYPES[inc.type]?.icon || FileText; return <Icon size={20} strokeWidth={1.8} color={INC_TYPES[inc.type]?.color || MID} aria-hidden="true" style={{flexShrink:0,marginTop:1}}/>; })()}
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:12.5,fontWeight:700,color:NK,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{inc.loc}</div>
-                        <div style={{fontSize:11.5,color:SL,marginTop:2,lineHeight:1.4,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{inc.desc}</div>
+                        <div style={{fontSize:11.5,color:SL,marginTop:2,lineHeight:1.4,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{inc.desc||"No additional description supplied."}</div>
                         <div style={{fontSize:11,color:MID,marginTop:4,display:"flex",gap:8}}>
                           <span>{inc.time}</span>
                           <span style={{color:PRIORITY[inc.priority].color,fontWeight:700}}>{inc.priority}</span>
@@ -199,10 +212,11 @@ export default function AdminPortal({ user, authUser, onLogout }) {
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
                 {filtered.map(inc=>{
                   const P=PRIORITY[inc.priority],T=INC_TYPES[inc.type];
+                const TypeIcon=T?.icon || FileText;
                   const isSelected=selectedInc?.id===inc.id;
                   return (
-                    <button key={inc.id} onClick={()=>setSelectedInc(inc)} style={{background:isSelected?`${NAVY}06`:WHITE,border:`1.5px solid ${isSelected?NAVY:BD}`,borderRadius:9,padding:"14px 16px",cursor:"pointer",textAlign:"left",transition:"all .15s",display:"flex",gap:12,alignItems:"flex-start"}}>
-                      <span style={{fontSize:24,flexShrink:0,marginTop:2}}>{T?.icon}</span>
+                    <button key={inc.id} onClick={()=>setSelectedInc(inc)} className="ceis-icon-action" style={{background:isSelected?`${NAVY}06`:WHITE,border:`1.5px solid ${isSelected?NAVY:BD}`,borderRadius:9,padding:"14px 16px",cursor:"pointer",textAlign:"left",transition:"all .15s",display:"flex",gap:12,alignItems:"flex-start"}}>
+                      <TypeIcon size={24} strokeWidth={1.8} color={T?.color || MID} aria-hidden="true" style={{flexShrink:0,marginTop:2}}/>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
                           <div>
@@ -214,8 +228,10 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                             <span style={{padding:"2px 8px",background:PAPER2,color:SL,borderRadius:3,fontSize:10.5}}>{STATUS_LABEL[inc.status]}</span>
                           </div>
                         </div>
-                        <div style={{fontSize:13,color:SL,marginBottom:4,lineHeight:1.5}}>{inc.desc}</div>
-                        <div style={{fontSize:11.5,color:MID}}>📍 Building {inc.building} · ⏱ {inc.time} · 👤 {inc.responder}</div>
+                        <div style={{fontSize:13,color:SL,marginBottom:4,lineHeight:1.5}}>{inc.desc||"No additional description supplied."}</div>
+                        <div style={{fontSize:11.5,color:MID,display:"flex",alignItems:"center",flexWrap:"wrap",gap:"3px 6px"}}>
+                          <MapPin size={13} aria-hidden="true"/> {inc.loc} · <Clock3 size={13} aria-hidden="true"/> {inc.time} · <UserRound size={13} aria-hidden="true"/> {inc.responder}
+                        </div>
                       </div>
                     </button>
                   );
@@ -317,7 +333,7 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                             <span style={{fontSize:11,fontWeight:700,color:PRIORITY[inc.priority].color}}>{inc.priority} · {INC_TYPES[inc.type]?.label}</span>
                             <span style={{fontSize:11,color:MID}}>{inc.time}</span>
                           </div>
-                          <div style={{fontSize:12.5,color:NK,lineHeight:1.5}}>{inc.desc}</div>
+                          <div style={{fontSize:12.5,color:NK,lineHeight:1.5}}>{inc.desc||"No additional description supplied."}</div>
                           <div style={{fontSize:11,color:MID,marginTop:4}}>● {STATUS_LABEL[inc.status]}</div>
                         </button>
                       ))}
@@ -325,7 +341,7 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                   </div>
                 ):(
                   <div style={{background:WHITE,borderRadius:10,border:`1px solid ${BD}`,padding:"24px",textAlign:"center",color:MID,fontSize:13,marginBottom:14}}>
-                    <div style={{fontSize:32,marginBottom:10}}>🗺️</div>
+                    <Map size={32} strokeWidth={1.7} aria-hidden="true" style={{marginBottom:10}}/>
                     Click any building to view its incident history and status
                   </div>
                 )}
@@ -370,7 +386,8 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                       <span style={{padding:"2px 8px",background:`${PRIORITY[inc.priority].color}14`,color:PRIORITY[inc.priority].color,borderRadius:3,fontSize:10.5,fontWeight:700}}>{inc.priority}</span>
                     </div>
                     <div style={{fontSize:14,fontWeight:700,color:NK,marginBottom:4,fontFamily:"'IBM Plex Serif',serif"}}>{inc.loc}</div>
-                    <div style={{fontSize:12.5,color:SL,marginBottom:8}}>{inc.desc}</div>
+                    <div style={{fontSize:12.5,color:SL,marginBottom:8}}>{inc.desc || "No additional description supplied."}</div>
+                    <IncidentEvidenceList incident={inc} user={authUser} />
                     <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
                       <select
                         aria-label={`Responder for ${inc.reference || inc.id}`}
@@ -475,7 +492,7 @@ function OperatorIncidentForm({ incidents, setIncidents, authUser }) {
       <div style={{padding:"18px"}}>
         {done&&<div style={{background:GREENL,border:`1px solid ${GREEN}28`,borderRadius:7,padding:"10px 14px",marginBottom:14,fontSize:13,color:GREEN,fontWeight:600}}>✓ Incident logged and forwarded to detection engine</div>}
         {[
-          { label:"Incident Type", content:<select value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))} style={{width:"100%",padding:"9px 12px",border:`1.5px solid ${BD}`,borderRadius:6,fontSize:13,outline:"none"}}>{Object.entries(INC_TYPES).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label}</option>)}</select> },
+          { label:"Incident Type", content:<select value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))} style={{width:"100%",padding:"9px 12px",border:`1.5px solid ${BD}`,borderRadius:6,fontSize:13,outline:"none"}}>{Object.entries(INC_TYPES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select> },
           { label:"Building / Location", content:<select value={form.building} onChange={e=>setForm(f=>({...f,building:e.target.value}))} style={{width:"100%",padding:"9px 12px",border:`1.5px solid ${BD}`,borderRadius:6,fontSize:13,outline:"none",background:WHITE}}><option value="">Select…</option>{MBOMBELA_BUILDINGS.map(b=><option key={b.id} value={b.id}>B{b.id} — {b.name.slice(0,30)}</option>)}</select> },
           { label:"Pin location (optional)", content:<CampusMap compact incidents={incidents} selectedBuilding={form.building} location={form.location} onLocationChange={location=>setForm(f=>({...f,location}))} allowLocationSelection /> },
           { label:"Priority", content:<div style={{display:"flex",gap:7}}>{["P1","P2","P3","P4"].map(p=><button key={p} onClick={()=>setForm(f=>({...f,priority:p}))} style={{flex:1,padding:"8px",background:form.priority===p?`${PRIORITY[p].color}14`:WHITE,border:`1.5px solid ${form.priority===p?PRIORITY[p].color:BD}`,borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:700,color:form.priority===p?PRIORITY[p].color:MID}}>{p}</button>)}</div> },

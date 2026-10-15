@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LoaderCircle, Siren } from "lucide-react";
 import { activateSOS } from "../incidentApi.js";
 
 export default function SOSActivation({ user }) {
@@ -39,7 +40,9 @@ export default function SOSActivation({ user }) {
           <p style={{ color: "#62413d", fontSize: 12.5, lineHeight: 1.55 }}>SOS sends your identity and GPS location to the incident system and tries to assign the nearest responder who has marked themselves available.</p>
         </div>
         <button type="button" onClick={sendSOS} disabled={busy}
-          style={{ background: busy ? "#9e9e9e" : "#b42318", color: "#fff", border: 0, borderRadius: 7, padding: "13px 22px", fontSize: 14, fontWeight: 800, cursor: busy ? "wait" : "pointer", minWidth: 150 }}>
+          aria-label={busy ? "Sending SOS" : "Send emergency SOS"}
+          style={{ background: busy ? "#9e9e9e" : "#b42318", color: "#fff", border: 0, borderRadius: 7, padding: "13px 22px", fontSize: 14, fontWeight: 800, cursor: busy ? "wait" : "pointer", minWidth: 150,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,transition:"transform .18s ease,box-shadow .18s ease" }}>
+          {busy ? <LoaderCircle size={17} aria-hidden="true" style={{animation:"spin 1s linear infinite"}}/> : <Siren size={17} aria-hidden="true"/>}
           {busy ? "Sending SOS…" : "Send SOS"}
         </button>
       </div>

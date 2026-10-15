@@ -1,0 +1,48 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function verifiedUmpUser() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.matches('^[^@]+@ump[.]ac[.]za$');
+    }
+
+    match /incidents/{incidentId}/attachments/{attachmentId} {
+      function incident() {
+        return firestore.get(/databases/(default)/documents/incidents/$(incidentId)).data;
+      }
+
+      function admin() {
+        let profile = firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+        return (('role' in profile && profile.role == 'admin')
+          || ('role' in profile && profile.role is list && 'admin' in profile.role))
+          || (profile.roles is list && 'admin' in profile.roles);
+      }
+
+      function canReadIncidentEvidence() {
+        return verifiedUmpUser()
+          && (incident().reportedBy == request.auth.uid
+            || incident().responderUid == request.auth.uid
+            || admin());
+      }
+
+      function validContent() {
+        return (request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp']
+            && request.resource.size > 0
+            && request.resource.size <= 10 * 1024 * 1024)
+          || (request.resource.contentType in ['video/webm', 'video/mp4']
+            && request.resource.size > 0
+            && request.resource.size <= 40 * 1024 * 1024);
+      }
+
+      allow create: if verifiedUmpUser()
+        && incident().reportedBy == request.auth.uid
+        && request.resource.metadata.uid == request.auth.uid
+        && validContent();
+      allow read: if canReadIncidentEvidence();
+      allow update: if false;
+      allow delete: if verifiedUmpUser() && incident().reportedBy == request.auth.uid;
+    }
+  }
+}

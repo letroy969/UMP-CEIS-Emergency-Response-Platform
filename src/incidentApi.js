@@ -10,7 +10,9 @@ import {
   serverTimestamp,
   where,
 } from "firebase/firestore";
-import { auth, db } from "./lib/firebase.js";
+import { deleteObject, ref, uploadBytesResumable } from "firebase/storage";
+import { getToken } from "firebase/app-check";
+import { appCheck, auth, db, storage } from "./lib/firebase.js";
 
 const INCIDENT_TYPES = new Set(["medical", "fire", "security", "hazard", "infrastructure", "wellbeing", "other"]);
 const PRIORITIES = new Set(["P1", "P2", "P3", "P4"]);
@@ -37,8 +39,15 @@ function present(id, row) {
     type: row.type,
     priority: row.priority,
     building: row.building,
-    loc: `Building ${row.building}`,
+    buildingName: row.buildingName || null,
+    loc: row.buildingName || (row.latitude != null
+      ? `GPS location · ${Number(row.latitude).toFixed(5)}, ${Number(row.longitude).toFixed(5)}`
+      : `Building ${row.building}`),
     desc: row.description,
+    attachments: Array.isArray(row.attachments) ? row.attachments.map(attachment => ({
+      ...attachment,
+      createdAt: iso(attachment.createdAt),
+    })) : [],
     status: row.status,
     responder: row.responder || "Pending assignment",
     lat: row.latitude ?? null,
@@ -59,17 +68,31 @@ function present(id, row) {
 async function apiRequest(user, path, options = {}) {
   if (!user || !auth.currentUser || auth.currentUser.uid !== user.uid) throw new Error("Sign in to continue.");
   const token = await auth.currentUser.getIdToken();
-  const response = await fetch(`/api${path}`, {
-    ...options,
-    headers: {
-      authorization: `Bearer ${token}`,
-      ...(options.body ? { "content-type": "application/json" } : {}),
-      ...options.headers,
-    },
-  });
+  let response;
+  try {
+    response = await fetch(`/api${path}`, {
+      ...options,
+      headers: {
+        authorization: `Bearer ${token}`,
+        ...(options.body ? { "content-type": "application/json" } : {}),
+        ...options.headers,
+      },
+    });
+  } catch (error) {
+    if (error instanceof TypeError) {
+      const networkError = new Error("Could not reach the CEIS reporting service. Check your connection and confirm the CEIS API is running and configured.");
+      networkError.code = "network/unavailable";
+      throw networkError;
+    }
+    throw error;
+  }
   if (response.status === 204) return null;
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || "The request could not be completed.");
+  if (!response.ok) {
+    const requestError = new Error(payload.error || "The request could not be completed.");
+    requestError.status = response.status;
+    throw requestError;
+  }
   return payload;
 }
 
@@ -107,9 +130,10 @@ export function subscribeIncidents(user, onRows, onError, mine = false) {
 export async function createIncident(user, incident) {
   if (!user) throw new Error("Sign in to submit an incident report.");
   if (!INCIDENT_TYPES.has(incident.type) || !PRIORITIES.has(incident.priority)
-    || !/^\d{1,3}$/.test(String(incident.building || ""))
-    || typeof incident.desc !== "string" || incident.desc.trim().length < 3 || incident.desc.length > 4000) {
-    throw new Error("Provide a valid incident type, priority, building, and description.");
+    || (!/^\d{1,3}$/.test(String(incident.building || "")) && incident.lat == null)
+    || typeof incident.desc !== "string" || (incident.desc.trim().length > 0 && incident.desc.trim().length < 3)
+    || incident.desc.length > 4000) {
+    throw new Error("Provide a valid incident type, priority, and either a location or campus building. Descriptions must be at least 3 characters when provided.");
   }
   if ((incident.lat == null) !== (incident.lng == null)) throw new Error("Location must include both coordinates.");
   try {
@@ -118,11 +142,14 @@ export async function createIncident(user, incident) {
       body: JSON.stringify({
         type: incident.type,
         priority: incident.priority,
-        building: String(incident.building),
+        building: incident.building ? String(incident.building) : null,
+        buildingName: incident.buildingName ?? null,
         description: incident.desc.trim(),
         latitude: incident.lat ?? null,
         longitude: incident.lng ?? null,
         accuracyMeters: incident.accuracy ?? null,
+        locationCapturedAt: incident.locationCapturedAt ?? null,
+        locationSource: incident.locationSource ?? null,
         campusVerified: incident.campusVerified ?? null,
       }),
     });
@@ -130,6 +157,69 @@ export async function createIncident(user, incident) {
   } catch (error) {
     fail(error, "Incident report could not be saved.");
   }
+}
+
+const ATTACHMENT_LIMITS = {
+  "image/jpeg": 10 * 1024 * 1024,
+  "image/png": 10 * 1024 * 1024,
+  "image/webp": 10 * 1024 * 1024,
+  "video/webm": 40 * 1024 * 1024,
+  "video/mp4": 40 * 1024 * 1024,
+};
+
+export async function uploadIncidentAttachment(user, incidentId, file, onProgress = () => {}) {
+  const maxBytes = ATTACHMENT_LIMITS[file.type];
+  if (!maxBytes || file.size <= 0 || file.size > maxBytes) {
+    throw new Error("Attachments must be JPEG, PNG, or WebP images up to 10 MB, or WebM/MP4 video up to 40 MB.");
+  }
+  const attachmentId = crypto.randomUUID();
+  const extension = file.type === "image/jpeg" ? "jpg" : file.type.split("/")[1];
+  const objectRef = ref(storage, `incidents/${incidentId}/attachments/${attachmentId}.${extension}`);
+  const task = uploadBytesResumable(objectRef, file, {
+    contentType: file.type,
+    cacheControl: "private, no-store",
+    customMetadata: { uid: user.uid },
+  });
+
+  await new Promise((resolve, reject) => {
+    task.on("state_changed", snapshot => {
+      onProgress(snapshot.totalBytes ? snapshot.bytesTransferred / snapshot.totalBytes : 0);
+    }, reject, resolve);
+  });
+
+  let requestError;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const payload = await apiRequest(user, `/incidents/${encodeURIComponent(incidentId)}/attachments`, {
+        method: "POST",
+        body: JSON.stringify({
+          attachmentId: `${attachmentId}.${extension}`,
+          name: file.name,
+          contentType: file.type,
+          kind: file.type.startsWith("video/") ? "video" : "image",
+        }),
+      });
+      return payload.attachment;
+    } catch (error) {
+      requestError = error;
+      if (attempt === 0 && (error.code === "network/unavailable" || error.status >= 500)) continue;
+      break;
+    }
+  }
+  if (requestError.status && requestError.status < 500) {
+    await deleteObject(objectRef).catch(cleanupError => {
+      console.error("Unregistered incident evidence could not be removed", cleanupError);
+    });
+  }
+  throw requestError;
+}
+
+export async function getIncidentAttachmentUrl(user, incidentId, attachmentId) {
+  const payload = await apiRequest(
+    user,
+    `/incidents/${encodeURIComponent(incidentId)}/attachments/${encodeURIComponent(attachmentId)}/url`,
+  );
+  return { url: payload.url, expiresAt: Date.now() + (payload.expiresInSeconds || 300) * 1000 };
 }
 
 export async function activateSOS(user, position) {
@@ -140,6 +230,55 @@ export async function activateSOS(user, position) {
     method: "POST",
     body: JSON.stringify({ latitude, longitude, accuracyMeters: accuracy }),
   });
+}
+
+export async function activateAnonymousSOS(position, requestId) {
+  if (!position || !Number.isFinite(position.latitude) || !Number.isFinite(position.longitude)) {
+    throw new Error("A current device location is required to send an anonymous SOS.");
+  }
+  if (!appCheck) {
+    throw new Error("Anonymous SOS is not configured. Allow the CEIS team to enable Firebase App Check before using this option.");
+  }
+  if (typeof requestId !== "string" || !/^[\da-f-]{36}$/i.test(requestId)) {
+    throw new Error("The SOS request could not be verified. Close this dialog and try again.");
+  }
+
+  const { token } = await getToken(appCheck, false);
+  let response;
+  try {
+    response = await fetch("/api/sos/anonymous", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "X-Firebase-AppCheck": token,
+      },
+      body: JSON.stringify({
+        requestId,
+        latitude: position.latitude,
+        longitude: position.longitude,
+        accuracyMeters: position.accuracyMeters,
+        locationCapturedAt: position.capturedAt,
+        locationSource: position.source,
+      }),
+    });
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error("Could not reach the CEIS emergency service. Call campus security or emergency medical services directly.");
+    }
+    throw error;
+  }
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const requestError = new Error(payload.error || "The anonymous SOS could not be submitted.");
+    requestError.status = response.status;
+    throw requestError;
+  }
+  return payload;
+}
+
+export function isAnonymousSOSConfigured() {
+  return Boolean(appCheck);
 }
 
 export async function setResponderPresence(user, available, coordinates = {}) {

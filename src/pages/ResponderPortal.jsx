@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NAVY, RED, REDL, GREEN, GOLD, WHITE, PAPER, PAPER2, BD, NK, SL, MID, LOGO, INC_TYPES, PRIORITY, STATUS_LABEL } from "../constants.js";
 import { STYLES } from "./portalStyles.js";
 import { subscribeIncidents, updateIncident } from "../incidentApi.js";
+import IncidentEvidenceList from "../components/IncidentEvidenceList.jsx";
 
 export default function ResponderPortal({ user, authUser, onLogout }) {
   const [incidents, setIncidents] = useState([]);
@@ -77,10 +78,11 @@ export default function ResponderPortal({ user, authUser, onLogout }) {
                 const targetStatus = nextStatus(incident);
                 return <article key={incident.id} style={{background:WHITE,border:`1px solid ${BD}`,borderLeft:`5px solid ${priority.color}`,borderRadius:10,padding:18,boxShadow:"0 4px 14px rgba(15,35,70,.05)"}}>
                   <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"start",flexWrap:"wrap"}}>
-                    <div><div style={{fontSize:11,color:MID,fontFamily:"'IBM Plex Mono',monospace"}}>{incident.reference || incident.id} · {incident.time}</div><h2 style={{fontSize:18,color:NK,margin:"5px 0"}}>{INC_TYPES[incident.type]?.label || "Incident"} — Building {incident.building}</h2></div>
+                    <div><div style={{fontSize:11,color:MID,fontFamily:"'IBM Plex Mono',monospace"}}>{incident.reference || incident.id} · {incident.time}</div><h2 style={{fontSize:18,color:NK,margin:"5px 0"}}>{INC_TYPES[incident.type]?.label || "Incident"} — {incident.loc}</h2></div>
                     <div style={{display:"flex",gap:8}}><span style={{padding:"5px 9px",borderRadius:5,background:`${priority.color}14`,color:priority.color,fontWeight:800,fontSize:12}}>{incident.priority}</span><span style={{padding:"5px 9px",borderRadius:5,background:PAPER2,color:NAVY,fontWeight:700,fontSize:12}}>{STATUS_LABEL[incident.status] || incident.status}</span></div>
                   </div>
-                  <p style={{color:SL,fontSize:14,lineHeight:1.6,margin:"10px 0"}}>{incident.desc}</p>
+                  <p style={{color:SL,fontSize:14,lineHeight:1.6,margin:"10px 0"}}>{incident.desc || "No additional description supplied."}</p>
+                  <IncidentEvidenceList incident={incident} user={authUser} />
                   <div style={{fontSize:12,color:MID,marginBottom:14}}>Reported by {incident.reporter || "Campus user"}{incident.lat != null&&incident.lng != null?` · Location ${incident.lat.toFixed(5)}, ${incident.lng.toFixed(5)}`:""}</div>
                   {targetStatus&&<button disabled={updatingId===incident.id} onClick={()=>advanceIncident(incident,targetStatus)} style={{padding:"10px 14px",background:NAVY,color:WHITE,border:0,borderRadius:6,fontWeight:700,cursor:updatingId===incident.id?"wait":"pointer",opacity:updatingId===incident.id?0.65:1}}>{updatingId===incident.id?"Updating…":`Mark ${STATUS_LABEL[targetStatus] || targetStatus}`}</button>}
                   {!targetStatus&&<div style={{fontSize:12,fontWeight:700,color:GREEN}}>✓ Assignment resolved</div>}

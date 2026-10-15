@@ -1,3 +1,17 @@
+import {
+  CircleCheck,
+  Eye,
+  Flame,
+  Hospital,
+  LockKeyhole,
+  Shield,
+  Siren,
+  TriangleAlert,
+  UsersRound,
+  Zap,
+  ClipboardList,
+} from "lucide-react";
+
 /* ═══════════════════════════════════════════════════════════════
    UMP CEIS — Shared Brand Tokens & Constants
    Used across Landing, Command Centre, First Aid, Triage, etc.
@@ -30,15 +44,15 @@ export const LOGO = "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX
 
 // ── INCIDENT TYPES ─────────────────────────────────────────────
 export const INC_TYPES = {
-  medical:    { label:"Medical",     icon:"🏥", color:"#DC2626", bg:"#FEF2F2" },
-  fire:       { label:"Fire",        icon:"🔥", color:"#EA580C", bg:"#FFF7ED" },
-  security:   { label:"Security",    icon:"🛡️", color:"#7C3AED", bg:"#F5F3FF" },
-  suspicious: { label:"Suspicious",  icon:"👁️", color:"#0369A1", bg:"#E0F2FE" },
-  infra:      { label:"Infra Fault", icon:"⚡", color:"#D97706", bg:"#FFFBEB" },
-  crowd:      { label:"Crowd",       icon:"👥", color:"#059669", bg:"#ECFDF5" },
-  theft:      { label:"Theft",       icon:"🔓", color:"#9D174D", bg:"#FFF1F2" },
-  violence:   { label:"Violence",    icon:"⚠️", color:"#B91C1C", bg:"#FFF1F2" },
-  other:      { label:"Other",       icon:"📋", color:"#475569", bg:"#F8FAFC" },
+  medical:    { label:"Medical",     icon:Hospital,       color:"#DC2626", bg:"#FEF2F2" },
+  fire:       { label:"Fire",        icon:Flame,          color:"#EA580C", bg:"#FFF7ED" },
+  security:   { label:"Security",    icon:Shield,         color:"#7C3AED", bg:"#F5F3FF" },
+  suspicious: { label:"Suspicious",  icon:Eye,             color:"#0369A1", bg:"#E0F2FE" },
+  infra:      { label:"Infra Fault", icon:Zap,             color:"#D97706", bg:"#FFFBEB" },
+  crowd:      { label:"Crowd",       icon:UsersRound,      color:"#059669", bg:"#ECFDF5" },
+  theft:      { label:"Theft",       icon:LockKeyhole,     color:"#9D174D", bg:"#FFF1F2" },
+  violence:   { label:"Violence",    icon:TriangleAlert,   color:"#B91C1C", bg:"#FFF1F2" },
+  other:      { label:"Other",       icon:ClipboardList,   color:"#475569", bg:"#F8FAFC" },
 };
 
 // ── PRIORITY LEVELS ─────────────────────────────────────────────
@@ -128,8 +142,8 @@ export const SYMPTOM_DATA = [
 ];
 
 export function classifyRisk(score) {
-  if (score >= 65) return { level:"Critical", color:"#B83018", bg:"#FFE8E4", action:"Call ambulance now — 10177",     icon:"🚨", code:"P1" };
-  if (score >= 40) return { level:"High",     color:"#B85000", bg:"#FFF0E0", action:"Go to hospital immediately",      icon:"⚠️",  code:"P2" };
-  if (score >= 22) return { level:"Moderate", color:"#7A6000", bg:"#FDF3DC", action:"Visit clinic soon",               icon:"🏥", code:"P3" };
-  return                   { level:"Low",     color:"#2D7D35", bg:"#E8F5EA", action:"Self-care at home — monitor",     icon:"✅", code:"P4" };
+  if (score >= 65) return { level:"Critical", color:"#B83018", bg:"#FFE8E4", action:"Call ambulance now — 10177",     icon:Siren,        code:"P1" };
+  if (score >= 40) return { level:"High",     color:"#B85000", bg:"#FFF0E0", action:"Go to hospital immediately",      icon:TriangleAlert, code:"P2" };
+  if (score >= 22) return { level:"Moderate",  color:"#7A6000", bg:"#FDF3DC", action:"Visit clinic soon",               icon:Hospital,     code:"P3" };
+  return                   { level:"Low",     color:"#2D7D35", bg:"#E8F5EA", action:"Self-care at home — monitor",     icon:CircleCheck,  code:"P4" };
 }
