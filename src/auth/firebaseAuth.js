@@ -16,8 +16,8 @@ export function isRegistrationInProgress() {
   return registrationInProgress;
 }
 
-export function isUmpEmail(email) {
-  return /^[^\s@]+@ump\.ac\.za$/i.test(email.trim());
+export function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
 
 function waitForFirebaseOperation(operation, description, timeoutMs = 30000) {
@@ -56,8 +56,8 @@ function authError(error) {
     "auth/weak-password": "Choose a stronger password.",
     "auth/network-request-failed": "Could not connect to Firebase. Check your connection and try again.",
     "auth/operation-not-allowed": "Email/password sign-in is not enabled in Firebase Authentication yet.",
-    "permission-denied": "Could not create your student profile in Cloud Firestore. Check the Firestore users create rule and Firebase project configuration.",
-    "firestore/permission-denied": "Could not create your student profile in Cloud Firestore. Check the Firestore users create rule and Firebase project configuration.",
+    "permission-denied": "Could not create your account profile in Cloud Firestore. Check the Firestore users create rule and Firebase project configuration.",
+    "firestore/permission-denied": "Could not create your account profile in Cloud Firestore. Check the Firestore users create rule and Firebase project configuration.",
     "auth/unauthorized-continue-uri": "Firebase does not allow this email link's return address. In Firebase Console, open Authentication → Settings → Authorized domains and add localhost for local testing or your deployed app domain.",
   };
   return new Error(messages[error.code] || error.message || "Authentication failed. Please try again.");
@@ -87,11 +87,15 @@ export async function loadAppUser(firebaseUser) {
     throw new Error("Verify your email address before signing in.");
   }
   const email = firebaseUser.email;
-  if (!email || !isUmpEmail(email)) {
-    throw new Error("Use your university email address ending in @ump.ac.za.");
-  }
+  if (!email || !isValidEmail(email)) throw new Error("Your account needs a valid email address.");
 
   const profileRef = doc(db, "users", firebaseUser.uid);
+  const roleRequestKey = `ceis:requested-role:${firebaseUser.uid}`;
+  const nextRoleRequestKey = "ceis:requested-role-next";
+  const requestedRole = window.localStorage.getItem(roleRequestKey) === "responder"
+    || window.localStorage.getItem(nextRoleRequestKey) === "responder"
+    ? "responder"
+    : null;
   const profile = await runTransaction(db, async transaction => {
     const profileSnapshot = await transaction.get(profileRef);
     if (profileSnapshot.exists()) return profileSnapshot.data();
@@ -99,28 +103,44 @@ export async function loadAppUser(firebaseUser) {
     const emailName = email.split("@")[0].trim();
     const displayName = firebaseUser.displayName?.trim() || "";
     const fullName = [displayName, emailName]
-      .find(name => name.length >= 2 && name.length <= 100) || "UMP Student";
+      .find(name => name.length >= 2 && name.length <= 100) || "CEIS User";
     const newProfile = {
       uid: firebaseUser.uid,
       email,
       fullName,
       role: "student",
       createdAt: serverTimestamp(),
+      ...(requestedRole ? {
+        requestedRole,
+        roleRequestStatus: "pending",
+        roleRequestedAt: serverTimestamp(),
+      } : {}),
     };
     transaction.set(profileRef, newProfile);
     return newProfile;
   });
+  window.localStorage.removeItem(roleRequestKey);
+  window.localStorage.removeItem(nextRoleRequestKey);
 
   return appUser(firebaseUser, profile);
 }
 
-export async function registerUser({ fullName, email, password, onProgress = () => {} }) {
+export async function registerUser({
+  fullName,
+  email,
+  password,
+  requestedRole = null,
+  onProgress = () => {},
+}) {
   const normalizedName = fullName.trim();
   if (normalizedName.length < 2 || normalizedName.length > 100) {
     throw new Error("Enter a name between 2 and 100 characters.");
   }
-  if (!isUmpEmail(email)) {
-    throw new Error("Use your university email address ending in @ump.ac.za.");
+  if (!isValidEmail(email)) {
+    throw new Error("Enter a valid email address.");
+  }
+  if (requestedRole !== null && requestedRole !== "responder") {
+    throw new Error("Choose a valid account access request.");
   }
   const passwordError = validateNewPassword(password);
   if (passwordError) throw new Error(passwordError);
@@ -134,6 +154,9 @@ export async function registerUser({ fullName, email, password, onProgress = () 
       "creating your account",
       Math.max(1, signupDeadline - Date.now()),
     );
+    if (requestedRole) {
+      window.localStorage.setItem(`ceis:requested-role:${credential.user.uid}`, requestedRole);
+    }
     await waitForFirebaseOperation(
       updateProfile(credential.user, { displayName: normalizedName }),
       "updating your account",
@@ -141,7 +164,7 @@ export async function registerUser({ fullName, email, password, onProgress = () 
     );
     onProgress("Sending your verification email…");
     const verificationEmail = waitForFirebaseOperation(sendEmailVerification(credential.user, {
-      url: emailActionUrl("/verify-email"),
+      url: emailActionUrl(`/verify-email${requestedRole ? "?requestedRole=responder" : ""}`),
       handleCodeInApp: true,
     }), "requesting the verification email", 5000)
       .then(() => null, error => authError(error))
@@ -170,9 +193,7 @@ export async function registerUser({ fullName, email, password, onProgress = () 
 }
 
 export async function signInUser(email, password) {
-  if (!isUmpEmail(email)) {
-    throw new Error("Use your university email address ending in @ump.ac.za.");
-  }
+  if (!isValidEmail(email)) throw new Error("Enter a valid email address.");
   try {
     const credential = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
     await credential.user.reload();
@@ -193,9 +214,7 @@ export async function signInUser(email, password) {
 }
 
 export async function requestPasswordReset(email) {
-  if (!isUmpEmail(email)) {
-    throw new Error("Use your university email address ending in @ump.ac.za.");
-  }
+  if (!isValidEmail(email)) throw new Error("Enter a valid email address.");
   try {
     await sendPasswordResetEmail(auth, email.trim().toLowerCase());
   } catch (error) {

@@ -10,9 +10,8 @@ import {
   serverTimestamp,
   where,
 } from "firebase/firestore";
-import { deleteObject, ref, uploadBytesResumable } from "firebase/storage";
 import { getToken } from "firebase/app-check";
-import { appCheck, auth, db, storage } from "./lib/firebase.js";
+import { appCheck, auth, db } from "./lib/firebase.js";
 
 const INCIDENT_TYPES = new Set(["medical", "fire", "security", "hazard", "infrastructure", "wellbeing", "other"]);
 const PRIORITIES = new Set(["P1", "P2", "P3", "P4"]);
@@ -167,6 +166,26 @@ const ATTACHMENT_LIMITS = {
   "video/mp4": 40 * 1024 * 1024,
 };
 
+function uploadToSignedUrl(url, file, headers, onProgress) {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("PUT", url);
+    Object.entries(headers).forEach(([name, value]) => request.setRequestHeader(name, value));
+    request.upload.addEventListener("progress", event => {
+      onProgress(event.lengthComputable ? event.loaded / event.total : 0);
+    });
+    request.addEventListener("load", () => {
+      if (request.status >= 200 && request.status < 300) resolve();
+      else reject(new Error(`Evidence upload failed (HTTP ${request.status}). Check the R2 bucket CORS configuration and try again.`));
+    });
+    request.addEventListener("error", () => {
+      reject(new Error("Evidence upload failed. Check your connection and the R2 bucket CORS configuration."));
+    });
+    request.addEventListener("abort", () => reject(new Error("Evidence upload was cancelled.")));
+    request.send(file);
+  });
+}
+
 export async function uploadIncidentAttachment(user, incidentId, file, onProgress = () => {}) {
   const maxBytes = ATTACHMENT_LIMITS[file.type];
   if (!maxBytes || file.size <= 0 || file.size > maxBytes) {
@@ -174,44 +193,51 @@ export async function uploadIncidentAttachment(user, incidentId, file, onProgres
   }
   const attachmentId = crypto.randomUUID();
   const extension = file.type === "image/jpeg" ? "jpg" : file.type.split("/")[1];
-  const objectRef = ref(storage, `incidents/${incidentId}/attachments/${attachmentId}.${extension}`);
-  const task = uploadBytesResumable(objectRef, file, {
-    contentType: file.type,
-    cacheControl: "private, no-store",
-    customMetadata: { uid: user.uid },
+  const encodedIncidentId = encodeURIComponent(incidentId);
+  const encodedAttachmentId = encodeURIComponent(`${attachmentId}.${extension}`);
+  const upload = await apiRequest(user, `/incidents/${encodedIncidentId}/attachments/upload-url`, {
+    method: "POST",
+    body: JSON.stringify({
+      attachmentId: `${attachmentId}.${extension}`,
+      name: file.name,
+      contentType: file.type,
+      kind: file.type.startsWith("video/") ? "video" : "image",
+      size: file.size,
+    }),
   });
 
-  await new Promise((resolve, reject) => {
-    task.on("state_changed", snapshot => {
-      onProgress(snapshot.totalBytes ? snapshot.bytesTransferred / snapshot.totalBytes : 0);
-    }, reject, resolve);
-  });
-
-  let requestError;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      const payload = await apiRequest(user, `/incidents/${encodeURIComponent(incidentId)}/attachments`, {
-        method: "POST",
-        body: JSON.stringify({
-          attachmentId: `${attachmentId}.${extension}`,
-          name: file.name,
-          contentType: file.type,
-          kind: file.type.startsWith("video/") ? "video" : "image",
-        }),
-      });
-      return payload.attachment;
-    } catch (error) {
-      requestError = error;
-      if (attempt === 0 && (error.code === "network/unavailable" || error.status >= 500)) continue;
-      break;
+  try {
+    await uploadToSignedUrl(upload.url, file, upload.headers, onProgress);
+    let requestError;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const payload = await apiRequest(user, `/incidents/${encodedIncidentId}/attachments`, {
+          method: "POST",
+          body: JSON.stringify({
+            attachmentId: `${attachmentId}.${extension}`,
+            name: file.name,
+            contentType: file.type,
+            kind: file.type.startsWith("video/") ? "video" : "image",
+          }),
+        });
+        return payload.attachment;
+      } catch (error) {
+        requestError = error;
+        if (attempt === 0 && (error.code === "network/unavailable" || error.status >= 500)) continue;
+        break;
+      }
     }
-  }
-  if (requestError.status && requestError.status < 500) {
-    await deleteObject(objectRef).catch(cleanupError => {
+    throw requestError;
+  } catch (error) {
+    try {
+      await apiRequest(user, `/incidents/${encodedIncidentId}/attachments/${encodedAttachmentId}`, {
+        method: "DELETE",
+      });
+    } catch (cleanupError) {
       console.error("Unregistered incident evidence could not be removed", cleanupError);
-    });
+    }
+    throw error;
   }
-  throw requestError;
 }
 
 export async function getIncidentAttachmentUrl(user, incidentId, attachmentId) {
@@ -333,6 +359,31 @@ export async function listResponders(user) {
   }
 }
 
+export async function listResponderAccessRequests(user) {
+  if (!user || user.role !== "admin") throw new Error("Admin access is required to review responder requests.");
+  try {
+    const payload = await apiRequest(user, "/access-requests");
+    return payload.requests || [];
+  } catch (error) {
+    fail(error, "Could not load responder access requests.");
+  }
+}
+
+export async function reviewResponderAccessRequest(user, uid, action) {
+  if (!user || user.role !== "admin") throw new Error("Admin access is required to review responder requests.");
+  if (typeof uid !== "string" || !["approve", "reject"].includes(action)) {
+    throw new Error("Choose a valid responder access request.");
+  }
+  try {
+    return await apiRequest(user, `/access-requests/${encodeURIComponent(uid)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ action }),
+    });
+  } catch (error) {
+    fail(error, "Could not update the responder access request.");
+  }
+}
+
 export async function assignIncident(user, incidentId, responder) {
   if (!user || user.role !== "admin") throw new Error("Admin access is required to dispatch responders.");
   if (!incidentId || !responder?.uid || !responder?.name) throw new Error("Choose a valid responder.");
@@ -344,6 +395,18 @@ export async function assignIncident(user, incidentId, responder) {
     return payload.incident;
   } catch (error) {
     fail(error, "Responder dispatch could not be saved.");
+  }
+}
+
+export async function getIncidentEmergencyContacts(user, incidentId) {
+  if (!user || !["admin", "responder"].includes(user.role)) {
+    throw new Error("Only administrators and assigned responders can view emergency contacts.");
+  }
+  try {
+    const payload = await apiRequest(user, `/incidents/${encodeURIComponent(incidentId)}/emergency-contacts`);
+    return payload.contacts || [];
+  } catch (error) {
+    fail(error, "Could not load emergency contacts.");
   }
 }
 

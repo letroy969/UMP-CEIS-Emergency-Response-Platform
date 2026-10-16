@@ -18,7 +18,7 @@ function requireCurrentUser(user) {
   if (!user?.uid || !auth.currentUser || auth.currentUser.uid !== user.uid) {
     throw new Error("Your signed-in account could not be verified. Sign in again and retry.");
   }
-  if (!auth.currentUser.emailVerified) throw new Error("Verify your university email before updating your profile.");
+  if (!auth.currentUser.emailVerified) throw new Error("Verify your email before updating your profile.");
 }
 
 export async function saveStudentProfile(user, fields) {

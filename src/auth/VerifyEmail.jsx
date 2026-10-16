@@ -2,6 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { GREEN, NAVY, RED, REDL, SL, WHITE } from "../constants.js";
 import { applyEmailVerificationCode } from "./firebaseAuth.js";
 
+function hasResponderAccessRequest() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("requestedRole") === "responder") return true;
+  const continueUrl = params.get("continueUrl");
+  if (!continueUrl) return false;
+  try {
+    return new URL(continueUrl, window.location.origin).searchParams.get("requestedRole") === "responder";
+  } catch {
+    return false;
+  }
+}
+
 export default function VerifyEmail() {
   const [code] = useState(() => new URLSearchParams(window.location.search).get("oobCode") || "");
   const [status, setStatus] = useState("loading");
@@ -17,6 +29,9 @@ export default function VerifyEmail() {
       return;
     }
     applyEmailVerificationCode(code).then(() => {
+      if (hasResponderAccessRequest()) {
+        window.localStorage.setItem("ceis:requested-role-next", "responder");
+      }
       setStatus("success");
       setMessage("Your email address is verified. Sign in with the password you chose to access CEIS.");
     }).catch(error => {
@@ -30,7 +45,7 @@ export default function VerifyEmail() {
       <section style={{width:"100%",maxWidth:480,background:WHITE,borderRadius:16,padding:32,boxShadow:"0 24px 80px rgba(0,0,0,.35)"}}>
         <div style={{fontSize:10,fontWeight:700,color:SL,letterSpacing:2,textTransform:"uppercase",marginBottom:8}}>UMP CEIS · Account verification</div>
         <h1 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:25,color:NAVY,marginBottom:10}}>Verify your email</h1>
-        <p style={{fontSize:14,color:SL,lineHeight:1.7,marginBottom:20}}>Confirm that you control your university email address to activate your account.</p>
+        <p style={{fontSize:14,color:SL,lineHeight:1.7,marginBottom:20}}>Confirm that you control your email address to activate your account.</p>
         {status === "loading"&&<p role="status" style={{color:SL}}>Verifying email…</p>}
         {message&&<p role="status" style={{padding:12,borderRadius:7,background:status==="success"?`${GREEN}14`:REDL,color:status==="success"?GREEN:RED,fontSize:13,lineHeight:1.6}}>{message}</p>}
         {status === "success"&&<a href="/?access=system" style={{display:"block",marginTop:18,color:NAVY,fontWeight:700,fontSize:13}}>Continue to sign in</a>}

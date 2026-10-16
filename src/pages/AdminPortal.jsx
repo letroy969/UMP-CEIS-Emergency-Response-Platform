@@ -8,6 +8,7 @@ import {
   MapPin,
   Radio,
   Siren,
+  ShieldCheck,
   UserRound,
   Zap,
 } from "lucide-react";
@@ -16,8 +17,9 @@ import CampusMap from "../components/CampusMap.jsx";
 import { MAPPED_BUILDINGS } from "../maps/campusBuildings.js";
 import { checkCampusLocation } from "../maps/location.js";
 import { STYLES } from "./portalStyles.js";
-import { assignIncident, createIncident, listResponders, subscribeIncidents, updateIncident } from "../incidentApi.js";
+import { assignIncident, createIncident, listResponderAccessRequests, listResponders, reviewResponderAccessRequest, subscribeIncidents, updateIncident } from "../incidentApi.js";
 import IncidentEvidenceList from "../components/IncidentEvidenceList.jsx";
+import IncidentEmergencyContacts from "../components/IncidentEmergencyContacts.jsx";
 import PushNotificationsButton from "../components/PushNotificationsButton.jsx";
 import CampusAlertComposer from "../components/CampusAlertComposer.jsx";
 import IncidentAnalyticsPanel from "../components/IncidentAnalyticsPanel.jsx";
@@ -31,6 +33,8 @@ export default function AdminPortal({ user, authUser, onLogout }) {
   const [filterPri, setFilterPri]   = useState("all");
   const [dispatchMsg, setDispatchMsg] = useState("");
   const [responders, setResponders] = useState([]);
+  const [accessRequests, setAccessRequests] = useState([]);
+  const [reviewingUid, setReviewingUid] = useState("");
   const [selectedResponders, setSelectedResponders] = useState({});
   const [dataError, setDataError] = useState("");
   useEffect(() => {
@@ -43,8 +47,13 @@ export default function AdminPortal({ user, authUser, onLogout }) {
     listResponders(authUser)
       .then(roster => { if (active) setResponders(roster); })
       .catch(error => { if (active) setDataError(error.message); });
+    if (user.access === "admin") {
+      listResponderAccessRequests(authUser)
+        .then(requests => { if (active) setAccessRequests(requests); })
+        .catch(error => { if (active) setDataError(error.message); });
+    }
     return () => { active = false; unsubscribe(); };
-  }, [authUser]);
+  }, [authUser, user.access]);
   async function updateStatus(id, status) {
     try {
       const updated = await updateIncident(authUser, { id, status });
@@ -69,6 +78,20 @@ export default function AdminPortal({ user, authUser, onLogout }) {
     setTimeout(()=>setDispatchMsg(""),3000);
   }
 
+  async function reviewAccessRequest(uid, action) {
+    setReviewingUid(uid);
+    setDataError("");
+    try {
+      await reviewResponderAccessRequest(authUser, uid, action);
+      setAccessRequests(previous => previous.filter(request => request.uid !== uid));
+      if (action === "approve") setResponders(await listResponders(authUser));
+    } catch (error) {
+      setDataError(error.message);
+    } finally {
+      setReviewingUid("");
+    }
+  }
+
   const active = incidents.filter(i=>!["RESOLVED","CLOSED"].includes(i.status));
   const isToday = value => value && new Date(value).toDateString() === new Date().toDateString();
   const p1count = active.filter(i=>i.priority==="P1").length;
@@ -78,6 +101,7 @@ export default function AdminPortal({ user, authUser, onLogout }) {
     ["analytics",BarChart3,"Analytics"],
     ["dashboard",Radio,"Dashboard"],["incidents",Siren,"Incidents"],["map",Map,"Live Map"],
     ["dispatch",Zap,"Assignments"],["input",Inbox,"Report Input"],
+    ...(user.access === "admin" ? [["access",ShieldCheck,`Access Requests${accessRequests.length ? ` (${accessRequests.length})` : ""}`]] : []),
   ];
   return (
     <div style={{minHeight:"100vh",background:PAPER,fontFamily:"'IBM Plex Sans',sans-serif"}}>
@@ -134,6 +158,29 @@ export default function AdminPortal({ user, authUser, onLogout }) {
 
         {/* ── DASHBOARD ── */}
         {view==="analytics"&&<IncidentAnalyticsPanel user={authUser} />}
+        {view==="access"&&user.access==="admin"&&(
+          <section style={{animation:"fadeIn .35s ease"}}>
+            <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,color:NK,marginBottom:6}}>Responder access requests</h2>
+            <p style={{fontSize:14,color:SL,marginBottom:20}}>Review verified accounts before granting responder permissions. Admin access is assigned only by a trusted project administrator.</p>
+            {accessRequests.length === 0
+              ? <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:9,padding:24,color:SL}}>No pending responder requests.</div>
+              : <div style={{display:"grid",gap:10}}>
+                {accessRequests.map(request=>(
+                  <article key={request.uid} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,flexWrap:"wrap",background:WHITE,border:`1px solid ${BD}`,borderRadius:9,padding:16}}>
+                    <div>
+                      <div style={{fontWeight:700,color:NK}}>{request.name}</div>
+                      <div style={{fontSize:13,color:SL,marginTop:4}}>{request.email}</div>
+                      {request.requestedAt&&<div style={{fontSize:11,color:MID,marginTop:4}}>Requested {new Date(request.requestedAt).toLocaleString()}</div>}
+                    </div>
+                    <div style={{display:"flex",gap:8}}>
+                      <button type="button" disabled={reviewingUid===request.uid} onClick={()=>reviewAccessRequest(request.uid,"reject")} style={{padding:"8px 12px",border:`1px solid ${BD}`,borderRadius:5,background:WHITE,color:RED,fontWeight:700,cursor:"pointer"}}>Reject</button>
+                      <button type="button" disabled={reviewingUid===request.uid} onClick={()=>reviewAccessRequest(request.uid,"approve")} style={{padding:"8px 12px",border:0,borderRadius:5,background:NAVY,color:WHITE,fontWeight:700,cursor:"pointer"}}>{reviewingUid===request.uid?"Saving…":"Approve responder"}</button>
+                    </div>
+                  </article>
+                ))}
+              </div>}
+          </section>
+        )}
 
         {view==="dashboard"&&(
           <div style={{animation:"fadeIn .35s ease"}}>
@@ -255,6 +302,7 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                 <div style={{padding:"16px 18px"}}>
                   <div style={{fontSize:10,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Description</div>
                   <p style={{fontSize:13.5,color:SL,lineHeight:1.7,marginBottom:16}}>{selectedInc.desc}</p>
+                  <IncidentEmergencyContacts incident={selectedInc} user={authUser} />
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
                     {[["Type",INC_TYPES[selectedInc.type]?.label],["Building",`#${selectedInc.building}`],["Time",selectedInc.time],["Responder",selectedInc.responder]].map(([l,v])=>(
                       <div key={l} style={{background:PAPER,borderRadius:6,padding:"9px 11px"}}>

@@ -1,41 +1,37 @@
 # Requirements review
 
-Reviewed against the code and configuration currently in this repository on 14 October 2026. This is a source review; Firebase deployment state and live delivery were not verified.
+Reviewed against the source and deployment configuration in this repository on 16 October 2026. This is a source review; the live Firebase and Vercel projects were not inspected or deployed.
 
 ## Backend and cloud services
 
 | Requirement | Status | Evidence and remaining work |
 |---|---|---|
-| Node.js and Express REST API | Not implemented | The app is a Vite/React static site. There is no Express server, Firebase Functions backend, or working API route. `api/_lib` is empty. |
-| User authentication and sessions | Implemented with Firebase Auth | Email/password, email verification, password recovery, and sign-out are in `src/auth/firebaseAuth.js`. |
-| Server-side role authorization | Partially implemented | Roles are provisioned in Firestore and Firestore Security Rules enforce access. There is no server API middleware or Firebase custom-claims flow. |
-| Incident storage and processing | Partially implemented | `src/incidentApi.js` writes directly from the browser to Firestore, with client validation and restrictive Firestore rules. There is no REST processing layer or audit-event history. |
-| Dashboard data and analytics endpoints | Partially implemented | The admin workspace reads incident data and displays operational views. No API analytics endpoints, historical response-time analysis, or export pipeline exists. |
-| Notification workflow and webhooks | Not implemented | No notification service, webhook endpoint, retry/delivery tracking, SMS provider, or PA integration exists. |
-| Secure API endpoints and input validation | Partially implemented | Firestore rules enforce important record constraints; the browser also validates inputs. There are no API endpoints to authenticate, authorize, rate-limit, or validate. |
-| Firebase Authentication | Implemented in code | `src/lib/firebase.js` initializes Auth; live project configuration and deployed state were not checked. |
-| Firebase Firestore | Implemented in code | Incident, user, and safety check-in data use Firestore. Rules and indexes are included in the repository; deployment was not checked. |
-| Firebase Cloud Messaging | Not implemented | No FCM token registration, service worker messaging handler, or server-side send workflow is present. The Firebase SDK dependency alone does not provide push delivery. |
+| Node.js and Express REST API | Implemented in source | `api/index.js` exposes the Express API for the Vercel deployment and Vite development server. Configure and verify the deployed environment separately. |
+| User authentication and sessions | Implemented in source | Firebase email/password authentication, email verification, password reset, and sign-out are handled in `src/auth/firebaseAuth.js`. Any valid email may register; verification is required. |
+| Server-side role authorization | Implemented in source | `api/_lib/auth.js` verifies Firebase ID tokens and reads current roles from Firestore. Responder access is approval-gated; admin roles are trusted-operator provisioned. |
+| Incident storage and processing | Implemented in source | `api/index.js` validates reports, stores authenticated and anonymous incidents in Firestore, records incident events, handles assignments/status transitions, and restricts queries by role. |
+| Dashboard data and analytics endpoints | Implemented in source | The admin portal subscribes to incidents and requests server-side dashboard analytics. Historical exports and custom performance reporting are not included. |
+| Notification workflow and integrations | Partially implemented | FCM push is implemented; emergency notifications can also use Twilio SMS and a signed HTTPS PA webhook when configured. Delivery summaries are stored; there is no durable retry queue, and live provider configuration was not verified. |
+| Secure API endpoints and input validation | Implemented in source | Authenticated routes validate Firebase ID tokens, verified email, roles, and request data. Firestore/Storage rules provide a separate client-side authorization boundary; anonymous SOS uses App Check, campus geofence validation, and rate limiting. |
+| Firebase Authentication | Implemented in source | Email/password and verification flows are present. Enable the provider, configure authorized domains/password policy, and verify the project settings manually. |
+| Firebase Firestore and Storage | Implemented in source | Collection paths, Firestore rules, composite indexes, and Storage rules are included. Collections are created by normal writes; live deployment and index readiness were not checked. |
 
 ## Emergency response capabilities
 
 | Requirement | Status | Current behavior and remaining work |
 |---|---|---|
-| One-tap SOS with identity, time, and GPS | Partially implemented | A signed-in user can submit an incident report. Creation records identity and server timestamps; browser location is optional. There is no dedicated SOS flow. |
-| Automatic nearest-officer dispatch | Not implemented | An admin manually selects an assigned responder. Responder availability, distance calculation, and automatic dispatch do not exist. |
-| Automated incident severity and priority | Not implemented | The report form accepts a user-selected priority. The separate interactive triage guide does not classify or update saved incidents. |
-| Live location sharing | Partially implemented | A report can store one location point. There is no continuous reporter/responder location stream, background tracking, or route navigation. |
-| Campus-wide SMS, push, and PA alerts | Not implemented | Assigned responders receive in-app Firestore updates while signed in. No SMS, FCM, PA integration, or delivery receipts are present. |
-| First-aid guidance | Partially implemented | An interactive informational guide and optional speech are present. It is not AI-generated, connected to responders, or clinically certified in this repository. |
-| Emergency analytics | Partially implemented | Admins can review incident records and operational status. Automated trend/response-performance analytics and report exports are absent. |
+| Signed-in SOS | Implemented in source | Creates a high-priority incident with server timestamp and optional GPS; the API can select a recently available nearby responder. |
+| Anonymous SOS | Implemented in source | Requires Firebase App Check and a fresh, accurate GPS point inside the configured Mbombela campus boundary. The incident has no linked profile or emergency contacts. |
+| Nearest-responder dispatch | Implemented in source | Uses server-recorded responder availability/location and a configurable maximum distance; verify presence updates, campus coverage, and dispatch notifications in staging. |
+| Incident priority | Partially implemented | The reporter selects priority; the system does not automatically classify severity. |
+| Location sharing | Partially implemented | Reports contain a point-in-time location, and responder presence can include current coordinates. Continuous reporter tracking and route navigation are not provided. |
+| Push, SMS, and PA alerts | Partially implemented | FCM push is supported; Twilio and PA webhook delivery require server credentials and operational approval. Delivery is not guaranteed if providers are unconfigured or fail. |
+| First-aid guidance | Informational | The app provides general first-aid guidance, not a diagnosis or substitute for professional care. |
+| Emergency analytics | Partially implemented | Admins can view operational incident summaries and trends. Data exports and validated response-performance reporting are not included. |
 
-## Recommended completion sequence
+## Deployment checks
 
-1. Add a Node.js/Express API deployment target and Firebase Admin verification middleware. Route privileged incident mutations and dashboard aggregation through it; keep Firestore Security Rules as a second authorization boundary.
-2. Define and validate incident schemas, transition rules, rate limits, and an append-only status/audit event model. Add API-level authorization tests.
-3. Implement an explicit SOS endpoint and incident workflow. Add responder availability and campus coordinates before attempting nearest-responder selection; otherwise “nearest” cannot be computed reliably.
-4. Implement FCM token registration and a server-side notification queue with delivery/error records. Treat SMS and PA as separate integrations that require configured providers and campus-system access.
-5. Decide triage policy with campus safety and medical stakeholders. Keep automated recommendations reviewable and avoid presenting them as diagnosis.
-6. Add analytics endpoints for defined metrics and validate them against recorded status events before publishing response-performance figures.
-
-The existing application should not be described as automatically dispatching responders, sending campus-wide alerts, sharing live locations, or providing AI/clinical triage until those workflows exist and are verified end to end.
+1. Create the default Firestore database in Native mode, publish the included Firestore and Storage rules, and deploy the composite indexes.
+2. Configure Firebase Authentication, authorized domains, App Check, browser Firebase settings, and server-only Firebase Admin credentials as described in `README.md`.
+3. Bootstrap the first admin through a trusted Firebase Console operator. Verify sign-in, admin incident access, responder approval/assignment, and the privacy-limited emergency-contact endpoint in staging.
+4. Configure and test FCM, and only then enable optional Twilio/PA integrations with approved credentials and delivery monitoring.

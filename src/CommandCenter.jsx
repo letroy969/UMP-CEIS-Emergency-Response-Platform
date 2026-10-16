@@ -37,7 +37,7 @@ import SOSActivation from "./components/SOSActivation.jsx";
 import PushNotificationsButton from "./components/PushNotificationsButton.jsx";
 import { auth } from "./lib/firebase.js";
 import { canAccessPortal } from "./auth/roles.js";
-import { isRegistrationInProgress, loadAppUser, requestPasswordReset, signInUser, signOutUser } from "./auth/firebaseAuth.js";
+import { isRegistrationInProgress, isValidEmail, loadAppUser, requestPasswordReset, signInUser, signOutUser } from "./auth/firebaseAuth.js";
 import AdminPortal from "./pages/AdminPortal.jsx";
 import ResponderPortal from "./pages/ResponderPortal.jsx";
 import StudentProfile from "./pages/StudentProfile.jsx";
@@ -66,8 +66,8 @@ function LoginPage({ onLogin, onBack }) {
   const [shake, setShake]         = useState(false);
 
   async function handleSubmit() {
-    if (!/^[^\s@]+@ump\.ac\.za$/i.test(emailVal.trim()) || !pwdVal) {
-      setLoginError("Enter your @ump.ac.za email address and password.");
+    if (!isValidEmail(emailVal) || !pwdVal) {
+      setLoginError("Enter a valid email address and password.");
       return;
     }
     setLoginError("");
@@ -98,8 +98,8 @@ function LoginPage({ onLogin, onBack }) {
     event.preventDefault();
     setResetMessage("");
     setResetSuccess(false);
-    if (!/^[^\s@]+@ump\.ac\.za$/i.test(emailVal.trim())) {
-      setResetMessage("Enter your university email address ending in @ump.ac.za.");
+    if (!isValidEmail(emailVal)) {
+      setResetMessage("Enter a valid email address.");
       return;
     }
     setLoading(true);
@@ -139,8 +139,8 @@ function LoginPage({ onLogin, onBack }) {
               <div style={{fontSize:20,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>Reset your password</div>
             </div>
             <form onSubmit={handlePasswordReset} style={{padding:"26px 28px"}}>
-              <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:15}}>UMP email address
-                <input type="email" autoComplete="username" value={emailVal} onChange={event=>setEmailVal(event.target.value)} required pattern="[^\s@]+@ump\.ac\.za" title="Use an address ending in @ump.ac.za." placeholder="name@ump.ac.za" style={{display:"block",width:"100%",marginTop:7,padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/>
+              <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:15}}>Email address
+                <input type="email" autoComplete="username" value={emailVal} onChange={event=>setEmailVal(event.target.value)} required placeholder="name@example.com" style={{display:"block",width:"100%",marginTop:7,padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/>
               </label>
               {resetMessage&&<div role="status" style={{fontSize:12,color:resetSuccess?GREEN:RED,background:resetSuccess?`${GREEN}14`:REDL,borderRadius:6,padding:10,margin:"10px 0 14px"}}>{resetMessage}</div>}
               <button type="submit" disabled={loading} style={{width:"100%",padding:13,marginTop:13,background:NAVY,color:WHITE,border:0,borderRadius:7,fontSize:15,fontWeight:700,cursor:loading?"wait":"pointer"}}>{loading?"Sending…":"Send reset link"}</button>
@@ -166,7 +166,7 @@ function LoginPage({ onLogin, onBack }) {
               <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,.55)",letterSpacing:2,textTransform:"uppercase",marginBottom:5}}>{portal==="student"?"Student Portal":portal==="admin"?"Admin Portal":portal==="responder"?"Responder Portal":"Staff Portal"}</div><div style={{fontSize:20,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>Sign In</div>
             </div>
             <form onSubmit={event=>{event.preventDefault();handleSubmit();}} style={{padding:"26px 28px"}}>
-              <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:15}}>UMP email address<input type="email" autoComplete="username" value={emailVal} onChange={event=>setEmailVal(event.target.value)} required pattern="[^\s@]+@ump\.ac\.za" title="Use an address ending in @ump.ac.za." placeholder="name@ump.ac.za" style={{display:"block",width:"100%",marginTop:7,padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/></label>
+              <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:15}}>Email address<input type="email" autoComplete="username" value={emailVal} onChange={event=>setEmailVal(event.target.value)} required placeholder="name@example.com" style={{display:"block",width:"100%",marginTop:7,padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/></label>
               <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:6}}>Password<div style={{position:"relative",marginTop:7}}><input type={showPwd?"text":"password"} autoComplete="current-password" value={pwdVal} onChange={event=>setPwdVal(event.target.value)} required style={{width:"100%",padding:"11px 42px 11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/><button type="button" aria-label={showPwd?"Hide password":"Show password"} aria-pressed={showPwd} onClick={()=>setShowPwd(value=>!value)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:0,cursor:"pointer",color:MID,padding:4}}>{showPwd?<EyeOff size={18} aria-hidden="true"/>:<Eye size={18} aria-hidden="true"/>}</button></div></label>
               {loginError&&<div role="status" style={{fontSize:12,color:RED,background:REDL,borderRadius:6,padding:10,margin:"10px 0 14px"}}>{loginError}</div>}
               <button type="submit" disabled={loading} style={{width:"100%",padding:13,marginTop:13,background:portal==="student"?NAVY:RED,color:WHITE,border:0,borderRadius:7,fontSize:15,fontWeight:700,cursor:loading?"wait":"pointer"}}>{loading?"Signing in…":"Sign in"}</button>

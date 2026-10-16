@@ -1,4 +1,3 @@
-const CAMPUS_EMAIL = /^[^\s@]+@ump\.ac\.za$/i;
 const RESPONDER_ROLES = new Set(["responder", "security", "medical"]);
 
 function roleSet(profile = {}) {
@@ -38,8 +37,8 @@ export async function authenticate(req, _res, next) {
 
     const { auth, db } = (await import("./firebaseAdmin.js")).getFirebaseServices();
     const claims = await auth.verifyIdToken(match[1], true);
-    if (claims.email_verified !== true || !CAMPUS_EMAIL.test(claims.email || "")) {
-      const error = new Error("Use a verified UMP email account.");
+    if (claims.email_verified !== true || typeof claims.email !== "string") {
+      const error = new Error("Verify your email address before using CEIS.");
       error.status = 403;
       throw error;
     }

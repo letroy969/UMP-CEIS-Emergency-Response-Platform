@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { BD, GREEN, MID, NAVY, RED, REDL, SL, WHITE } from "../constants.js";
-import { isUmpEmail, registerUser, validateNewPassword } from "./firebaseAuth.js";
+import { registerUser, validateNewPassword } from "./firebaseAuth.js";
 
 export default function Signup({ onBack }) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [requestedRole, setRequestedRole] = useState("");
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -15,7 +16,6 @@ export default function Signup({ onBack }) {
     event.preventDefault();
     setMessage("");
     setSuccess(false);
-    if (!isUmpEmail(email)) { setMessage("Use your university email address ending in @ump.ac.za."); return; }
     const passwordError = validateNewPassword(password);
     if (passwordError) { setMessage(passwordError); return; }
     if (password !== confirm) { setMessage("The passwords do not match."); return; }
@@ -25,19 +25,22 @@ export default function Signup({ onBack }) {
         fullName,
         email,
         password,
+        requestedRole: requestedRole || null,
         onProgress: setMessage,
       });
       setPassword("");
       setConfirm("");
       setSuccess(true);
-      setMessage("Your account is created. A verification email is being sent; open its link, then sign in to access CEIS.");
+      setMessage("Your account is created. A verification email is being sent; verify your address, then sign in.");
       verificationEmail.then(error => {
         if (error) {
           setSuccess(false);
           setMessage(`Your account was created, but the verification email could not be requested: ${error.message} Sign in to request another verification email.`);
           return;
         }
-        setMessage("Your account is created. Open the verification link in your university email, then sign in to access CEIS.");
+        setMessage(requestedRole
+          ? "Your account is created. Verify your email and sign in; responder access remains pending administrator approval."
+          : "Your account is created. Verify your email, then sign in to access CEIS.");
       });
     } catch (error) {
       setMessage(error.message || "Could not connect to the authentication service.");
@@ -52,12 +55,19 @@ export default function Signup({ onBack }) {
     <div style={{background:WHITE,borderRadius:16,maxHeight:"calc(100vh - 24px)",overflowY:"auto",overflowX:"hidden",boxShadow:"0 24px 80px rgba(0,0,0,.4)"}}>
       <div style={{background:NAVY,padding:"22px 28px",borderBottom:"3px solid #D4960E"}}>
         <button type="button" onClick={onBack} style={{background:"none",border:0,color:"rgba(255,255,255,.7)",cursor:"pointer",marginBottom:8}}>← Back to sign in</button>
-        <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:21,color:WHITE}}>Create a student account</h2>
-        <p style={{fontSize:12,color:"rgba(255,255,255,.68)",marginTop:5}}>Confirm control of your @ump.ac.za email address to activate a student profile.</p>
+        <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:21,color:WHITE}}>Create a CEIS account</h2>
+        <p style={{fontSize:12,color:"rgba(255,255,255,.68)",marginTop:5}}>Any valid email address can register. Verify it before signing in.</p>
       </div>
       <form onSubmit={handleSubmit} style={{padding:"23px 28px"}}>
         <label style={labelStyle}>Full name<input value={fullName} onChange={e=>setFullName(e.target.value)} autoComplete="name" minLength={2} maxLength={100} required style={inputStyle}/></label>
-        <label style={labelStyle}>UMP email address<input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="student@ump.ac.za" autoComplete="email" required pattern="[^\s@]+@ump\.ac\.za" title="Use an address ending in @ump.ac.za." style={inputStyle}/></label>
+        <label style={labelStyle}>Email address<input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="name@example.com" autoComplete="email" required style={inputStyle}/></label>
+        <label style={labelStyle}>Account access
+          <select value={requestedRole} onChange={e=>setRequestedRole(e.target.value)} style={inputStyle}>
+            <option value="">Standard account</option>
+            <option value="responder">Request responder access</option>
+          </select>
+          {requestedRole&&<span style={{display:"block",fontSize:11,fontWeight:400,textTransform:"none",letterSpacing:0,color:SL,marginTop:5}}>Responder access is not active until an administrator approves your verified account.</span>}
+        </label>
         <label style={labelStyle}>Password<input value={password} onChange={e=>setPassword(e.target.value)} type="password" autoComplete="new-password" minLength={12} maxLength={128} required style={inputStyle}/><span style={{display:"block",fontSize:11,fontWeight:400,textTransform:"none",letterSpacing:0,color:SL,marginTop:5}}>12–128 characters; include uppercase, lowercase, a number, and a symbol.</span></label>
         <label style={labelStyle}>Confirm password<input value={confirm} onChange={e=>setConfirm(e.target.value)} type="password" autoComplete="new-password" minLength={12} maxLength={128} required style={inputStyle}/></label>
         {message&&<p role="status" style={{background:loading?`${NAVY}0D`:success?`${GREEN}14`:REDL,color:loading?NAVY:success?GREEN:RED,padding:11,borderRadius:7,fontSize:12.5,lineHeight:1.55,marginBottom:14}}>{message}</p>}

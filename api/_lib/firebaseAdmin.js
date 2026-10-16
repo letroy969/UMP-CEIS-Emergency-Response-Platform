@@ -3,7 +3,6 @@ import { getAuth } from "firebase-admin/auth";
 import { getAppCheck } from "firebase-admin/app-check";
 import { getFirestore } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
-import { getStorage } from "firebase-admin/storage";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -14,7 +13,6 @@ export function getFirebaseServices() {
   if (services) return services;
 
   const projectId = process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
-  const storageBucket = process.env.FIREBASE_STORAGE_BUCKET || process.env.VITE_FIREBASE_STORAGE_BUCKET;
   const rawCredentials = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   if (!projectId) {
     const error = new Error("Firebase server project id is not configured.");
@@ -68,14 +66,12 @@ export function getFirebaseServices() {
   const app = getApps()[0] || initializeApp({
     credential,
     projectId,
-    ...(storageBucket ? { storageBucket } : {}),
   });
   services = {
     auth: getAuth(app),
     appCheck: getAppCheck(app),
     db: getFirestore(app),
     messaging: getMessaging(app),
-    storage: storageBucket ? getStorage(app).bucket() : null,
   };
   return services;
 }

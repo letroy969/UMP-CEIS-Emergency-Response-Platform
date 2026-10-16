@@ -18,6 +18,14 @@ test("profilePortals ignores unknown roles and safely defaults to student", () =
   assert.deepEqual(profilePortals({ roles: ["unknown"] }), ["student"]);
 });
 
+test("a pending responder request does not grant responder portal access", () => {
+  assert.deepEqual(profilePortals({
+    role: "student",
+    requestedRole: "responder",
+    roleRequestStatus: "pending",
+  }), ["student"]);
+});
+
 test("portal sign-in requires the matching privileged role", () => {
   const portals = ["student", "admin", "responder"];
 

@@ -1,9 +1,24 @@
 import express from "express";
 import { createHash, timingSafeEqual } from "node:crypto";
+import {
+  DeleteObjectCommand,
+  DeleteObjectsCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { anonymousSosIncidentId, anonymousSosInput, anonymousSosRateLimitKey } from "./_lib/anonymousSos.js";
 import { authenticate, enforceRateLimit, hasRole, isResponder, requireRole } from "./_lib/auth.js";
 import { getFirebaseServices } from "./_lib/firebaseAdmin.js";
+import {
+  EVIDENCE_TYPES,
+  evidenceObjectKey,
+  getR2Storage,
+  parseEvidenceObjectKey,
+  signEvidenceUpload,
+} from "./_lib/r2Storage.js";
 import { handleChat } from "./chat.js";
 import { notifyUsers, usersWithRole } from "./_lib/notifications.js";
 import { coordinates, fail, incidentInput, STATUSES, text } from "./_lib/validation.js";
@@ -292,6 +307,52 @@ route("get", "/responders", authenticate, async (req, res) => {
   res.json({ responders });
 });
 
+route("get", "/access-requests", authenticate, async (req, res) => {
+  requireRole(req.user, ["admin"]);
+  const snapshot = await getFirebaseServices().db.collection("users")
+    .where("requestedRole", "==", "responder")
+    .where("roleRequestStatus", "==", "pending")
+    .limit(200)
+    .get();
+  const requests = snapshot.docs.map(profile => ({
+    uid: profile.id,
+    name: profile.get("fullName") || "Name not provided",
+    email: profile.get("email") || "",
+    requestedAt: profile.get("roleRequestedAt")?.toDate?.().toISOString?.() || null,
+  }));
+  requests.sort((a, b) => (a.requestedAt || "").localeCompare(b.requestedAt || ""));
+  res.json({ requests });
+});
+
+route("patch", "/access-requests/:uid", authenticate, async (req, res) => {
+  requireRole(req.user, ["admin"]);
+  const targetUid = text(req.params.uid, "User id", { max: 128 });
+  if (!/^[A-Za-z0-9_-]+$/.test(targetUid) || targetUid === req.user.uid) {
+    fail("Choose a valid responder access request.");
+  }
+  const action = req.body?.action;
+  if (!["approve", "reject"].includes(action)) fail("Choose approve or reject.");
+
+  const services = getFirebaseServices();
+  const profileRef = services.db.collection("users").doc(targetUid);
+  await services.db.runTransaction(async transaction => {
+    const profile = await transaction.get(profileRef);
+    if (!profile.exists
+      || profile.get("requestedRole") !== "responder"
+      || profile.get("roleRequestStatus") !== "pending"
+      || profile.get("role") !== "student") {
+      fail("This responder access request is no longer pending.", 409);
+    }
+    transaction.update(profileRef, {
+      ...(action === "approve" ? { role: "responder", roles: ["responder"] } : {}),
+      roleRequestStatus: action === "approve" ? "approved" : "rejected",
+      roleRequestReviewedAt: Timestamp.now(),
+      roleRequestReviewedBy: req.user.uid,
+    });
+  });
+  res.json({ uid: targetUid, status: action === "approve" ? "approved" : "rejected" });
+});
+
 route("post", "/incidents", authenticate, async (req, res) => {
   const services = getFirebaseServices();
   await enforceRateLimit(services.db, `incident_${req.user.uid}`, 15);
@@ -300,31 +361,103 @@ route("post", "/incidents", authenticate, async (req, res) => {
   res.status(201).json({ incident: incidentForClient(created.ref.id, created.data) });
 });
 
-const EVIDENCE_TYPES = {
-  "image/jpeg": { kind: "image", extension: "jpg", maxBytes: 10 * 1024 * 1024 },
-  "image/png": { kind: "image", extension: "png", maxBytes: 10 * 1024 * 1024 },
-  "image/webp": { kind: "image", extension: "webp", maxBytes: 10 * 1024 * 1024 },
-  "video/webm": { kind: "video", extension: "webm", maxBytes: 40 * 1024 * 1024 },
-  "video/mp4": { kind: "video", extension: "mp4", maxBytes: 40 * 1024 * 1024 },
-};
-
-route("post", "/incidents/:id/attachments", authenticate, async (req, res) => {
+route("get", "/incidents/:id/emergency-contacts", authenticate, async (req, res) => {
   const services = getFirebaseServices();
-  if (!services.storage) fail("Firebase Storage is not configured for incident evidence.", 503);
+  const incidentId = text(req.params.id, "Incident id", { max: 150 });
+  const incidentRef = services.db.collection("incidents").doc(incidentId);
+  const snapshot = await incidentRef.get();
+  if (!snapshot.exists) fail("Incident not found.", 404);
+  const incident = snapshot.data();
+  const authorized = hasRole(req.user, "admin")
+    || (isResponder(req.user)
+      && incident.responderUid === req.user.uid
+      && !["RESOLVED", "CLOSED"].includes(incident.status));
+  if (!authorized) fail("You are not allowed to view contacts for this incident.", 403);
+  if (typeof incident.reportedBy !== "string") {
+    res.set("cache-control", "no-store").json({ contacts: [] });
+    return;
+  }
+
+  const contacts = await services.db.collection("users").doc(incident.reportedBy)
+    .collection("emergencyContacts").orderBy("order").limit(10).get();
+  await incidentRef.collection("events").add({
+    event: "EMERGENCY_CONTACTS_VIEWED",
+    actorUid: req.user.uid,
+    createdAt: Timestamp.now(),
+  });
+  res.set("cache-control", "no-store").json({
+    contacts: contacts.docs.map(contact => ({
+      name: contact.get("name"),
+      relationship: contact.get("relationship"),
+      phone: contact.get("phone"),
+    })),
+  });
+});
+
+route("post", "/incidents/:id/attachments/upload-url", authenticate, async (req, res) => {
+  const services = getFirebaseServices();
+  const r2 = getR2Storage();
+  await enforceRateLimit(services.db, `evidence_upload_${req.user.uid}`, 10, 10 * 60 * 1000);
   const incidentId = text(req.params.id, "Incident id", { max: 150 });
   const attachmentId = text(req.body?.attachmentId, "Attachment id", { max: 48 });
   const contentType = req.body?.contentType;
   const fileType = EVIDENCE_TYPES[contentType];
-  if (!/^[a-f0-9-]{36}\.(jpg|png|webp|webm|mp4)$/.test(attachmentId) || !fileType) {
+  const size = req.body?.size;
+  if (!fileType || !/^[a-f0-9-]{36}\.(jpg|png|webp|webm|mp4)$/.test(attachmentId)
+    || !attachmentId.endsWith(`.${fileType.extension}`)
+    || !Number.isSafeInteger(size) || size <= 0 || size > fileType.maxBytes) {
+    fail("The attachment identifier, file type, or size is invalid.");
+  }
+  if (req.body?.kind !== fileType.kind) fail("The attachment type does not match its content.");
+
+  const incidentRef = services.db.collection("incidents").doc(incidentId);
+  const snapshot = await incidentRef.get();
+  if (!snapshot.exists) fail("Incident not found.", 404);
+  const incident = snapshot.data();
+  if (incident.reportedBy !== req.user.uid) fail("Only the incident reporter can add evidence.", 403);
+  const attachments = Array.isArray(incident.attachments) ? incident.attachments : [];
+  if (attachments.some(item => item.id === attachmentId)) fail("This attachment is already registered.", 409);
+  if (attachments.length >= 3 || (fileType.kind === "video" && attachments.some(item => item.kind === "video"))) {
+    fail("This incident has reached its attachment limit.", 409);
+  }
+
+  const objectKey = evidenceObjectKey(incidentId, attachmentId);
+  const url = await signEvidenceUpload(r2, { objectKey, contentType, uid: req.user.uid });
+  res.set("cache-control", "no-store").json({
+    url,
+    expiresInSeconds: 300,
+    headers: {
+      "cache-control": "private, no-store",
+      "content-type": contentType,
+      "x-amz-meta-uid": req.user.uid,
+    },
+  });
+});
+
+route("post", "/incidents/:id/attachments", authenticate, async (req, res) => {
+  const services = getFirebaseServices();
+  const r2 = getR2Storage();
+  const incidentId = text(req.params.id, "Incident id", { max: 150 });
+  const attachmentId = text(req.body?.attachmentId, "Attachment id", { max: 48 });
+  const contentType = req.body?.contentType;
+  const fileType = EVIDENCE_TYPES[contentType];
+  if (!/^[a-f0-9-]{36}\.(jpg|png|webp|webm|mp4)$/.test(attachmentId)
+    || !fileType || !attachmentId.endsWith(`.${fileType.extension}`)) {
     fail("The attachment identifier or file type is invalid.");
   }
   if (req.body?.kind !== fileType.kind) fail("The attachment type does not match its content.");
 
   const incidentRef = services.db.collection("incidents").doc(incidentId);
-  const objectRef = services.storage.file(`incidents/${incidentId}/attachments/${attachmentId}`);
-  const [metadata] = await objectRef.getMetadata();
-  const size = Number(metadata.size);
-  if (metadata.contentType !== contentType || metadata.metadata?.uid !== req.user.uid
+  const objectKey = evidenceObjectKey(incidentId, attachmentId);
+  let metadata;
+  try {
+    metadata = await r2.client.send(new HeadObjectCommand({ Bucket: r2.bucketName, Key: objectKey }));
+  } catch (error) {
+    if (error.name === "NotFound" || error.name === "NoSuchKey") fail("The uploaded attachment was not found.", 400);
+    throw error;
+  }
+  const size = metadata.ContentLength;
+  if (metadata.ContentType !== contentType || metadata.Metadata?.uid !== req.user.uid
     || !Number.isSafeInteger(size) || size <= 0 || size > fileType.maxBytes) {
     fail("The uploaded attachment did not pass verification.", 400);
   }
@@ -374,7 +507,7 @@ route("post", "/incidents/:id/attachments", authenticate, async (req, res) => {
 
 route("get", "/incidents/:id/attachments/:attachmentId/url", authenticate, async (req, res) => {
   const services = getFirebaseServices();
-  if (!services.storage) fail("Firebase Storage is not configured for incident evidence.", 503);
+  const r2 = getR2Storage();
   const incidentId = text(req.params.id, "Incident id", { max: 150 });
   const attachmentId = text(req.params.attachmentId, "Attachment id", { max: 48 });
   const incidentRef = services.db.collection("incidents").doc(incidentId);
@@ -393,14 +526,32 @@ route("get", "/incidents/:id/attachments/:attachmentId/url", authenticate, async
     attachmentId,
     createdAt: Timestamp.now(),
   });
-  const objectRef = services.storage.file(`incidents/${incidentId}/attachments/${attachmentId}`);
-  const [url] = await objectRef.getSignedUrl({
-    action: "read",
-    expires: Date.now() + 5 * 60 * 1000,
-    version: "v4",
-    responseDisposition: "inline",
-  });
+  const objectKey = evidenceObjectKey(incidentId, attachmentId);
+  const url = await getSignedUrl(r2.client, new GetObjectCommand({
+    Bucket: r2.bucketName,
+    Key: objectKey,
+    ResponseContentDisposition: "inline",
+    ResponseCacheControl: "private, no-store",
+  }), { expiresIn: 300 });
   res.set("cache-control", "no-store").json({ url, expiresInSeconds: 300 });
+});
+
+route("delete", "/incidents/:id/attachments/:attachmentId", authenticate, async (req, res) => {
+  const services = getFirebaseServices();
+  const r2 = getR2Storage();
+  const incidentId = text(req.params.id, "Incident id", { max: 150 });
+  const attachmentId = text(req.params.attachmentId, "Attachment id", { max: 48 });
+  const incidentRef = services.db.collection("incidents").doc(incidentId);
+  const snapshot = await incidentRef.get();
+  if (!snapshot.exists) fail("Incident not found.", 404);
+  const incident = snapshot.data();
+  if (incident.reportedBy !== req.user.uid) fail("Only the incident reporter can remove an unregistered upload.", 403);
+  if ((incident.attachments || []).some(item => item.id === attachmentId)) return res.sendStatus(204);
+  await r2.client.send(new DeleteObjectCommand({
+    Bucket: r2.bucketName,
+    Key: evidenceObjectKey(incidentId, attachmentId),
+  }));
+  res.sendStatus(204);
 });
 
 app.get("/cleanup-evidence", async (req, res, next) => {
@@ -414,68 +565,58 @@ app.get("/cleanup-evidence", async (req, res, next) => {
 
   try {
     const services = getFirebaseServices();
-    if (!services.storage) fail("Firebase Storage is not configured for incident evidence.", 503);
+    const r2 = getR2Storage();
     const cutoff = Timestamp.fromMillis(Date.now() - 90 * 24 * 60 * 60 * 1000);
-    let query = services.db.collection("incidents")
-      .where("createdAt", "<=", cutoff)
-      .orderBy("createdAt")
-      .limit(100);
     let deleted = 0;
-    let hasMoreIncidents = true;
-    while (hasMoreIncidents) {
-      const snapshot = await query.get();
-      if (snapshot.empty) {
-        hasMoreIncidents = false;
-        continue;
+    let continuationToken;
+    do {
+      const page = await r2.client.send(new ListObjectsV2Command({
+        Bucket: r2.bucketName,
+        Prefix: "incidents/",
+        MaxKeys: 1000,
+        ContinuationToken: continuationToken,
+      }));
+      const expiredObjects = (page.Contents || []).filter(item => item.Key && item.LastModified
+        && item.LastModified.getTime() <= cutoff.toMillis());
+      const byIncident = new Map();
+      for (const object of expiredObjects) {
+        const parsed = parseEvidenceObjectKey(object.Key);
+        if (!parsed) continue;
+        if (!byIncident.has(parsed.incidentId)) byIncident.set(parsed.incidentId, new Set());
+        byIncident.get(parsed.incidentId).add(parsed.attachmentId);
       }
-      for (const doc of snapshot.docs) {
-        const attachments = Array.isArray(doc.get("attachments")) ? doc.get("attachments") : [];
-        const expired = attachments.filter(item => item.createdAt?.toMillis?.() <= cutoff.toMillis());
-        if (!expired.length) continue;
-        await Promise.all(expired.map(item =>
-          services.storage.file(`incidents/${doc.id}/attachments/${item.id}`).delete({ ignoreNotFound: true }),
-        ));
-        const expiredIds = new Set(expired.map(item => item.id));
+      for (const [incidentId, expiredIds] of byIncident) {
+        const incidentRef = services.db.collection("incidents").doc(incidentId);
+        const incidentSnapshot = await incidentRef.get();
+        if (!incidentSnapshot.exists) continue;
+        const attachments = Array.isArray(incidentSnapshot.get("attachments"))
+          ? incidentSnapshot.get("attachments")
+          : [];
+        const expiredAttachments = attachments.filter(item => expiredIds.has(item.id));
+        if (!expiredAttachments.length) continue;
+        const remainingIds = new Set(expiredAttachments.map(item => item.id));
         const now = Timestamp.now();
-        await doc.ref.update({
-          attachments: attachments.filter(item => !expiredIds.has(item.id)),
+        await incidentRef.update({
+          attachments: attachments.filter(item => !remainingIds.has(item.id)),
           updatedAt: now,
         });
-        await doc.ref.collection("events").add({
+        await incidentRef.collection("events").add({
           event: "EVIDENCE_AUTO_DELETED",
           actorUid: "system",
-          attachmentCount: expired.length,
+          attachmentCount: expiredAttachments.length,
           createdAt: now,
         });
-        deleted += expired.length;
       }
-      if (snapshot.size < 100) {
-        hasMoreIncidents = false;
-        continue;
+      if (expiredObjects.length) {
+        const deletion = await r2.client.send(new DeleteObjectsCommand({
+          Bucket: r2.bucketName,
+          Delete: { Objects: expiredObjects.map(item => ({ Key: item.Key })), Quiet: true },
+        }));
+        if (deletion.Errors?.length) throw new Error("Some expired R2 evidence objects could not be deleted.");
+        deleted += expiredObjects.length;
       }
-      query = services.db.collection("incidents")
-        .where("createdAt", "<=", cutoff)
-        .orderBy("createdAt")
-        .startAfter(snapshot.docs[snapshot.docs.length - 1])
-        .limit(100);
-    }
-    let pageToken;
-    do {
-      const [files, nextPage] = await services.storage.getFiles({
-        prefix: "incidents/",
-        autoPaginate: false,
-        maxResults: 100,
-        pageToken,
-      });
-      await Promise.all(files.map(async file => {
-        const [metadata] = await file.getMetadata();
-        if (Date.parse(metadata.timeCreated) <= cutoff.toMillis()) {
-          await file.delete({ ignoreNotFound: true });
-          deleted += 1;
-        }
-      }));
-      pageToken = nextPage?.pageToken;
-    } while (pageToken);
+      continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (continuationToken);
     res.json({ deleted });
   } catch (error) {
     next(error);
@@ -696,7 +837,6 @@ route("get", "/firebase-public-config", (_req, res) => {
     apiKey: process.env.VITE_FIREBASE_API_KEY,
     authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
     projectId: process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
     messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
     appId: process.env.VITE_FIREBASE_APP_ID,
   };
@@ -705,12 +845,11 @@ route("get", "/firebase-public-config", (_req, res) => {
 });
 
 route("get", "/firebase-messaging-sw.js", async (_req, res) => {
-  const { apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId } = process.env;
+  const { apiKey, authDomain, projectId, messagingSenderId, appId } = process.env;
   const config = {
     apiKey: apiKey || process.env.VITE_FIREBASE_API_KEY,
     authDomain: authDomain || process.env.VITE_FIREBASE_AUTH_DOMAIN,
     projectId: projectId || process.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: storageBucket || process.env.VITE_FIREBASE_STORAGE_BUCKET,
     messagingSenderId: messagingSenderId || process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
     appId: appId || process.env.VITE_FIREBASE_APP_ID,
   };

@@ -6,14 +6,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function campusEmail() {
+    function verified() {
       return signedIn()
         && request.auth.token.email is string
-        && request.auth.token.email.matches('^[^@]+@ump[.]ac[.]za$');
-    }
-
-    function verified() {
-      return campusEmail() && request.auth.token.email_verified == true;
+        && request.auth.token.email_verified == true;
     }
 
     function profileExists(uid) {
@@ -69,14 +65,23 @@ service cloud.firestore {
     match /users/{userId} {
       allow create: if verified()
         && request.auth.uid == userId
-        && request.resource.data.keys().hasOnly(['uid', 'email', 'fullName', 'role', 'createdAt'])
+        && request.resource.data.keys().hasOnly([
+          'uid', 'email', 'fullName', 'role', 'createdAt',
+          'requestedRole', 'roleRequestStatus', 'roleRequestedAt'
+        ])
         && request.resource.data.uid == userId
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.fullName is string
         && request.resource.data.fullName.size() >= 2
         && request.resource.data.fullName.size() <= 100
         && request.resource.data.role == 'student'
-        && request.resource.data.createdAt == request.time;
+        && request.resource.data.createdAt == request.time
+        && ((!('requestedRole' in request.resource.data)
+            && !('roleRequestStatus' in request.resource.data)
+            && !('roleRequestedAt' in request.resource.data))
+          || (request.resource.data.requestedRole == 'responder'
+            && request.resource.data.roleRequestStatus == 'pending'
+            && request.resource.data.roleRequestedAt == request.time));
 
       allow read: if (signedIn() && request.auth.uid == userId) || admin();
 

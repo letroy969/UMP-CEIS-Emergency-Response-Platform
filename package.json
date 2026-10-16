@@ -12,6 +12,8 @@
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.850.0",
+    "@aws-sdk/s3-request-presigner": "^3.850.0",
     "@turf/turf": "^7.4.0",
     "express": "^5.3.0",
     "firebase": "^13.0.0",

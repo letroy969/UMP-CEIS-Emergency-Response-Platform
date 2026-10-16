@@ -3,6 +3,7 @@ import { NAVY, RED, REDL, GREEN, GOLD, WHITE, PAPER, PAPER2, BD, NK, SL, MID, LO
 import { STYLES } from "./portalStyles.js";
 import { subscribeIncidents, updateIncident } from "../incidentApi.js";
 import IncidentEvidenceList from "../components/IncidentEvidenceList.jsx";
+import IncidentEmergencyContacts from "../components/IncidentEmergencyContacts.jsx";
 
 export default function ResponderPortal({ user, authUser, onLogout }) {
   const [incidents, setIncidents] = useState([]);
@@ -83,6 +84,7 @@ export default function ResponderPortal({ user, authUser, onLogout }) {
                   </div>
                   <p style={{color:SL,fontSize:14,lineHeight:1.6,margin:"10px 0"}}>{incident.desc || "No additional description supplied."}</p>
                   <IncidentEvidenceList incident={incident} user={authUser} />
+                  <IncidentEmergencyContacts incident={incident} user={authUser} />
                   <div style={{fontSize:12,color:MID,marginBottom:14}}>Reported by {incident.reporter || "Campus user"}{incident.lat != null&&incident.lng != null?` · Location ${incident.lat.toFixed(5)}, ${incident.lng.toFixed(5)}`:""}</div>
                   {targetStatus&&<button disabled={updatingId===incident.id} onClick={()=>advanceIncident(incident,targetStatus)} style={{padding:"10px 14px",background:NAVY,color:WHITE,border:0,borderRadius:6,fontWeight:700,cursor:updatingId===incident.id?"wait":"pointer",opacity:updatingId===incident.id?0.65:1}}>{updatingId===incident.id?"Updating…":`Mark ${STATUS_LABEL[targetStatus] || targetStatus}`}</button>}
                   {!targetStatus&&<div style={{fontSize:12,fontWeight:700,color:GREEN}}>✓ Assignment resolved</div>}

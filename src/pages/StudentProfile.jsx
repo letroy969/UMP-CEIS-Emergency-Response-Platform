@@ -385,7 +385,7 @@ export default function StudentProfile({ user, authUser, onUserUpdated, onUnsave
                 </div>
                 <div style={{ border: `1px solid ${BD}`, borderRadius: 8, padding: 14 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: NK, marginBottom: 6 }}>Password</div>
-                  <p style={{ fontSize: 12, color: SL, margin: "0 0 12px" }}>Request a password reset link for your university email.</p>
+                  <p style={{ fontSize: 12, color: SL, margin: "0 0 12px" }}>Request a password reset link for your account email.</p>
                   <button type="button" onClick={requestPasswordReset} style={{ border: `1px solid ${NAVY}`, color: NAVY, background: WHITE, borderRadius: 6, padding: "8px 12px", fontWeight: 700, cursor: "pointer" }}>Send password reset email</button>
                   {resetStatus && <div role="status" style={{ color: GREEN, fontSize: 12, marginTop: 8 }}>{resetStatus}</div>}
                 </div>
