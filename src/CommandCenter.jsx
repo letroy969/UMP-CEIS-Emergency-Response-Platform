@@ -694,6 +694,10 @@ export default function CommandCenterApp({ onBack, onOpenMedicalTriage }) {
           return;
         }
         const user = await loadAppUser(firebaseUser);
+        if (!user.roles.length) {
+          await signOutUser();
+          return;
+        }
         if (active) {
           setSession({ user, firebaseUser });
           setActivePortal(user.portal);

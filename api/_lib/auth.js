@@ -1,10 +1,20 @@
 const RESPONDER_ROLES = new Set(["responder", "security", "medical"]);
+const ACCESS_REQUEST_ROLES = new Set(["staff", "responder", "admin"]);
 
-function roleSet(profile = {}) {
+export function roleSet(profile = {}) {
   const roles = new Set();
+  const hasSeparateAccessRequest = ACCESS_REQUEST_ROLES.has(profile.requestedRole);
   for (const value of [profile.role, ...(Array.isArray(profile.roles) ? profile.roles : [])]) {
-    if (typeof value === "string") roles.add(value.toLowerCase());
-    if (Array.isArray(value)) value.forEach(role => typeof role === "string" && roles.add(role.toLowerCase()));
+    if (typeof value === "string" && !(hasSeparateAccessRequest && value.toLowerCase() === "student")) {
+      roles.add(value.toLowerCase());
+    }
+    if (Array.isArray(value)) {
+      value.forEach(role => {
+        if (typeof role === "string" && !(hasSeparateAccessRequest && role.toLowerCase() === "student")) {
+          roles.add(role.toLowerCase());
+        }
+      });
+    }
   }
   return roles;
 }
@@ -50,12 +60,21 @@ export async function authenticate(req, _res, next) {
       throw error;
     }
 
+    const profile = profileSnapshot.data();
+    const roles = roleSet(profile);
+    if (ACCESS_REQUEST_ROLES.has(profile.requestedRole)
+      && profile.roleRequestStatus !== "approved") {
+      const error = new Error("Your requested portal access has not been approved.");
+      error.status = 403;
+      throw error;
+    }
+
     req.user = {
       uid: claims.uid,
       email: claims.email,
-      name: profileSnapshot.get("fullName") || claims.name || claims.email,
-      profile: profileSnapshot.data(),
-      roles: roleSet(profileSnapshot.data()),
+      name: profile.fullName || claims.name || claims.email,
+      profile,
+      roles,
     };
     next();
   } catch (error) {

@@ -18,27 +18,58 @@ test("profilePortals ignores unknown roles and safely defaults to student", () =
   assert.deepEqual(profilePortals({ roles: ["unknown"] }), ["student"]);
 });
 
-test("a pending responder request does not grant responder portal access", () => {
-  assert.deepEqual(profilePortals({
+test("a pending responder request does not grant portal access", () => {
+  const portals = profilePortals({
     role: "student",
     requestedRole: "responder",
     roleRequestStatus: "pending",
-  }), ["student"]);
+  });
+
+  assert.deepEqual(portals, []);
+  assert.equal(canAccessPortal(portals, "student"), false);
+  assert.equal(canAccessPortal(portals, "responder"), false);
 });
 
 test("pending staff, responder, and admin requests never grant the requested role", () => {
   for (const requestedRole of ["staff", "responder", "admin"]) {
-    assert.deepEqual(profilePortals({
+    const portals = profilePortals({
       role: "student",
       requestedRole,
       roleRequestStatus: "pending",
-    }), ["student"]);
+    });
+    assert.deepEqual(portals, []);
+    assert.equal(canAccessPortal(portals, "student"), false);
+    assert.equal(defaultPortal(portals), null);
   }
+});
+
+test("legacy pending access requests cannot inherit student portal access", () => {
+  assert.deepEqual(profilePortals({
+    role: "student",
+    roles: ["student"],
+    requestedRole: "staff",
+    roleRequestStatus: "pending",
+  }), []);
+});
+
+test("rejected staff requests cannot inherit student portal access", () => {
+  assert.deepEqual(profilePortals({
+    role: "student",
+    requestedRole: "staff",
+    roleRequestStatus: "rejected",
+  }), []);
 });
 
 test("approved access requests grant only the approved role", () => {
   for (const role of ["staff", "responder", "admin"]) {
-    assert.deepEqual(profilePortals({ role, roles: [role], requestedRole: role, roleRequestStatus: "approved" }), [role]);
+    const portals = profilePortals({
+      role: "student",
+      roles: ["student", role],
+      requestedRole: role,
+      roleRequestStatus: "approved",
+    });
+    assert.deepEqual(portals, [role]);
+    assert.equal(canAccessPortal(portals, "student"), false);
   }
 });
 
