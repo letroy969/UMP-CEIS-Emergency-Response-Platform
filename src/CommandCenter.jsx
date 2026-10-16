@@ -76,6 +76,7 @@ function LoginPage({ onLogin, onBack }) {
       const result = await signInUser(emailVal, pwdVal);
       const roles = result.user.roles || [result.user.portal];
       if (!canAccessPortal(roles, portal)) {
+        await signOutUser();
         const portalName = portal === "admin" ? "Admin" : portal === "responder" ? "Responder" : portal === "student" ? "Student" : "Staff";
         if (result.user.requestedRole === portal && result.user.roleRequestStatus === "pending") {
           setLoginError(`Your ${portalName.toLowerCase()} access request is pending administrator approval. Access remains denied until it is approved.`);
@@ -85,10 +86,9 @@ function LoginPage({ onLogin, onBack }) {
           setLoginError(`This account is not assigned to the ${portalName} Portal. Ask an administrator to update your Firestore profile.`);
         }
       } else {
-        const selectedPortal = portal === "staff" && !roles.includes("staff") ? result.user.portal : portal;
         onLogin({
           ...result,
-          user: { ...result.user, portal: selectedPortal, role: selectedPortal, access: selectedPortal },
+          user: { ...result.user, portal, role: portal, access: portal },
         });
       }
     } catch (error) {
@@ -178,7 +178,7 @@ function LoginPage({ onLogin, onBack }) {
               <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,.55)",letterSpacing:2,textTransform:"uppercase",marginBottom:5}}>{portal==="student"?"Student Portal":portal==="admin"?"Admin Portal":portal==="responder"?"Responder Portal":"Staff Portal"}</div><div style={{fontSize:20,fontWeight:700,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>Sign In</div>
             </div>
             <form onSubmit={event=>{event.preventDefault();handleSubmit();}} style={{padding:"26px 28px"}}>
-              <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:15}}>Email address<input type="email" autoComplete="username" value={emailVal} onChange={event=>setEmailVal(event.target.value)} required placeholder="name@example.com" style={{display:"block",width:"100%",marginTop:7,padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/></label>
+              <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:15}}>Email address<input type="email" autoComplete="username" value={emailVal} onChange={event=>setEmailVal(event.target.value)} required placeholder={portal==="student"?"230021777@ump.ac.za":"name@example.com"} style={{display:"block",width:"100%",marginTop:7,padding:"11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/></label>
               <label style={{fontSize:11,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:6}}>Password<div style={{position:"relative",marginTop:7}}><input type={showPwd?"text":"password"} autoComplete="current-password" value={pwdVal} onChange={event=>setPwdVal(event.target.value)} required style={{width:"100%",padding:"11px 42px 11px 14px",border:`1.5px solid ${BD}`,borderRadius:7,fontSize:14,outline:"none",color:NK}}/><button type="button" aria-label={showPwd?"Hide password":"Show password"} aria-pressed={showPwd} onClick={()=>setShowPwd(value=>!value)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:0,cursor:"pointer",color:MID,padding:4}}>{showPwd?<EyeOff size={18} aria-hidden="true"/>:<Eye size={18} aria-hidden="true"/>}</button></div></label>
               {loginError&&<div role="status" style={{fontSize:12,color:RED,background:REDL,borderRadius:6,padding:10,margin:"10px 0 14px"}}>{loginError}</div>}
               <button type="submit" disabled={loading} style={{width:"100%",padding:13,marginTop:13,background:portal==="student"?NAVY:RED,color:WHITE,border:0,borderRadius:7,fontSize:15,fontWeight:700,cursor:loading?"wait":"pointer"}}>{loading?"Signing in…":"Sign in"}</button>
@@ -689,11 +689,13 @@ export default function CommandCenterApp({ onBack, onOpenMedicalTriage }) {
       }
       try {
         await firebaseUser.reload();
+        if (auth.currentUser?.uid !== firebaseUser.uid) return;
         if (!firebaseUser.emailVerified) {
           await signOutUser();
           return;
         }
         const user = await loadAppUser(firebaseUser);
+        if (auth.currentUser?.uid !== firebaseUser.uid) return;
         if (!user.roles.length) {
           await signOutUser();
           return;

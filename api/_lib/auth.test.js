@@ -16,7 +16,7 @@ test("a pending staff request does not retain its legacy student role", () => {
 test("an approved staff request grants only staff access", () => {
   const roles = roleSet({
     role: "staff",
-    roles: ["student", "staff"],
+    roles: ["staff"],
     requestedRole: "staff",
     roleRequestStatus: "approved",
   });
@@ -28,4 +28,21 @@ test("regular student profiles retain student access", () => {
   const roles = roleSet({ role: "student" });
 
   assert.deepEqual([...roles], ["student"]);
+});
+
+test("student profiles with another portal role are denied API roles", () => {
+  const roles = roleSet({ role: "student", roles: ["student", "staff"] });
+
+  assert.deepEqual([...roles], []);
+});
+
+test("approved requests must match the assigned role", () => {
+  const roles = roleSet({
+    role: "student",
+    roles: ["student", "admin"],
+    requestedRole: "staff",
+    roleRequestStatus: "approved",
+  });
+
+  assert.deepEqual([...roles], []);
 });

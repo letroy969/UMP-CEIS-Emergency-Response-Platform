@@ -3,18 +3,31 @@ const ACCESS_REQUEST_ROLES = new Set(["staff", "responder", "admin"]);
 
 export function roleSet(profile = {}) {
   const roles = new Set();
-  const hasSeparateAccessRequest = ACCESS_REQUEST_ROLES.has(profile.requestedRole);
-  for (const value of [profile.role, ...(Array.isArray(profile.roles) ? profile.roles : [])]) {
-    if (typeof value === "string" && !(hasSeparateAccessRequest && value.toLowerCase() === "student")) {
-      roles.add(value.toLowerCase());
-    }
-    if (Array.isArray(value)) {
-      value.forEach(role => {
-        if (typeof role === "string" && !(hasSeparateAccessRequest && role.toLowerCase() === "student")) {
-          roles.add(role.toLowerCase());
-        }
-      });
-    }
+  if (ACCESS_REQUEST_ROLES.has(profile.requestedRole)
+    && profile.roleRequestStatus !== "approved") return roles;
+
+  const rolePortals = {
+    student: "student",
+    staff: "staff",
+    admin: "admin",
+    responder: "responder",
+    security: "responder",
+    medical: "responder",
+  };
+  const storedRoles = [
+    ...(Array.isArray(profile.role) ? profile.role : [profile.role]),
+    ...(Array.isArray(profile.roles) ? profile.roles : []),
+  ];
+  const portals = new Set(storedRoles
+    .filter(role => typeof role === "string"
+      && rolePortals[role.toLowerCase()]
+      && !(ACCESS_REQUEST_ROLES.has(profile.requestedRole) && rolePortals[role.toLowerCase()] === "student"))
+    .map(role => rolePortals[role.toLowerCase()]));
+
+  if (portals.size !== 1 || (ACCESS_REQUEST_ROLES.has(profile.requestedRole)
+    && !portals.has(profile.requestedRole))) return roles;
+  for (const role of portals) {
+    roles.add(role);
   }
   return roles;
 }
@@ -61,10 +74,15 @@ export async function authenticate(req, _res, next) {
     }
 
     const profile = profileSnapshot.data();
-    const roles = roleSet(profile);
     if (ACCESS_REQUEST_ROLES.has(profile.requestedRole)
       && profile.roleRequestStatus !== "approved") {
       const error = new Error("Your requested portal access has not been approved.");
+      error.status = 403;
+      throw error;
+    }
+    const roles = roleSet(profile);
+    if (roles.size !== 1) {
+      const error = new Error("Your account does not have one approved portal role.");
       error.status = 403;
       throw error;
     }

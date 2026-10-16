@@ -8,28 +8,31 @@ const ROLE_PORTALS = {
 };
 
 export function profilePortals(profile) {
-  const storedRoles = Array.isArray(profile.roles)
-    ? profile.roles
-    : Array.isArray(profile.role) ? profile.role : [profile.role];
-  const hasSeparateAccessRequest = ["staff", "responder", "admin"].includes(profile.requestedRole);
+  const requestedRole = ["staff", "responder", "admin"].includes(profile.requestedRole)
+    ? profile.requestedRole
+    : null;
+  if (requestedRole && profile.roleRequestStatus !== "approved") return [];
+
+  const storedRoles = [
+    ...(Array.isArray(profile.role) ? profile.role : [profile.role]),
+    ...(Array.isArray(profile.roles) ? profile.roles : []),
+  ];
   const portals = [...new Set(storedRoles
     .filter(role => typeof role === "string"
       && ROLE_PORTALS[role]
-      && !(hasSeparateAccessRequest && role === "student"))
+      && !(requestedRole && ROLE_PORTALS[role] === "student"))
     .map(role => ROLE_PORTALS[role]))];
-  return portals.length ? portals : hasSeparateAccessRequest ? [] : ["student"];
+
+  if (portals.length !== 1 || (requestedRole && portals[0] !== requestedRole)) return [];
+  return portals;
 }
 
 export function defaultPortal(portals) {
-  return ["admin", "responder", "staff", "student"].find(role => portals.includes(role)) || null;
+  return portals.length === 1 && ["admin", "responder", "staff", "student"].includes(portals[0])
+    ? portals[0]
+    : null;
 }
 
 export function canAccessPortal(portals, portal) {
-  const acceptedRoles = {
-    student: ["student"],
-    staff: ["staff", "admin", "responder"],
-    admin: ["admin"],
-    responder: ["responder"],
-  };
-  return acceptedRoles[portal]?.some(role => portals.includes(role)) || false;
+  return portals.length === 1 && ROLE_PORTALS[portals[0]] === ROLE_PORTALS[portal];
 }

@@ -2,20 +2,21 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { canAccessPortal, defaultPortal, profilePortals } from "./roles.js";
 
-test("profilePortals supports student and admin roles together", () => {
+test("profilePortals rejects profiles assigned to more than one portal", () => {
   const portals = profilePortals({ roles: ["student", "admin"] });
 
-  assert.deepEqual(portals, ["student", "admin"]);
-  assert.equal(defaultPortal(portals), "admin");
+  assert.deepEqual(portals, []);
+  assert.equal(defaultPortal(portals), null);
 });
 
-test("profilePortals supports legacy and array-valued role fields", () => {
+test("profilePortals supports legacy and array-valued single roles", () => {
   assert.deepEqual(profilePortals({ role: "medical" }), ["responder"]);
-  assert.deepEqual(profilePortals({ role: ["student", "admin"] }), ["student", "admin"]);
+  assert.deepEqual(profilePortals({ role: ["student", "student"] }), ["student"]);
 });
 
-test("profilePortals ignores unknown roles and safely defaults to student", () => {
-  assert.deepEqual(profilePortals({ roles: ["unknown"] }), ["student"]);
+test("profilePortals rejects profiles with no assigned valid role", () => {
+  assert.deepEqual(profilePortals({ roles: ["unknown"] }), []);
+  assert.deepEqual(profilePortals({}), []);
 });
 
 test("a pending responder request does not grant portal access", () => {
@@ -73,10 +74,20 @@ test("approved access requests grant only the approved role", () => {
   }
 });
 
-test("portal sign-in requires the matching privileged role", () => {
-  const portals = ["student", "admin", "responder"];
+test("each portal accepts only its exact assigned role", () => {
+  for (const role of ["student", "staff", "admin", "responder"]) {
+    const portals = [role];
+    for (const portal of ["student", "staff", "admin", "responder"]) {
+      assert.equal(canAccessPortal(portals, portal), role === portal);
+    }
+  }
+});
 
-  assert.equal(canAccessPortal(portals, "admin"), true);
-  assert.equal(canAccessPortal(portals, "responder"), true);
-  assert.equal(canAccessPortal(["student"], "admin"), false);
+test("accounts with multiple assigned roles cannot sign in to any portal", () => {
+  const portals = profilePortals({ role: "student", roles: ["student", "staff"] });
+
+  assert.deepEqual(portals, []);
+  for (const portal of ["student", "staff", "admin", "responder"]) {
+    assert.equal(canAccessPortal(portals, portal), false);
+  }
 });
