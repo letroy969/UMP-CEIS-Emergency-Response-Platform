@@ -1,6 +1,25 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeEmergencyPhone, validateEmergencyContact, validateStudentProfile } from "./profileValidation.js";
+import {
+  normalizeEmergencyPhone,
+  validateEmergencyContact,
+  validateRegistrationEmail,
+  validateStudentProfile,
+} from "./profileValidation.js";
+
+test("accepts only a 19-character nine-digit student email", () => {
+  assert.equal(validateRegistrationEmail("230021646@ump.ac.za", "student"), "230021646@ump.ac.za");
+  assert.throws(() => validateRegistrationEmail("student@ump.ac.za", "student"), /9-digit student number/);
+  assert.throws(() => validateRegistrationEmail("23002164@ump.ac.za", "student"), /19 characters total/);
+  assert.throws(() => validateRegistrationEmail("230021646@gmail.com", "student"), /@ump\.ac\.za/);
+});
+
+test("requires UMP email addresses for staff and privileged access requests", () => {
+  for (const role of ["staff", "responder", "admin"]) {
+    assert.equal(validateRegistrationEmail(`person@ump.ac.za`, role), "person@ump.ac.za");
+    assert.throws(() => validateRegistrationEmail("person@example.com", role), /official UMP/);
+  }
+});
 
 test("normalizes South African emergency contact numbers", () => {
   assert.equal(normalizeEmergencyPhone("082 123 4567"), "+27821234567");

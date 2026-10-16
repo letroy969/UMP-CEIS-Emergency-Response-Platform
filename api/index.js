@@ -310,7 +310,7 @@ route("get", "/responders", authenticate, async (req, res) => {
 route("get", "/access-requests", authenticate, async (req, res) => {
   requireRole(req.user, ["admin"]);
   const snapshot = await getFirebaseServices().db.collection("users")
-    .where("requestedRole", "==", "responder")
+    .where("requestedRole", "in", ["staff", "responder", "admin"])
     .where("roleRequestStatus", "==", "pending")
     .limit(200)
     .get();
@@ -318,6 +318,7 @@ route("get", "/access-requests", authenticate, async (req, res) => {
     uid: profile.id,
     name: profile.get("fullName") || "Name not provided",
     email: profile.get("email") || "",
+    requestedRole: profile.get("requestedRole"),
     requestedAt: profile.get("roleRequestedAt")?.toDate?.().toISOString?.() || null,
   }));
   requests.sort((a, b) => (a.requestedAt || "").localeCompare(b.requestedAt || ""));
@@ -328,29 +329,32 @@ route("patch", "/access-requests/:uid", authenticate, async (req, res) => {
   requireRole(req.user, ["admin"]);
   const targetUid = text(req.params.uid, "User id", { max: 128 });
   if (!/^[A-Za-z0-9_-]+$/.test(targetUid) || targetUid === req.user.uid) {
-    fail("Choose a valid responder access request.");
+    fail("Choose a valid access request.");
   }
   const action = req.body?.action;
   if (!["approve", "reject"].includes(action)) fail("Choose approve or reject.");
 
   const services = getFirebaseServices();
   const profileRef = services.db.collection("users").doc(targetUid);
+  let reviewedRole;
   await services.db.runTransaction(async transaction => {
     const profile = await transaction.get(profileRef);
+    const requestedRole = profile.exists ? profile.get("requestedRole") : null;
     if (!profile.exists
-      || profile.get("requestedRole") !== "responder"
+      || !["staff", "responder", "admin"].includes(requestedRole)
       || profile.get("roleRequestStatus") !== "pending"
       || profile.get("role") !== "student") {
-      fail("This responder access request is no longer pending.", 409);
+      fail("This access request is no longer pending.", 409);
     }
+    reviewedRole = requestedRole;
     transaction.update(profileRef, {
-      ...(action === "approve" ? { role: "responder", roles: ["responder"] } : {}),
+      ...(action === "approve" ? { role: requestedRole, roles: [requestedRole] } : {}),
       roleRequestStatus: action === "approve" ? "approved" : "rejected",
       roleRequestReviewedAt: Timestamp.now(),
       roleRequestReviewedBy: req.user.uid,
     });
   });
-  res.json({ uid: targetUid, status: action === "approve" ? "approved" : "rejected" });
+  res.json({ uid: targetUid, requestedRole: reviewedRole, status: action === "approve" ? "approved" : "rejected" });
 });
 
 route("post", "/incidents", authenticate, async (req, res) => {

@@ -9,8 +9,10 @@ import {
 import { doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../lib/firebase.js";
 import { defaultPortal, profilePortals } from "./roles.js";
+import { validateRegistrationEmail } from "./profileValidation.js";
 
 let registrationInProgress = false;
+const ACCESS_REQUEST_ROLES = new Set(["staff", "responder", "admin"]);
 
 export function isRegistrationInProgress() {
   return registrationInProgress;
@@ -79,6 +81,8 @@ function appUser(firebaseUser, profile) {
     access: role,
     portal,
     roles,
+    requestedRole: profile.requestedRole || null,
+    roleRequestStatus: profile.roleRequestStatus || null,
   };
 }
 
@@ -92,10 +96,9 @@ export async function loadAppUser(firebaseUser) {
   const profileRef = doc(db, "users", firebaseUser.uid);
   const roleRequestKey = `ceis:requested-role:${firebaseUser.uid}`;
   const nextRoleRequestKey = "ceis:requested-role-next";
-  const requestedRole = window.localStorage.getItem(roleRequestKey) === "responder"
-    || window.localStorage.getItem(nextRoleRequestKey) === "responder"
-    ? "responder"
-    : null;
+  const storedRole = window.localStorage.getItem(roleRequestKey)
+    || window.localStorage.getItem(nextRoleRequestKey);
+  const requestedRole = ACCESS_REQUEST_ROLES.has(storedRole) ? storedRole : null;
   const profile = await runTransaction(db, async transaction => {
     const profileSnapshot = await transaction.get(profileRef);
     if (profileSnapshot.exists()) return profileSnapshot.data();
@@ -136,12 +139,10 @@ export async function registerUser({
   if (normalizedName.length < 2 || normalizedName.length > 100) {
     throw new Error("Enter a name between 2 and 100 characters.");
   }
-  if (!isValidEmail(email)) {
-    throw new Error("Enter a valid email address.");
+  if (requestedRole !== null && !ACCESS_REQUEST_ROLES.has(requestedRole)) {
+    throw new Error("Choose a valid account type.");
   }
-  if (requestedRole !== null && requestedRole !== "responder") {
-    throw new Error("Choose a valid account access request.");
-  }
+  const normalizedEmail = validateRegistrationEmail(email, requestedRole || "student");
   const passwordError = validateNewPassword(password);
   if (passwordError) throw new Error(passwordError);
   registrationInProgress = true;
@@ -150,7 +151,7 @@ export async function registerUser({
   try {
     onProgress("Creating your Firebase account…");
     credential = await waitForFirebaseOperation(
-      createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password),
+      createUserWithEmailAndPassword(auth, normalizedEmail, password),
       "creating your account",
       Math.max(1, signupDeadline - Date.now()),
     );
@@ -164,7 +165,7 @@ export async function registerUser({
     );
     onProgress("Sending your verification email…");
     const verificationEmail = waitForFirebaseOperation(sendEmailVerification(credential.user, {
-      url: emailActionUrl(`/verify-email${requestedRole ? "?requestedRole=responder" : ""}`),
+      url: emailActionUrl(`/verify-email${requestedRole ? `?requestedRole=${encodeURIComponent(requestedRole)}` : ""}`),
       handleCodeInApp: true,
     }), "requesting the verification email", 5000)
       .then(() => null, error => authError(error))

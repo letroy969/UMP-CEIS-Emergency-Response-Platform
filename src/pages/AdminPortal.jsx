@@ -17,7 +17,7 @@ import CampusMap from "../components/CampusMap.jsx";
 import { MAPPED_BUILDINGS } from "../maps/campusBuildings.js";
 import { checkCampusLocation } from "../maps/location.js";
 import { STYLES } from "./portalStyles.js";
-import { assignIncident, createIncident, listResponderAccessRequests, listResponders, reviewResponderAccessRequest, subscribeIncidents, updateIncident } from "../incidentApi.js";
+import { assignIncident, createIncident, listAccessRequests, listResponders, reviewAccessRequest as submitAccessRequest, subscribeIncidents, updateIncident } from "../incidentApi.js";
 import IncidentEvidenceList from "../components/IncidentEvidenceList.jsx";
 import IncidentEmergencyContacts from "../components/IncidentEmergencyContacts.jsx";
 import PushNotificationsButton from "../components/PushNotificationsButton.jsx";
@@ -44,13 +44,18 @@ export default function AdminPortal({ user, authUser, onLogout }) {
       rows => { if (active) setIncidents(rows); },
       error => { if (active) setDataError(error.message); },
     );
-    listResponders(authUser)
-      .then(roster => { if (active) setResponders(roster); })
-      .catch(error => { if (active) setDataError(error.message); });
     if (user.access === "admin") {
-      listResponderAccessRequests(authUser)
-        .then(requests => { if (active) setAccessRequests(requests); })
-        .catch(error => { if (active) setDataError(error.message); });
+      Promise.all([
+        listResponders(authUser),
+        listAccessRequests(authUser),
+      ]).then(([roster, requests]) => {
+        if (active) {
+          setResponders(roster);
+          setAccessRequests(requests);
+        }
+      }).catch(error => {
+        if (active) setDataError(error.message);
+      });
     }
     return () => { active = false; unsubscribe(); };
   }, [authUser, user.access]);
@@ -82,9 +87,11 @@ export default function AdminPortal({ user, authUser, onLogout }) {
     setReviewingUid(uid);
     setDataError("");
     try {
-      await reviewResponderAccessRequest(authUser, uid, action);
+      const result = await submitAccessRequest(authUser, uid, action);
       setAccessRequests(previous => previous.filter(request => request.uid !== uid));
-      if (action === "approve") setResponders(await listResponders(authUser));
+      if (action === "approve" && result.requestedRole === "responder") {
+        setResponders(await listResponders(authUser));
+      }
     } catch (error) {
       setDataError(error.message);
     } finally {
@@ -160,21 +167,22 @@ export default function AdminPortal({ user, authUser, onLogout }) {
         {view==="analytics"&&<IncidentAnalyticsPanel user={authUser} />}
         {view==="access"&&user.access==="admin"&&(
           <section style={{animation:"fadeIn .35s ease"}}>
-            <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,color:NK,marginBottom:6}}>Responder access requests</h2>
-            <p style={{fontSize:14,color:SL,marginBottom:20}}>Review verified accounts before granting responder permissions. Admin access is assigned only by a trusted project administrator.</p>
+            <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,color:NK,marginBottom:6}}>Role access requests</h2>
+            <p style={{fontSize:14,color:SL,marginBottom:20}}>Review UMP staff, responder, and admin requests. Applicants receive no requested role until an administrator approves it; admin access is never self-assigned.</p>
             {accessRequests.length === 0
-              ? <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:9,padding:24,color:SL}}>No pending responder requests.</div>
+              ? <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:9,padding:24,color:SL}}>No pending role access requests.</div>
               : <div style={{display:"grid",gap:10}}>
                 {accessRequests.map(request=>(
                   <article key={request.uid} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,flexWrap:"wrap",background:WHITE,border:`1px solid ${BD}`,borderRadius:9,padding:16}}>
                     <div>
                       <div style={{fontWeight:700,color:NK}}>{request.name}</div>
                       <div style={{fontSize:13,color:SL,marginTop:4}}>{request.email}</div>
+                      <div style={{fontSize:12,fontWeight:700,color:NAVY,marginTop:4,textTransform:"capitalize"}}>Requested role: {request.requestedRole}</div>
                       {request.requestedAt&&<div style={{fontSize:11,color:MID,marginTop:4}}>Requested {new Date(request.requestedAt).toLocaleString()}</div>}
                     </div>
                     <div style={{display:"flex",gap:8}}>
                       <button type="button" disabled={reviewingUid===request.uid} onClick={()=>reviewAccessRequest(request.uid,"reject")} style={{padding:"8px 12px",border:`1px solid ${BD}`,borderRadius:5,background:WHITE,color:RED,fontWeight:700,cursor:"pointer"}}>Reject</button>
-                      <button type="button" disabled={reviewingUid===request.uid} onClick={()=>reviewAccessRequest(request.uid,"approve")} style={{padding:"8px 12px",border:0,borderRadius:5,background:NAVY,color:WHITE,fontWeight:700,cursor:"pointer"}}>{reviewingUid===request.uid?"Saving…":"Approve responder"}</button>
+                      <button type="button" disabled={reviewingUid===request.uid} onClick={()=>reviewAccessRequest(request.uid,"approve")} style={{padding:"8px 12px",border:0,borderRadius:5,background:NAVY,color:WHITE,fontWeight:700,cursor:"pointer"}}>{reviewingUid===request.uid?"Saving…":`Approve ${request.requestedRole}`}</button>
                     </div>
                   </article>
                 ))}

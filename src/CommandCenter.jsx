@@ -77,7 +77,13 @@ function LoginPage({ onLogin, onBack }) {
       const roles = result.user.roles || [result.user.portal];
       if (!canAccessPortal(roles, portal)) {
         const portalName = portal === "admin" ? "Admin" : portal === "responder" ? "Responder" : portal === "student" ? "Student" : "Staff";
-        setLoginError(`This account is not assigned to the ${portalName} Portal. Ask an administrator to update your Firestore profile.`);
+        if (result.user.requestedRole === portal && result.user.roleRequestStatus === "pending") {
+          setLoginError(`Your ${portalName.toLowerCase()} access request is pending administrator approval. Access remains denied until it is approved.`);
+        } else if (result.user.requestedRole === portal && result.user.roleRequestStatus === "rejected") {
+          setLoginError(`Your ${portalName.toLowerCase()} access request was not approved. Contact a CEIS administrator if you believe this is an error.`);
+        } else {
+          setLoginError(`This account is not assigned to the ${portalName} Portal. Ask an administrator to update your Firestore profile.`);
+        }
       } else {
         const selectedPortal = portal === "staff" && !roles.includes("staff") ? result.user.portal : portal;
         onLogin({
@@ -120,6 +126,12 @@ function LoginPage({ onLogin, onBack }) {
       <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",opacity:0.04}} xmlns="http://www.w3.org/2000/svg"><defs><pattern id="g" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M0 40L40 0M-10 10L10-10M30 50L50 30" stroke={WHITE} strokeWidth="0.5"/></pattern></defs><rect width="100%" height="100%" fill="url(#g)"/></svg>
     </div>
   );
+  const registrationRole = portal || "student";
+  const registrationLabel = registrationRole === "admin"
+    ? "Request admin access"
+    : registrationRole === "responder"
+      ? "Request responder access"
+      : `Create ${registrationRole} account`;
 
   return (
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",position:"relative",fontFamily:"'IBM Plex Sans',sans-serif"}}>
@@ -131,7 +143,7 @@ function LoginPage({ onLogin, onBack }) {
           <div style={{fontSize:26,fontWeight:800,color:WHITE,fontFamily:"'IBM Plex Serif',serif"}}>CEIS Command Centre</div>
           <div style={{fontSize:12,color:"rgba(255,255,255,.4)",marginTop:4}}>Campus Emergency Intelligence System</div>
         </div>
-        {authView === "register" ? <Signup onBack={()=>setAuthView("portal")}/> : authView === "reset" ? (
+        {authView === "register" ? <Signup role={registrationRole} onBack={()=>setAuthView("portal")}/> : authView === "reset" ? (
           <div style={{background:WHITE,borderRadius:16,overflow:"hidden",boxShadow:"0 24px 80px rgba(0,0,0,.45)"}}>
             <div style={{background:`linear-gradient(135deg,${NAVY},${NAVY2})`,padding:"22px 28px",borderBottom:`3px solid ${GOLD}`}}>
               <button type="button" onClick={()=>{setAuthView("portal");setResetMessage("");}} style={{background:"rgba(255,255,255,.08)",border:"1px solid rgba(255,255,255,.14)",color:"rgba(255,255,255,.7)",borderRadius:4,padding:"4px 10px",fontSize:11,cursor:"pointer",marginBottom:10}}>← Back to sign in</button>
@@ -171,7 +183,7 @@ function LoginPage({ onLogin, onBack }) {
               {loginError&&<div role="status" style={{fontSize:12,color:RED,background:REDL,borderRadius:6,padding:10,margin:"10px 0 14px"}}>{loginError}</div>}
               <button type="submit" disabled={loading} style={{width:"100%",padding:13,marginTop:13,background:portal==="student"?NAVY:RED,color:WHITE,border:0,borderRadius:7,fontSize:15,fontWeight:700,cursor:loading?"wait":"pointer"}}>{loading?"Signing in…":"Sign in"}</button>
               <button type="button" onClick={()=>{setResetMessage("");setAuthView("reset");}} style={{display:"block",margin:"15px auto 0",padding:4,border:0,background:"none",color:NAVY,fontSize:12,fontWeight:700,cursor:"pointer"}}>Forgot password?</button>
-              <button type="button" onClick={()=>setAuthView("register")} style={{display:"block",margin:"8px auto 0",padding:4,border:0,background:"none",color:NAVY,fontSize:12,fontWeight:700,cursor:"pointer"}}>Create student account</button>
+              <button type="button" onClick={()=>setAuthView("register")} style={{display:"block",margin:"8px auto 0",padding:4,border:0,background:"none",color:NAVY,fontSize:12,fontWeight:700,cursor:"pointer"}}>{registrationLabel}</button>
             </form>
           </div>
         )}

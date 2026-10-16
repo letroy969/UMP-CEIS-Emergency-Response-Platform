@@ -1,3 +1,24 @@
+const REGISTRATION_ROLES = new Set(["student", "staff", "responder", "admin"]);
+const STUDENT_EMAIL = /^\d{9}@ump\.ac\.za$/;
+const UMP_EMAIL = /^[^\s@]+@ump\.ac\.za$/;
+
+export function validateRegistrationEmail(email, role = "student") {
+  const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+  if (!REGISTRATION_ROLES.has(role)) {
+    throw new Error("Choose a valid account type.");
+  }
+  if (role === "student") {
+    if (normalizedEmail.length !== 19 || !STUDENT_EMAIL.test(normalizedEmail)) {
+      throw new Error("Student accounts require a 9-digit student number followed by @ump.ac.za (19 characters total), for example 230021646@ump.ac.za.");
+    }
+    return normalizedEmail;
+  }
+  if (normalizedEmail.length > 254 || !UMP_EMAIL.test(normalizedEmail)) {
+    throw new Error(`Use your official UMP ${role} email address ending in @ump.ac.za.`);
+  }
+  return normalizedEmail;
+}
+
 export function normalizeEmergencyPhone(value) {
   const input = value.trim();
   const compact = input.replace(/[()\s.-]/g, "");

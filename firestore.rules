@@ -62,6 +62,18 @@ service cloud.firestore {
           && hasAnyRole(get(/databases/$(database)/documents/users/$(uid)).data, ['responder', 'security', 'medical']));
     }
 
+    function validStudentEmail(email) {
+      return email is string
+        && email.size() == 19
+        && email.matches('^[0-9]{9}@ump[.]ac[.]za$');
+    }
+
+    function validUmpRoleEmail(email) {
+      return email is string
+        && email.size() <= 254
+        && email.matches('^[^@]+@ump[.]ac[.]za$');
+    }
+
     match /users/{userId} {
       allow create: if verified()
         && request.auth.uid == userId
@@ -71,6 +83,10 @@ service cloud.firestore {
         ])
         && request.resource.data.uid == userId
         && request.resource.data.email == request.auth.token.email
+        && ((!('requestedRole' in request.resource.data) && validStudentEmail(request.resource.data.email))
+          || ('requestedRole' in request.resource.data
+            && request.resource.data.requestedRole in ['staff', 'responder', 'admin']
+            && validUmpRoleEmail(request.resource.data.email)))
         && request.resource.data.fullName is string
         && request.resource.data.fullName.size() >= 2
         && request.resource.data.fullName.size() <= 100
@@ -79,7 +95,9 @@ service cloud.firestore {
         && ((!('requestedRole' in request.resource.data)
             && !('roleRequestStatus' in request.resource.data)
             && !('roleRequestedAt' in request.resource.data))
-          || (request.resource.data.requestedRole == 'responder'
+          || ((request.resource.data.requestedRole == 'responder'
+            || request.resource.data.requestedRole == 'staff'
+            || request.resource.data.requestedRole == 'admin')
             && request.resource.data.roleRequestStatus == 'pending'
             && request.resource.data.roleRequestedAt == request.time));
 

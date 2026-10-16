@@ -359,20 +359,20 @@ export async function listResponders(user) {
   }
 }
 
-export async function listResponderAccessRequests(user) {
-  if (!user || user.role !== "admin") throw new Error("Admin access is required to review responder requests.");
+export async function listAccessRequests(user) {
+  if (!user || user.role !== "admin") throw new Error("Admin access is required to review access requests.");
   try {
     const payload = await apiRequest(user, "/access-requests");
     return payload.requests || [];
   } catch (error) {
-    fail(error, "Could not load responder access requests.");
+    fail(error, "Could not load access requests.");
   }
 }
 
-export async function reviewResponderAccessRequest(user, uid, action) {
-  if (!user || user.role !== "admin") throw new Error("Admin access is required to review responder requests.");
+export async function reviewAccessRequest(user, uid, action) {
+  if (!user || user.role !== "admin") throw new Error("Admin access is required to review access requests.");
   if (typeof uid !== "string" || !["approve", "reject"].includes(action)) {
-    throw new Error("Choose a valid responder access request.");
+    throw new Error("Choose a valid access request.");
   }
   try {
     return await apiRequest(user, `/access-requests/${encodeURIComponent(uid)}`, {
@@ -380,7 +380,7 @@ export async function reviewResponderAccessRequest(user, uid, action) {
       body: JSON.stringify({ action }),
     });
   } catch (error) {
-    fail(error, "Could not update the responder access request.");
+    fail(error, "Could not update the access request.");
   }
 }
 

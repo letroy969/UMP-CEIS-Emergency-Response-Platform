@@ -26,6 +26,22 @@ test("a pending responder request does not grant responder portal access", () =>
   }), ["student"]);
 });
 
+test("pending staff, responder, and admin requests never grant the requested role", () => {
+  for (const requestedRole of ["staff", "responder", "admin"]) {
+    assert.deepEqual(profilePortals({
+      role: "student",
+      requestedRole,
+      roleRequestStatus: "pending",
+    }), ["student"]);
+  }
+});
+
+test("approved access requests grant only the approved role", () => {
+  for (const role of ["staff", "responder", "admin"]) {
+    assert.deepEqual(profilePortals({ role, roles: [role], requestedRole: role, roleRequestStatus: "approved" }), [role]);
+  }
+});
+
 test("portal sign-in requires the matching privileged role", () => {
   const portals = ["student", "admin", "responder"];
 

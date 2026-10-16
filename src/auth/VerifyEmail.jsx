@@ -2,15 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import { GREEN, NAVY, RED, REDL, SL, WHITE } from "../constants.js";
 import { applyEmailVerificationCode } from "./firebaseAuth.js";
 
-function hasResponderAccessRequest() {
+const ACCESS_REQUEST_ROLES = new Set(["staff", "responder", "admin"]);
+
+function getAccessRequestRole() {
   const params = new URLSearchParams(window.location.search);
-  if (params.get("requestedRole") === "responder") return true;
+  const requestedRole = params.get("requestedRole");
+  if (ACCESS_REQUEST_ROLES.has(requestedRole)) return requestedRole;
   const continueUrl = params.get("continueUrl");
-  if (!continueUrl) return false;
+  if (!continueUrl) return null;
   try {
-    return new URL(continueUrl, window.location.origin).searchParams.get("requestedRole") === "responder";
+    const role = new URL(continueUrl, window.location.origin).searchParams.get("requestedRole");
+    return ACCESS_REQUEST_ROLES.has(role) ? role : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -29,11 +33,16 @@ export default function VerifyEmail() {
       return;
     }
     applyEmailVerificationCode(code).then(() => {
-      if (hasResponderAccessRequest()) {
-        window.localStorage.setItem("ceis:requested-role-next", "responder");
+      const requestedRole = getAccessRequestRole();
+      if (requestedRole) {
+        window.localStorage.setItem("ceis:requested-role-next", requestedRole);
       }
       setStatus("success");
-      setMessage("Your email address is verified. Sign in with the password you chose to access CEIS.");
+      setMessage(requestedRole === "admin"
+        ? "Your email address is verified. Sign in to submit your admin access request. A current administrator must approve it before admin access is granted."
+        : requestedRole
+          ? `Your email address is verified. Sign in to submit your ${requestedRole} access request. A current administrator must approve it before ${requestedRole} access is granted.`
+          : "Your email address is verified. Sign in with the password you chose to access CEIS.");
     }).catch(error => {
       setStatus("error");
       setMessage(error.message || "Could not connect to the verification service.");

@@ -7,14 +7,14 @@ Reviewed against the source and deployment configuration in this repository on 1
 | Requirement | Status | Evidence and remaining work |
 |---|---|---|
 | Node.js and Express REST API | Implemented in source | `api/index.js` exposes the Express API for the Vercel deployment and Vite development server. Configure and verify the deployed environment separately. |
-| User authentication and sessions | Implemented in source | Firebase email/password authentication, email verification, password reset, and sign-out are handled in `src/auth/firebaseAuth.js`. Any valid email may register; verification is required. |
+| User authentication and sessions | Implemented in source | Firebase email/password authentication, email verification, password reset, and sign-out are handled in `src/auth/firebaseAuth.js`. Student signup requires a 9-digit student number at `@ump.ac.za`; role-specific staff, responder, and admin requests require a UMP email and admin approval. |
 | Server-side role authorization | Implemented in source | `api/_lib/auth.js` verifies Firebase ID tokens and reads current roles from Firestore. Responder access is approval-gated; admin roles are trusted-operator provisioned. |
 | Incident storage and processing | Implemented in source | `api/index.js` validates reports, stores authenticated and anonymous incidents in Firestore, records incident events, handles assignments/status transitions, and restricts queries by role. |
 | Dashboard data and analytics endpoints | Implemented in source | The admin portal subscribes to incidents and requests server-side dashboard analytics. Historical exports and custom performance reporting are not included. |
 | Notification workflow and integrations | Partially implemented | FCM push is implemented; emergency notifications can also use Twilio SMS and a signed HTTPS PA webhook when configured. Delivery summaries are stored; there is no durable retry queue, and live provider configuration was not verified. |
 | Secure API endpoints and input validation | Implemented in source | Authenticated routes validate Firebase ID tokens, verified email, roles, and request data. Firestore/Storage rules provide a separate client-side authorization boundary; anonymous SOS uses App Check, campus geofence validation, and rate limiting. |
 | Firebase Authentication | Implemented in source | Email/password and verification flows are present. Enable the provider, configure authorized domains/password policy, and verify the project settings manually. |
-| Firebase Firestore and Storage | Implemented in source | Collection paths, Firestore rules, composite indexes, and Storage rules are included. Collections are created by normal writes; live deployment and index readiness were not checked. |
+| Firebase Firestore and evidence storage | Implemented in source | Firestore rules and composite indexes cover app records; private evidence uploads use signed Cloudflare R2 URLs and require server-side R2 configuration. Collections are created by normal writes; confirm deployed environment configuration separately. |
 
 ## Emergency response capabilities
 
