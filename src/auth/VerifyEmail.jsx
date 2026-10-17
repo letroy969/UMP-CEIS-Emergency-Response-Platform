@@ -2,17 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { GREEN, NAVY, RED, REDL, SL, WHITE } from "../constants.js";
 import { applyEmailVerificationCode } from "./firebaseAuth.js";
 
-const ACCESS_REQUEST_ROLES = new Set(["staff", "responder", "admin"]);
+const SIGNUP_ROLES = new Set(["staff", "responder", "admin"]);
 
 function getAccessRequestRole() {
   const params = new URLSearchParams(window.location.search);
   const requestedRole = params.get("requestedRole");
-  if (ACCESS_REQUEST_ROLES.has(requestedRole)) return requestedRole;
+  if (SIGNUP_ROLES.has(requestedRole)) return requestedRole;
   const continueUrl = params.get("continueUrl");
   if (!continueUrl) return null;
   try {
     const role = new URL(continueUrl, window.location.origin).searchParams.get("requestedRole");
-    return ACCESS_REQUEST_ROLES.has(role) ? role : null;
+    return SIGNUP_ROLES.has(role) ? role : null;
   } catch {
     return null;
   }
@@ -38,7 +38,9 @@ export default function VerifyEmail() {
         window.localStorage.setItem("ceis:requested-role-next", requestedRole);
       }
       setStatus("success");
-      setMessage(requestedRole === "admin"
+      setMessage(requestedRole === "staff"
+        ? "Your email address is verified. Sign in to the Staff Portal; staff access does not require administrator approval."
+        : requestedRole === "admin"
         ? "Your email address is verified. Sign in to submit your admin access request. A current administrator must approve it before admin access is granted."
         : requestedRole
           ? `Your email address is verified. Sign in to submit your ${requestedRole} access request. A current administrator must approve it before ${requestedRole} access is granted.`

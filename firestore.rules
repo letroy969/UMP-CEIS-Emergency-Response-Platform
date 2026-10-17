@@ -83,25 +83,27 @@ service cloud.firestore {
         ])
         && request.resource.data.uid == userId
         && request.resource.data.email == request.auth.token.email
-        && ((!('requestedRole' in request.resource.data) && validStudentEmail(request.resource.data.email))
-          || ('requestedRole' in request.resource.data
-            && request.resource.data.requestedRole in ['staff', 'responder', 'admin']
-            && validUmpRoleEmail(request.resource.data.email)))
         && request.resource.data.fullName is string
         && request.resource.data.fullName.size() >= 2
         && request.resource.data.fullName.size() <= 100
-        && request.resource.data.role == 'student'
         && request.resource.data.createdAt == request.time
-        && ((!('requestedRole' in request.resource.data)
+        && ((request.resource.data.role == 'student'
+            && validStudentEmail(request.resource.data.email)
+            && !('requestedRole' in request.resource.data)
             && !('roleRequestStatus' in request.resource.data)
             && !('roleRequestedAt' in request.resource.data))
-          || ((request.resource.data.requestedRole == 'responder'
-            || request.resource.data.requestedRole == 'staff'
-            || request.resource.data.requestedRole == 'admin')
+          || (request.resource.data.role == 'staff'
+            && validUmpRoleEmail(request.resource.data.email)
+            && !('requestedRole' in request.resource.data)
+            && !('roleRequestStatus' in request.resource.data)
+            && !('roleRequestedAt' in request.resource.data))
+          || (request.resource.data.role == 'student'
+            && validUmpRoleEmail(request.resource.data.email)
+            && request.resource.data.requestedRole in ['responder', 'admin']
             && request.resource.data.roleRequestStatus == 'pending'
             && request.resource.data.roleRequestedAt == request.time));
 
-      allow read: if (signedIn() && request.auth.uid == userId) || admin();
+      allow read: if (verified() && request.auth.uid == userId) || admin();
 
       allow update: if verified()
         && request.auth.uid == userId

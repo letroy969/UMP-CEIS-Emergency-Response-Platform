@@ -17,17 +17,21 @@ export function profilePortals(profile) {
   const roleRequestStatus = typeof profile.roleRequestStatus === "string"
     ? profile.roleRequestStatus.trim().toLowerCase()
     : null;
-  if (requestedRole && roleRequestStatus !== "approved") return [];
+  if (["responder", "admin"].includes(requestedRole) && roleRequestStatus !== "approved") return [];
 
   const storedRoles = [
     ...(Array.isArray(profile.role) ? profile.role : [profile.role]),
     ...(Array.isArray(profile.roles) ? profile.roles : []),
   ];
-  const portals = [...new Set(storedRoles
+  let portals = [...new Set(storedRoles
     .filter(role => typeof role === "string")
     .map(role => ROLE_PORTALS[role.trim().toLowerCase()])
     .filter(portal => portal && !(requestedRole && portal === "student")))];
 
+  if (requestedRole === "staff" && portals.length === 0
+    && storedRoles.some(role => typeof role === "string" && role.trim().toLowerCase() === "student")) {
+    portals = ["staff"];
+  }
   if (portals.length !== 1 || (requestedRole && portals[0] !== requestedRole)) return [];
   return portals;
 }

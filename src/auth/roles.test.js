@@ -45,8 +45,8 @@ test("a pending responder request does not grant portal access", () => {
   assert.equal(canAccessPortal(portals, "responder"), false);
 });
 
-test("pending staff, responder, and admin requests never grant the requested role", () => {
-  for (const requestedRole of ["staff", "responder", "admin"]) {
+test("pending responder and admin requests never grant the requested role", () => {
+  for (const requestedRole of ["responder", "admin"]) {
     const portals = profilePortals({
       role: "student",
       requestedRole,
@@ -58,25 +58,29 @@ test("pending staff, responder, and admin requests never grant the requested rol
   }
 });
 
-test("legacy pending access requests cannot inherit student portal access", () => {
+test("legacy pending staff requests grant only staff portal access", () => {
   assert.deepEqual(profilePortals({
     role: "student",
     roles: ["student"],
     requestedRole: "staff",
     roleRequestStatus: "pending",
-  }), []);
+  }), ["staff"]);
 });
 
-test("rejected staff requests cannot inherit student portal access", () => {
+test("legacy rejected staff requests still grant staff portal access", () => {
   assert.deepEqual(profilePortals({
     role: "student",
     requestedRole: "staff",
     roleRequestStatus: "rejected",
-  }), []);
+  }), ["staff"]);
+});
+
+test("new staff profiles are assigned directly to the staff portal", () => {
+  assert.deepEqual(profilePortals({ role: "staff" }), ["staff"]);
 });
 
 test("approved access requests grant only the approved role", () => {
-  for (const role of ["staff", "responder", "admin"]) {
+  for (const role of ["responder", "admin"]) {
     const portals = profilePortals({
       role: "student",
       roles: ["student", role],

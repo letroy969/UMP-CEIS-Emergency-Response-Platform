@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { roleSet } from "./auth.js";
 
-test("a pending staff request does not retain its legacy student role", () => {
+test("legacy pending staff requests resolve to staff without approval", () => {
   const roles = roleSet({
     role: "student",
     roles: ["student"],
@@ -10,18 +10,27 @@ test("a pending staff request does not retain its legacy student role", () => {
     roleRequestStatus: "pending",
   });
 
-  assert.deepEqual([...roles], []);
+  assert.deepEqual([...roles], ["staff"]);
 });
 
-test("an approved staff request grants only staff access", () => {
+test("a staff profile grants staff access without approval metadata", () => {
   const roles = roleSet({
     role: "staff",
     roles: ["staff"],
-    requestedRole: "staff",
-    roleRequestStatus: "approved",
   });
 
   assert.deepEqual([...roles], ["staff"]);
+});
+
+test("a legacy staff request with conflicting assigned roles remains denied", () => {
+  const roles = roleSet({
+    role: "student",
+    roles: ["student", "admin"],
+    requestedRole: "staff",
+    roleRequestStatus: "pending",
+  });
+
+  assert.deepEqual([...roles], []);
 });
 
 test("regular student profiles retain student access", () => {
@@ -48,6 +57,16 @@ test("approved access requests normalize role and approval capitalization", () =
     role: "STAFF",
     requestedRole: " Staff ",
     roleRequestStatus: " APPROVED ",
+  });
+
+  test("pending responder and admin requests do not grant API access", () => {
+    for (const requestedRole of ["responder", "admin"]) {
+      assert.deepEqual([...roleSet({
+        role: "student",
+        requestedRole,
+        roleRequestStatus: "pending",
+      })], []);
+    }
   });
 
   assert.deepEqual([...roles], ["staff"]);

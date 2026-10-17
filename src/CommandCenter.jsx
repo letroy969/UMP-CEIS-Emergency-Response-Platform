@@ -78,9 +78,13 @@ function LoginPage({ onLogin, onBack }) {
       if (!canAccessPortal(roles, portal)) {
         await signOutUser();
         const portalName = portal === "admin" ? "Admin" : portal === "responder" ? "Responder" : portal === "student" ? "Student" : "Staff";
-        if (result.user.requestedRole === portal && result.user.roleRequestStatus === "pending") {
+        if (["responder", "admin"].includes(portal)
+          && result.user.requestedRole === portal
+          && result.user.roleRequestStatus === "pending") {
           setLoginError(`Your ${portalName.toLowerCase()} access request is pending administrator approval. Access remains denied until it is approved.`);
-        } else if (result.user.requestedRole === portal && result.user.roleRequestStatus === "rejected") {
+        } else if (["responder", "admin"].includes(portal)
+          && result.user.requestedRole === portal
+          && result.user.roleRequestStatus === "rejected") {
           setLoginError(`Your ${portalName.toLowerCase()} access request was not approved. Contact a CEIS administrator if you believe this is an error.`);
         } else {
           setLoginError(`This account is not assigned to the ${portalName} Portal. Ask an administrator to update your Firestore profile.`);

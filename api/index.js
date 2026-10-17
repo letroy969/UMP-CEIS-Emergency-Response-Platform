@@ -310,7 +310,7 @@ route("get", "/responders", authenticate, async (req, res) => {
 route("get", "/access-requests", authenticate, async (req, res) => {
   requireRole(req.user, ["admin"]);
   const snapshot = await getFirebaseServices().db.collection("users")
-    .where("requestedRole", "in", ["staff", "responder", "admin"])
+    .where("requestedRole", "in", ["responder", "admin"])
     .where("roleRequestStatus", "==", "pending")
     .limit(200)
     .get();
@@ -341,7 +341,7 @@ route("patch", "/access-requests/:uid", authenticate, async (req, res) => {
     const profile = await transaction.get(profileRef);
     const requestedRole = profile.exists ? profile.get("requestedRole") : null;
     if (!profile.exists
-      || !["staff", "responder", "admin"].includes(requestedRole)
+      || !["responder", "admin"].includes(requestedRole)
       || profile.get("roleRequestStatus") !== "pending"
       || profile.get("role") !== "student") {
       fail("This access request is no longer pending.", 409);

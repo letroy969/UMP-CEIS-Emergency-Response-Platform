@@ -76,7 +76,7 @@ Complete these steps for a working deployment. Evidence uploads use Cloudflare R
 
 The API issues upload and view URLs valid for five minutes, checks uploaded file type/size/owner before registering it in Firestore, and rate-limits upload URL requests. The daily `/api/cleanup-evidence` job removes objects after 90 days; keep `CRON_SECRET` configured in Vercel for retention cleanup to run.
 
-Student registration requires exactly 19 characters: a 9-digit student number followed by `@ump.ac.za` (for example, `230021646@ump.ac.za`). Staff, responder, and admin request forms require an email ending in `@ump.ac.za`. All registrants must verify their email before signing in. Staff, responder, and admin forms create role requests only; those accounts receive no requested privileges until an existing admin approves the request in **Role Access Requests**. Admin access is denied while pending and is never self-assigned. Email verification proves mailbox control, not university affiliation, staff status, or responder training.
+Student registration requires exactly 19 characters: a 9-digit student number followed by `@ump.ac.za` (for example, `230021646@ump.ac.za`). Staff, responder, and admin forms require an email ending in `@ump.ac.za`. All registrants must verify their email before signing in. Student and staff accounts receive their respective portal access after email verification without administrator approval. Responder and admin requests remain pending until an existing admin approves them in **Role Access Requests**. Admin access is never self-assigned. Email verification proves mailbox control, not university affiliation, staff status, or responder training.
 
 ### Bootstrap the first administrator
 
@@ -86,13 +86,13 @@ Student registration requires exactly 19 characters: a 9-digit student number fo
 4. Save the document and sign in again using the Admin portal. The API and Firestore rules will now recognize the account as an administrator.
 5. Protect the account and project: use MFA, limit Firebase Console/IAM access to trusted operators, and never grant Firebase project-owner permissions to ordinary CEIS admins. CEIS admin rights are application roles, not Firebase project-owner access.
 
-To provision staff, responders, or additional admins, have them use the matching portal's role-specific account form and verify their UMP email. Their request appears under **Role Access Requests** after their first sign-in. An existing admin can approve or reject it; approval assigns only the role they requested. Admin requests remain inaccessible to the Admin Portal until another current admin approves them. Do not grant roles by changing client-side code or trusting portal selection.
+To provision staff accounts, have them use the Staff Portal's account form and verify their UMP email; staff access is immediate after verification. Responders and additional admins must use the matching role-specific account form and verify their UMP email. Their request appears under **Role Access Requests** after sign-in. An existing admin can approve or reject it; approval assigns only the role they requested. Admin requests remain inaccessible to the Admin Portal until another current admin approves them. Do not grant roles by changing client-side code or trusting portal selection.
 
 Students and staff use the same incident form and can read only reports they submitted. Admins can monitor all reports, view system analytics, update statuses, and assign incidents to provisioned responders. Responders can see only incidents assigned to their account and advance them through acknowledgement, on-scene, and resolved states. Firestore Security Rules enforce these permissions independently of the UI.
 
 ## Firestore data
 
-- `users/{uid}`: profile, approved role, and pending staff, responder, or admin access-request metadata.
+- `users/{uid}`: profile and assigned role, plus pending responder or admin access-request metadata.
 - `users/{uid}/emergencyContacts/{contactId}`: private emergency contacts. Users manage their own contacts; admins and the responder assigned to an active linked incident can retrieve them on demand through the authenticated API. Anonymous incidents have no linked profile or contacts.
 - `users/{uid}/private/preferences`: private accessibility preferences.
 - `users/{uid}/pushTokens/{tokenId}`: private device notification tokens.

@@ -12,7 +12,8 @@ import { defaultPortal, profilePortals } from "./roles.js";
 import { validateRegistrationEmail } from "./profileValidation.js";
 
 let registrationInProgress = false;
-const ACCESS_REQUEST_ROLES = new Set(["staff", "responder", "admin"]);
+const REGISTRATION_ROLES = new Set(["staff", "responder", "admin"]);
+const APPROVAL_REQUIRED_ROLES = new Set(["responder", "admin"]);
 
 export function isRegistrationInProgress() {
   return registrationInProgress;
@@ -100,7 +101,8 @@ export async function loadAppUser(firebaseUser) {
   const nextRoleRequestKey = "ceis:requested-role-next";
   const storedRole = window.localStorage.getItem(roleRequestKey)
     || window.localStorage.getItem(nextRoleRequestKey);
-  const requestedRole = ACCESS_REQUEST_ROLES.has(storedRole) ? storedRole : null;
+  const registeredRole = REGISTRATION_ROLES.has(storedRole) ? storedRole : "student";
+  const requestedRole = APPROVAL_REQUIRED_ROLES.has(registeredRole) ? registeredRole : null;
   const profile = await runTransaction(db, async transaction => {
     const profileSnapshot = await transaction.get(profileRef);
     if (profileSnapshot.exists()) return profileSnapshot.data();
@@ -113,7 +115,7 @@ export async function loadAppUser(firebaseUser) {
       uid: firebaseUser.uid,
       email,
       fullName,
-      role: "student",
+      role: registeredRole === "staff" ? "staff" : "student",
       createdAt: serverTimestamp(),
       ...(requestedRole ? {
         requestedRole,
@@ -141,7 +143,7 @@ export async function registerUser({
   if (normalizedName.length < 2 || normalizedName.length > 100) {
     throw new Error("Enter a name between 2 and 100 characters.");
   }
-  if (requestedRole !== null && !ACCESS_REQUEST_ROLES.has(requestedRole)) {
+  if (requestedRole !== null && !REGISTRATION_ROLES.has(requestedRole)) {
     throw new Error("Choose a valid account type.");
   }
   const normalizedEmail = validateRegistrationEmail(email, requestedRole || "student");

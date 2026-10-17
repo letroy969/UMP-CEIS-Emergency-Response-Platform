@@ -168,7 +168,7 @@ export default function AdminPortal({ user, authUser, onLogout }) {
         {view==="access"&&user.access==="admin"&&(
           <section style={{animation:"fadeIn .35s ease"}}>
             <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,color:NK,marginBottom:6}}>Role access requests</h2>
-            <p style={{fontSize:14,color:SL,marginBottom:20}}>Review UMP staff, responder, and admin requests. Applicants receive no requested role until an administrator approves it; admin access is never self-assigned.</p>
+            <p style={{fontSize:14,color:SL,marginBottom:20}}>Review responder and admin access requests. Verified UMP staff accounts receive staff access without administrator approval; admin access is never self-assigned.</p>
             {accessRequests.length === 0
               ? <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:9,padding:24,color:SL}}>No pending role access requests.</div>
               : <div style={{display:"grid",gap:10}}>

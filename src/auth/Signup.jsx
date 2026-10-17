@@ -11,7 +11,7 @@ const ROLE_COPY = {
   staff: {
     title: "Create a staff account",
     button: "Create staff account",
-    description: "Use your official @ump.ac.za staff email and verify it before signing in. Staff access requires administrator approval.",
+    description: "Use your official @ump.ac.za staff email and verify it before signing in. Staff accounts do not require administrator approval.",
   },
   responder: {
     title: "Request responder access",
@@ -62,9 +62,9 @@ export default function Signup({ onBack, role = "student" }) {
           setMessage(`Your account was created, but the verification email could not be requested: ${error.message} Sign in to request another verification email.`);
           return;
         }
-        setMessage(accountRole === "student"
-          ? "Your student account is created. Verify your @ump.ac.za email, then sign in."
-          : `Your ${accountRole} account request is created. Verify your @ump.ac.za email and sign in to submit it for administrator review. ${accountRole === "admin" ? "Admin access remains denied until an existing administrator approves it; if approved, an administrator will email you with the verification steps needed to activate access." : `${accountRole[0].toUpperCase()}${accountRole.slice(1)} access remains unavailable until an administrator approves your request.`}`);
+        setMessage(accountRole === "student" || accountRole === "staff"
+          ? `Your ${accountRole} account is created. Verify your @ump.ac.za email, then sign in to the ${accountRole} portal.`
+          : `Your ${accountRole} account request is created. Verify your @ump.ac.za email and sign in to submit it for administrator review. ${accountRole === "admin" ? "Admin access remains denied until an existing administrator approves it; if approved, an administrator will email you with the verification steps needed to activate access." : "Responder access remains unavailable until an administrator approves your request."}`);
       });
     } catch (error) {
       setMessage(error.message || "Could not connect to the authentication service.");

@@ -1,5 +1,5 @@
 const RESPONDER_ROLES = new Set(["responder", "security", "medical"]);
-const ACCESS_REQUEST_ROLES = new Set(["staff", "responder", "admin"]);
+const APPROVAL_REQUIRED_ROLES = new Set(["responder", "admin"]);
 
 export function roleSet(profile = {}) {
   const roles = new Set();
@@ -9,7 +9,7 @@ export function roleSet(profile = {}) {
   const roleRequestStatus = typeof profile.roleRequestStatus === "string"
     ? profile.roleRequestStatus.trim().toLowerCase()
     : null;
-  if (ACCESS_REQUEST_ROLES.has(requestedRole) && roleRequestStatus !== "approved") return roles;
+  if (APPROVAL_REQUIRED_ROLES.has(requestedRole) && roleRequestStatus !== "approved") return roles;
 
   const rolePortals = {
     student: "student",
@@ -23,13 +23,17 @@ export function roleSet(profile = {}) {
     ...(Array.isArray(profile.role) ? profile.role : [profile.role]),
     ...(Array.isArray(profile.roles) ? profile.roles : []),
   ];
-  const portals = new Set(storedRoles
+  let portals = new Set(storedRoles
     .filter(role => typeof role === "string")
     .map(role => rolePortals[role.trim().toLowerCase()])
     .filter(portal => portal
-      && !(ACCESS_REQUEST_ROLES.has(requestedRole) && portal === "student")));
+      && (requestedRole !== "staff" || portal !== "student")));
 
-  if (portals.size !== 1 || (ACCESS_REQUEST_ROLES.has(requestedRole)
+  if (requestedRole === "staff" && portals.size === 0
+    && storedRoles.some(role => typeof role === "string" && role.trim().toLowerCase() === "student")) {
+    portals = new Set(["staff"]);
+  }
+  if (portals.size !== 1 || (requestedRole
     && !portals.has(requestedRole))) return roles;
   for (const role of portals) {
     roles.add(role);
@@ -79,7 +83,7 @@ export async function authenticate(req, _res, next) {
     }
 
     const profile = profileSnapshot.data();
-    if (ACCESS_REQUEST_ROLES.has(profile.requestedRole)
+    if (APPROVAL_REQUIRED_ROLES.has(profile.requestedRole)
       && profile.roleRequestStatus !== "approved") {
       const error = new Error("Your requested portal access has not been approved.");
       error.status = 403;
