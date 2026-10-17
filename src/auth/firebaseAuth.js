@@ -58,8 +58,8 @@ function authError(error) {
     "auth/weak-password": "Choose a stronger password.",
     "auth/network-request-failed": "Could not connect to Firebase. Check your connection and try again.",
     "auth/operation-not-allowed": "Email/password sign-in is not enabled in Firebase Authentication yet.",
-    "permission-denied": "Could not create your account profile in Cloud Firestore. Check the Firestore users create rule and Firebase project configuration.",
-    "firestore/permission-denied": "Could not create your account profile in Cloud Firestore. Check the Firestore users create rule and Firebase project configuration.",
+    "permission-denied": "Cloud Firestore denied access to your account profile. Check that this app uses the correct Firebase project and that the verified-user Firestore rules are deployed. If your profile is missing, ask an administrator to provision it.",
+    "firestore/permission-denied": "Cloud Firestore denied access to your account profile. Check that this app uses the correct Firebase project and that the verified-user Firestore rules are deployed. If your profile is missing, ask an administrator to provision it.",
     "auth/unauthorized-continue-uri": "Firebase does not allow this email link's return address. In Firebase Console, open Authentication → Settings → Authorized domains and add localhost for local testing or your deployed app domain.",
   };
   return new Error(messages[error.code] || error.message || "Authentication failed. Please try again.");
@@ -92,6 +92,8 @@ export async function loadAppUser(firebaseUser) {
   }
   const email = firebaseUser.email;
   if (!email || !isValidEmail(email)) throw new Error("Your account needs a valid email address.");
+
+  await firebaseUser.getIdToken(true);
 
   const profileRef = doc(db, "users", firebaseUser.uid);
   const roleRequestKey = `ceis:requested-role:${firebaseUser.uid}`;
