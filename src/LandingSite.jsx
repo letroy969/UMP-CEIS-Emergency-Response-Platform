@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { sendChatMessages } from "./chatbot/chatApi.js";
 import { activateAnonymousSOS, isAnonymousSOSConfigured } from "./incidentApi.js";
-import { checkCampusLocation, getCurrentLocation } from "./maps/location.js";
+import { checkCampusLocation, getAccurateCurrentLocation } from "./maps/location.js";
 import {
   LOGO, NAVY, NAVY2, NAVY3, NAVYL,
   RED, REDL, ORANGE, ORANGEL, GREEN, GREENL,
@@ -813,9 +813,6 @@ function ChatBot({ goPage }) {
             <div style={{ background: ORANGEL, borderBottom: `1px solid ${ORANGE}22`, padding: "7px 14px", display: "flex", alignItems: "flex-start", gap: 8 }}>
               <div style={{ width: 5, height: 5, borderRadius: "50%", background: ORANGE, marginTop: 4, flexShrink: 0 }} />
               <span style={{ fontSize: 10.5, color: ORANGE, fontWeight: 600, fontFamily: "'IBM Plex Sans',sans-serif", lineHeight: 1.5 }}>For life-threatening emergencies, call <strong>+27 13 002 0099</strong> immediately.</span>
-            </div>
-            <div style={{ background: PAPER, borderBottom: `1px solid ${BD}`, padding: "7px 14px", fontSize: 10, color: MID, lineHeight: 1.45, fontFamily: "'IBM Plex Sans',sans-serif" }}>
-              Messages are processed by an external AI provider. Do not share passwords, verification codes, or sensitive personal details.
             </div>
             <div style={{ overflowY: "auto", padding: "14px 12px", maxHeight: 300, minHeight: 190, background: PAPER }}>
               {msgs.map((m, i) => (
@@ -2398,7 +2395,7 @@ function SOSChoiceModal({ open, onClose, onProfile }) {
       if (!isAnonymousSOSConfigured()) {
         throw new Error("Anonymous SOS is not configured yet. Call campus security or continue with your profile while CEIS App Check is being set up.");
       }
-      const position = await getCurrentLocation();
+      const position = await getAccurateCurrentLocation();
       const campusStatus = checkCampusLocation(position);
       if (campusStatus === "outside") {
         throw new Error("Anonymous SOS is available only within the UMP Mbombela campus boundary. Call emergency services or campus security if you need help elsewhere.");
@@ -2477,7 +2474,7 @@ function SOSChoiceModal({ open, onClose, onProfile }) {
               {error && <p className="sos-error" role="alert">{error}</p>}
               <div className="sos-dialog-actions">
                 <button type="button" className="sos-submit-anonymous" onClick={submitAnonymousSOS} disabled={sending}>
-                  {sending ? <><LoaderCircle size={18} className="sos-spinner" aria-hidden="true" /> Getting location and sending…</> : <><Siren size={18} aria-hidden="true" /> Send anonymous SOS</>}
+                  {sending ? <><LoaderCircle size={18} className="sos-spinner" aria-hidden="true" /> Finding accurate GPS and sending…</> : <><Siren size={18} aria-hidden="true" /> Send anonymous SOS</>}
                 </button>
                 <button type="button" className="sos-submit-profile" onClick={onProfile} disabled={sending}>
                   Continue with profile
