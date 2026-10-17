@@ -8,20 +8,25 @@ const ROLE_PORTALS = {
 };
 
 export function profilePortals(profile) {
-  const requestedRole = ["staff", "responder", "admin"].includes(profile.requestedRole)
-    ? profile.requestedRole
+  const requestedRoleValue = typeof profile.requestedRole === "string"
+    ? profile.requestedRole.trim().toLowerCase()
+    : "";
+  const requestedRole = ["staff", "responder", "admin"].includes(requestedRoleValue)
+    ? requestedRoleValue
     : null;
-  if (requestedRole && profile.roleRequestStatus !== "approved") return [];
+  const roleRequestStatus = typeof profile.roleRequestStatus === "string"
+    ? profile.roleRequestStatus.trim().toLowerCase()
+    : null;
+  if (requestedRole && roleRequestStatus !== "approved") return [];
 
   const storedRoles = [
     ...(Array.isArray(profile.role) ? profile.role : [profile.role]),
     ...(Array.isArray(profile.roles) ? profile.roles : []),
   ];
   const portals = [...new Set(storedRoles
-    .filter(role => typeof role === "string"
-      && ROLE_PORTALS[role]
-      && !(requestedRole && ROLE_PORTALS[role] === "student"))
-    .map(role => ROLE_PORTALS[role]))];
+    .filter(role => typeof role === "string")
+    .map(role => ROLE_PORTALS[role.trim().toLowerCase()])
+    .filter(portal => portal && !(requestedRole && portal === "student")))];
 
   if (portals.length !== 1 || (requestedRole && portals[0] !== requestedRole)) return [];
   return portals;

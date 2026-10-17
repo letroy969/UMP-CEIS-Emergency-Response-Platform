@@ -3,8 +3,13 @@ const ACCESS_REQUEST_ROLES = new Set(["staff", "responder", "admin"]);
 
 export function roleSet(profile = {}) {
   const roles = new Set();
-  if (ACCESS_REQUEST_ROLES.has(profile.requestedRole)
-    && profile.roleRequestStatus !== "approved") return roles;
+  const requestedRole = typeof profile.requestedRole === "string"
+    ? profile.requestedRole.trim().toLowerCase()
+    : null;
+  const roleRequestStatus = typeof profile.roleRequestStatus === "string"
+    ? profile.roleRequestStatus.trim().toLowerCase()
+    : null;
+  if (ACCESS_REQUEST_ROLES.has(requestedRole) && roleRequestStatus !== "approved") return roles;
 
   const rolePortals = {
     student: "student",
@@ -19,13 +24,13 @@ export function roleSet(profile = {}) {
     ...(Array.isArray(profile.roles) ? profile.roles : []),
   ];
   const portals = new Set(storedRoles
-    .filter(role => typeof role === "string"
-      && rolePortals[role.toLowerCase()]
-      && !(ACCESS_REQUEST_ROLES.has(profile.requestedRole) && rolePortals[role.toLowerCase()] === "student"))
-    .map(role => rolePortals[role.toLowerCase()]));
+    .filter(role => typeof role === "string")
+    .map(role => rolePortals[role.trim().toLowerCase()])
+    .filter(portal => portal
+      && !(ACCESS_REQUEST_ROLES.has(requestedRole) && portal === "student")));
 
-  if (portals.size !== 1 || (ACCESS_REQUEST_ROLES.has(profile.requestedRole)
-    && !portals.has(profile.requestedRole))) return roles;
+  if (portals.size !== 1 || (ACCESS_REQUEST_ROLES.has(requestedRole)
+    && !portals.has(requestedRole))) return roles;
   for (const role of portals) {
     roles.add(role);
   }

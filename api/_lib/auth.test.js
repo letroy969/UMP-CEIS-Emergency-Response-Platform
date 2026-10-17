@@ -30,6 +30,29 @@ test("regular student profiles retain student access", () => {
   assert.deepEqual([...roles], ["student"]);
 });
 
+test("API role assignment normalizes capitalization and whitespace for every role", () => {
+  for (const [storedRole, portal] of [
+    [" STUDENT ", "student"],
+    ["Staff", "staff"],
+    ["ADMIN", "admin"],
+    [" Responder ", "responder"],
+    ["SECURITY", "responder"],
+    ["Medical", "responder"],
+  ]) {
+    assert.deepEqual([...roleSet({ role: storedRole })], [portal]);
+  }
+});
+
+test("approved access requests normalize role and approval capitalization", () => {
+  const roles = roleSet({
+    role: "STAFF",
+    requestedRole: " Staff ",
+    roleRequestStatus: " APPROVED ",
+  });
+
+  assert.deepEqual([...roles], ["staff"]);
+});
+
 test("student profiles with another portal role are denied API roles", () => {
   const roles = roleSet({ role: "student", roles: ["student", "staff"] });
 

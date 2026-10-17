@@ -14,6 +14,20 @@ test("profilePortals supports legacy and array-valued single roles", () => {
   assert.deepEqual(profilePortals({ role: ["student", "student"] }), ["student"]);
 });
 
+test("profilePortals normalizes capitalization and whitespace for every role", () => {
+  for (const [storedRole, portal] of [
+    [" STUDENT ", "student"],
+    ["Staff", "staff"],
+    ["ADMIN", "admin"],
+    [" Responder ", "responder"],
+    ["SECURITY", "responder"],
+    ["Medical", "responder"],
+  ]) {
+    assert.deepEqual(profilePortals({ role: storedRole }), [portal]);
+    assert.equal(canAccessPortal(profilePortals({ role: storedRole }), portal), true);
+  }
+});
+
 test("profilePortals rejects profiles with no assigned valid role", () => {
   assert.deepEqual(profilePortals({ roles: ["unknown"] }), []);
   assert.deepEqual(profilePortals({}), []);
@@ -72,6 +86,14 @@ test("approved access requests grant only the approved role", () => {
     assert.deepEqual(portals, [role]);
     assert.equal(canAccessPortal(portals, "student"), false);
   }
+});
+
+test("approved access requests normalize role and approval capitalization", () => {
+  assert.deepEqual(profilePortals({
+    role: "STAFF",
+    requestedRole: " Staff ",
+    roleRequestStatus: " APPROVED ",
+  }), ["staff"]);
 });
 
 test("each portal accepts only its exact assigned role", () => {
