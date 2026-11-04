@@ -18,12 +18,12 @@ import {
   Siren,
   TriangleAlert,
   Volume2,
-  Zap,
   X,
 } from "lucide-react";
 import { sendChatMessages } from "./chatbot/chatApi.js";
 import { activateAnonymousSOS, isAnonymousSOSConfigured } from "./incidentApi.js";
 import { checkCampusLocation, getAccurateCurrentLocation } from "./maps/location.js";
+import { SimBleeding, SimBurns, SimCPR, SimChoking } from "./firstaid/FirstAidSimulation.jsx";
 import {
   LOGO, NAVY, NAVY2, NAVY3, NAVYL,
   RED, REDL, ORANGE, ORANGEL, GREEN, GREENL,
@@ -1081,284 +1081,6 @@ function Footer({ setPage }) {
   );
 }
 
-function SimCPR({ step, running }) {
-  const [beat, setBeat] = useState(false);
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    if (!running) return;
-    const interval = step === 4 ? 545 : step === 5 ? 1200 : null; // 110 BPM for compressions
-    if (!interval) return;
-    const t = setInterval(() => {
-      setBeat(b => !b);
-      if (step === 4) setCount(c => (c + 1) % 30);
-      if (step === 5) setCount(c => (c + 1) % 2);
-    }, interval);
-    return () => clearInterval(t);
-  }, [running, step]);
-
-  // Person silhouette lying flat
-  const bodyY = beat && running && step === 4 ? 118 : 120;
-  const chestScale = beat && running && step === 4 ? 0.93 : 1;
-  const handY = beat && running && step === 4 ? 112 : 108;
-
-  return (
-    <svg viewBox="0 0 340 200" style={{ width: "100%", maxWidth: 340, display: "block", margin: "0 auto" }}>
-      {/* Ground */}
-      <rect x={10} y={162} width={320} height={6} rx={3} fill="#E8EDF5"/>
-      {/* Body outline - person lying */}
-      <ellipse cx={170} cy={bodyY} rx={90} ry={30} fill="#DBEAFE" stroke="#93C5FD" strokeWidth={1.5}/>
-      {/* Head */}
-      <circle cx={82} cy={bodyY - 6} r={20} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/>
-      {/* Neck tilt line for step 2 */}
-      {step === 2 && <line x1={98} y1={bodyY - 10} x2={105} y2={bodyY - 18} stroke={ORANGE} strokeWidth={2.5} strokeLinecap="round"/>}
-      {/* Airway check arrows for step 3 */}
-      {step === 2 && <>
-        <path d="M108 130 Q130 115 150 125" stroke={ORANGE} strokeWidth={2} fill="none" strokeDasharray="4 3"/>
-        <text x={152} y={122} fontSize={9} fill={ORANGE} fontFamily="monospace">look</text>
-        <text x={152} y={134} fontSize={9} fill={ORANGE} fontFamily="monospace">listen</text>
-        <text x={152} y={146} fontSize={9} fill={ORANGE} fontFamily="monospace">feel</text>
-      </>}
-      {/* Chest area */}
-      <ellipse cx={170} cy={bodyY} rx={35} ry={18} fill="#BFDBFE" stroke="#60A5FA" strokeWidth={1} transform={`scale(1,${chestScale})`} style={{transformOrigin:"170px 120px"}}/>
-      {/* Hands for compression step */}
-      {(step === 4 || step === 5) && step === 4 && <>
-        <ellipse cx={170} cy={handY} rx={18} ry={9} fill="#1A2766" opacity={0.85}/>
-        <ellipse cx={170} cy={handY + 8} rx={14} ry={7} fill="#14205A" opacity={0.9}/>
-        {running && <text x={196} y={handY - 2} fontSize={10} fill={RED} fontWeight="bold" fontFamily="monospace">{beat ? "↓ PUSH" : "↑ RELEASE"}</text>}
-        {running && <text x={196} y={handY + 12} fontSize={9} fill={MID} fontFamily="monospace">{count + 1}/30</text>}
-      </>}
-      {/* Mouth for rescue breath */}
-      {step === 5 && <>
-        <ellipse cx={82} cy={bodyY - 2} rx={7} ry={4} fill={ORANGE} opacity={running && beat ? 0.9 : 0.4}/>
-        {running && <text x={108} y={bodyY} fontSize={9} fill={ORANGE} fontFamily="monospace">{beat ? "BREATHE IN ↗" : "PAUSE..."}</text>}
-        {running && <text x={108} y={bodyY + 12} fontSize={9} fill={MID} fontFamily="monospace">breath {count + 1}/2</text>}
-      </>}
-      {/* Ratio indicator */}
-      {(step === 6) && (
-        <g>
-          <text x={60} y={50} fontSize={11} fill={NK} fontFamily="monospace" fontWeight="bold">30 compressions : 2 breaths</text>
-          {[...Array(30)].map((_, i) => <rect key={i} x={60 + i * 6} y={58} width={5} height={12} rx={1} fill={RED} opacity={0.7}/>)}
-          {[...Array(2)].map((_, i) => <rect key={i} x={60 + 30 * 6 + 4 + i * 9} y={58} width={7} height={12} rx={1} fill={ORANGE} opacity={0.85}/>)}
-          <text x={60} y={84} fontSize={9} fill={MID} fontFamily="monospace">■ compressions   ■ rescue breaths</text>
-        </g>
-      )}
-      {/* BPM indicator */}
-      {step === 4 && running && (
-        <g>
-          <text x={20} y={30} fontSize={10} fill={RED} fontFamily="monospace" fontWeight="bold">110 BPM</text>
-          <text x={20} y={43} fontSize={9} fill={MID} fontFamily="monospace">5–6 cm depth</text>
-          {[0,1,2,3,4].map(i => <rect key={i} x={20 + i * 12} y={48} width={9} height={beat && i === 2 ? 18 : 10} rx={2} fill={RED} opacity={0.6 + i * 0.06} style={{transition:"height 0.1s"}}/>)}
-        </g>
-      )}
-      {/* Step label */}
-      <text x={170} y={190} textAnchor="middle" fontSize={10} fill={MID} fontFamily="sans-serif">
-        {["Check responsiveness","Position on back","Open airway","Check breathing — 10 sec","30 chest compressions","2 rescue breaths","Continue 30:2 cycles"][step]}
-      </text>
-    </svg>
-  );
-}
-
-function SimChoking({ step, running }) {
-  const [frame, setFrame] = useState(0);
-  useEffect(() => {
-    if (!running) return;
-    const t = setInterval(() => setFrame(f => (f + 1) % 4), 600);
-    return () => clearInterval(t);
-  }, [running]);
-  const showBack = step === 2;
-  const showThrust = step === 3;
-  const blowOpacity = running ? [1, 0.4, 0.7, 0.2][frame] : 0.5;
-
-  return (
-    <svg viewBox="0 0 340 200" style={{ width: "100%", maxWidth: 340, display: "block", margin: "0 auto" }}>
-      {/* Ground */}
-      <rect x={10} y={172} width={320} height={5} rx={2} fill="#E8EDF5"/>
-      {/* Person standing - body */}
-      <ellipse cx={170} cy={130} rx={22} ry={38} fill="#DBEAFE" stroke="#93C5FD" strokeWidth={1.5}/>
-      {/* Head */}
-      <circle cx={170} cy={80} r={18} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/>
-      {/* Throat highlight */}
-      <rect x={163} y={96} width={14} height={16} rx={4} fill={step === 0 ? RED : "#DBEAFE"} opacity={0.6}/>
-      {step === 0 && <text x={185} y={108} fontSize={9} fill={RED} fontFamily="monospace">obstruction!</text>}
-      {/* Rescuer for back blows */}
-      {showBack && <>
-        <ellipse cx={228} cy={130} rx={18} ry={34} fill="#FEF3C7" stroke="#F59E0B" strokeWidth={1.5}/>
-        <circle cx={228} cy={84} r={14} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/>
-        {/* Arm delivering blow */}
-        <path d={`M218 120 Q${running ? 192 + frame * 2 : 196} 118 180 ${running ? 126 - frame : 128}`} stroke="#F59E0B" strokeWidth={8} strokeLinecap="round" fill="none"/>
-        {running && <text x={100} y={60} fontSize={10} fill={ORANGE} fontFamily="monospace" fontWeight="bold">BACK BLOW {(frame % 5) + 1}/5</text>}
-        {/* Impact wave */}
-        {running && [0,1,2].map(i => <circle key={i} cx={180} cy={128} r={8 + i * 7} fill="none" stroke={ORANGE} strokeWidth={1} opacity={blowOpacity - i * 0.2}/>)}
-      </>}
-      {/* Rescuer for abdominal thrusts */}
-      {showThrust && <>
-        <ellipse cx={115} cy={130} rx={18} ry={34} fill="#FEF3C7" stroke="#D97706" strokeWidth={1.5}/>
-        <circle cx={115} cy={84} r={14} fill="#FDE68A" stroke="#D97706" strokeWidth={1.5}/>
-        {/* Fist at navel */}
-        <ellipse cx={148} cy={130} rx={12} ry={8} fill="#D97706" opacity={running ? [0.9,0.5,0.8,0.4][frame] : 0.6}/>
-        <path d="M148 130 L162 130" stroke="#D97706" strokeWidth={4} strokeLinecap="round"/>
-        {running && <text x={80} y={60} fontSize={10} fill={ORANGE} fontFamily="monospace" fontWeight="bold">THRUST {(frame % 5) + 1}/5</text>}
-        {running && <path d={`M148 ${130 + (frame % 2 === 0 ? -8 : 0)} L148 ${130 + (frame % 2 === 0 ? 0 : 8)}`} stroke={ORANGE} strokeWidth={3} strokeDasharray="3 2" opacity={0.7}/>}
-      </>}
-      {/* Hand on throat signal */}
-      {step === 0 && <>
-        <path d="M152 108 Q140 116 148 124" stroke={RED} strokeWidth={2} fill="none"/>
-        <text x={100} y={58} fontSize={10} fill={RED} fontFamily="monospace" fontWeight="bold">Cannot speak/breathe</text>
-      </>}
-      {step === 1 && <text x={105} y={58} fontSize={10} fill={GREEN} fontFamily="monospace" fontWeight="bold">Encourage coughing</text>}
-      {step === 4 && <>
-        <text x={50} y={50} fontSize={10} fill={NAVY} fontFamily="monospace" fontWeight="bold">Alternate:</text>
-        <rect x={50} y={58} width={50} height={14} rx={3} fill={ORANGE} opacity={0.7}/>
-        <text x={57} y={69} fontSize={8} fill={WHITE} fontFamily="monospace">5 back</text>
-        <rect x={110} y={58} width={58} height={14} rx={3} fill={RED} opacity={0.7}/>
-        <text x={116} y={69} fontSize={8} fill={WHITE} fontFamily="monospace">5 thrusts</text>
-        <path d="M100 65 L110 65" stroke={NAVY} strokeWidth={2} markerEnd="url(#arr)"/>
-      </>}
-      <text x={170} y={192} textAnchor="middle" fontSize={10} fill={MID} fontFamily="sans-serif">
-        {["Confirm choking","Encourage coughing","5 back blows","5 abdominal thrusts","Alternate and repeat","If unconscious — start CPR"][step]}
-      </text>
-    </svg>
-  );
-}
-
-function SimBleeding({ step, running }) {
-  const [frame, setFrame] = useState(0);
-  useEffect(() => {
-    if (!running) return;
-    const t = setInterval(() => setFrame(f => (f + 1) % 8), 400);
-    return () => clearInterval(t);
-  }, [running]);
-
-  const pressDepth = running && step === 2 ? Math.abs(Math.sin(frame * 0.8)) * 10 : 0;
-  const bloodOpacity = step >= 2 ? Math.max(0, 0.9 - (step - 2) * 0.22) : (running ? 0.5 + Math.sin(frame) * 0.3 : 0.7);
-
-  return (
-    <svg viewBox="0 0 340 200" style={{ width: "100%", maxWidth: 340, display: "block", margin: "0 auto" }}>
-      {/* Arm/leg surface */}
-      <rect x={80} y={100} width={180} height={60} rx={28} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/>
-      {/* Wound */}
-      <ellipse cx={170} cy={128} rx={18} ry={10} fill="#8B1A1A" opacity={bloodOpacity}/>
-      {/* Blood drip animation */}
-      {step <= 1 && running && [0,1,2].map(i => (
-        <ellipse key={i} cx={170 + (i - 1) * 8} cy={138 + ((frame + i * 2) % 8) * 4} rx={3} ry={2 + i} fill="#8B1A1A" opacity={0.5 - i * 0.1}/>
-      ))}
-      {/* Gloves indicator */}
-      {step === 0 && <>
-        <rect x={40} y={90} width={28} height={50} rx={5} fill={GREEN} opacity={0.7}/>
-        <text x={44} y={122} fontSize={8} fill={WHITE} fontFamily="monospace" fontWeight="bold">GLOVE</text>
-        <path d="M68 115 L80 122" stroke={GREEN} strokeWidth={2} strokeDasharray="3 2"/>
-        <text x={30} y={80} fontSize={10} fill={GREEN} fontFamily="monospace">Protect yourself first</text>
-      </>}
-      {/* Pressure pad */}
-      {step >= 2 && <>
-        <rect x={145} y={108 - pressDepth} width={50} height={28 + pressDepth} rx={6} fill="#DBEAFE" stroke="#1A2766" strokeWidth={2} opacity={0.9}/>
-        <text x={155} y={126} fontSize={8} fill={NAVY} fontFamily="monospace" fontWeight="bold">PRESS</text>
-        {running && step === 2 && <text x={205} y={118} fontSize={9} fill={NAVY} fontFamily="monospace">{pressDepth > 4 ? "↓ FIRM" : "HOLD"}</text>}
-      </>}
-      {/* Layer add animation for step 3 */}
-      {step === 3 && <>
-        <rect x={145} y={104} width={50} height={36} rx={6} fill="#BFDBFE" stroke={NAVY} strokeWidth={2} opacity={0.85}/>
-        <rect x={145} y={96} width={50} height={14} rx={4} fill="#93C5FD" stroke={NAVY} strokeWidth={1.5} opacity={0.7}/>
-        <text x={100} y={85} fontSize={9} fill={NAVY} fontFamily="monospace">Add layers — don&apos;t lift!</text>
-      </>}
-      {/* Elevation arrows */}
-      {step === 4 && <>
-        <path d="M170 95 L170 70 M160 78 L170 68 L180 78" stroke={GREEN} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"/>
-        <text x={185} y={82} fontSize={9} fill={GREEN} fontFamily="monospace">Elevate!</text>
-        <text x={100} y={60} fontSize={10} fill={GREEN} fontFamily="monospace" fontWeight="bold">Above heart level</text>
-      </>}
-      {/* Shock position */}
-      {step === 5 && <>
-        <path d="M100 165 L240 155" stroke={NAVY} strokeWidth={2} strokeDasharray="4 3"/>
-        <text x={100} y={150} fontSize={9} fill={NAVY} fontFamily="monospace">Feet elevated ~30 cm</text>
-        <rect x={220} y={148} width={30} height={8} rx={3} fill={NAVY} opacity={0.5}/>
-      </>}
-      {/* Tourniquet */}
-      {step === 6 && <>
-        <rect x={80} y={96} width={20} height={68} rx={10} fill={RED} opacity={0.7}/>
-        <text x={30} y={70} fontSize={10} fill={RED} fontFamily="monospace" fontWeight="bold">Tourniquet: 5 cm</text>
-        <text x={30} y={82} fontSize={9} fill={RED} fontFamily="monospace">above wound · LAST RESORT</text>
-      </>}
-      <text x={170} y={192} textAnchor="middle" fontSize={10} fill={MID} fontFamily="sans-serif">
-        {["Protect yourself","Expose wound","Apply direct pressure","Add layers — don't lift","Elevate limb","Treat for shock","Call 10177 · Tourniquet last"][step]}
-      </text>
-    </svg>
-  );
-}
-
-function SimBurns({ step, running }) {
-  const [frame, setFrame] = useState(0);
-  useEffect(() => {
-    if (!running) return;
-    const t = setInterval(() => setFrame(f => (f + 1) % 12), 200);
-    return () => clearInterval(t);
-  }, [running]);
-
-  const waterY = 85 + (frame % 4) * 4;
-
-  return (
-    <svg viewBox="0 0 340 200" style={{ width: "100%", maxWidth: 340, display: "block", margin: "0 auto" }}>
-      {/* Arm */}
-      <rect x={90} y={110} width={160} height={55} rx={26} fill="#FDE68A" stroke="#F59E0B" strokeWidth={1.5}/>
-      {/* Burn area */}
-      <ellipse cx={170} cy={135} rx={36} ry={18} fill={step === 0 ? "#FF4500" : step === 1 ? "#FCA58A" : "#FDE68A"} opacity={step === 0 ? 0.9 : 0.7}/>
-      {/* Flames for initial state */}
-      {step === 0 && running && [0,1,2].map(i => (
-        <path key={i} d={`M${155 + i * 12} 112 Q${151 + i * 12} ${102 - (frame % 4) * 2} ${158 + i * 12} ${95 - frame}`} stroke="#FF4500" strokeWidth={3} fill="none" strokeLinecap="round" opacity={0.7 + i * 0.1}/>
-      ))}
-      {/* Running water for step 1 */}
-      {step === 1 && <>
-        <rect x={152} y={55} width={10} height={20} rx={4} fill="#60A5FA" opacity={0.7}/>
-        {running && [0,1,2,3].map(i => (
-          <ellipse key={i} cx={160 + (i - 1.5) * 6} cy={waterY + i * 6} rx={2} ry={4 + i} fill="#60A5FA" opacity={0.6 - i * 0.1}/>
-        ))}
-        <text x={100} y={58} fontSize={9} fill="#1D4ED8" fontFamily="monospace">Cool water — 20 min</text>
-        <text x={100} y={70} fontSize={9} fill={RED} fontFamily="monospace">NOT ice / cold!</text>
-        {/* Timer */}
-        {running && <text x={230} y={90} fontSize={18} fill={NAVY} fontFamily="monospace" fontWeight="bold">20:00</text>}
-      </>}
-      {/* Removal arrows for step 2 */}
-      {step === 2 && <>
-        <path d="M110 125 L80 115 M80 115 L88 108 M80 115 L88 122" stroke={ORANGE} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M230 125 L260 115 M260 115 L252 108 M260 115 L252 122" stroke={ORANGE} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
-        <text x={100} y={95} fontSize={9} fill={ORANGE} fontFamily="monospace">Remove clothing</text>
-        <text x={100} y={107} fontSize={9} fill={ORANGE} fontFamily="monospace">unless stuck to skin</text>
-      </>}
-      {/* Cling film cover */}
-      {step === 3 && <>
-        <rect x={126} y={112} width={88} height={46} rx={8} fill="#DBEAFE" stroke="#93C5FD" strokeWidth={1.5} opacity={0.7}/>
-        <text x={100} y={95} fontSize={9} fill={NAVY} fontFamily="monospace">Loose cover only</text>
-        <text x={100} y={107} fontSize={9} fill={RED} fontFamily="monospace">Do NOT wrap tight</text>
-      </>}
-      {/* Chemical icon */}
-      {step === 4 && <>
-        <rect x={240} y={80} width={24} height={40} rx={5} fill="#7C3AED" opacity={0.7}/>
-        <text x={238} y={76} fontSize={8} fill="#7C3AED" fontFamily="monospace">CHEM</text>
-        <path d="M240 100 L220 110" stroke="#7C3AED" strokeWidth={2} strokeDasharray="3 2"/>
-        <text x={80} y={95} fontSize={9} fill="#7C3AED" fontFamily="monospace">Brush dry chemicals first</text>
-        <text x={80} y={107} fontSize={9} fill="#1D4ED8" fontFamily="monospace">Then flush 20+ minutes</text>
-      </>}
-      {/* Electrical warning */}
-      {step === 5 && <>
-        <rect x={248} y={70} width={32} height={60} rx={4} fill="#FCD34D" stroke="#F59E0B" strokeWidth={1.5}/>
-        <Zap x={242} y={88} size={20} color={ORANGE} aria-hidden="true"/>
-        <path d="M248 100 L220 115" stroke={RED} strokeWidth={2.5} strokeDasharray="4 2"/>
-        <text x={60} y={95} fontSize={10} fill={RED} fontFamily="monospace" fontWeight="bold">DO NOT TOUCH!</text>
-        <text x={60} y={108} fontSize={9} fill={RED} fontFamily="monospace">Ensure power is off first</text>
-      </>}
-      {step === 6 && <>
-        <circle cx={170} cy={135} r={40} fill="none" stroke={RED} strokeWidth={2} strokeDasharray="6 3"/>
-        <text x={115} y={90} fontSize={9} fill={RED} fontFamily="monospace">Face · Hands · Feet</text>
-        <text x={115} y={102} fontSize={9} fill={RED} fontFamily="monospace">Genitals · &gt;3 cm · Children</text>
-        <text x={115} y={114} fontSize={10} fill={RED} fontFamily="monospace" fontWeight="bold">→ HOSPITAL NOW</text>
-      </>}
-      <text x={170} y={192} textAnchor="middle" fontSize={10} fill={MID} fontFamily="sans-serif">
-        {["Remove from source","Cool with running water — 20 min","Remove clothing carefully","Cover loosely","Chemical burns — flush 20 min","Electrical burns — power off first","Seek medical attention"][step]}
-      </text>
-    </svg>
-  );
-}
-
 /* ── VOICE HOOK ───────────────────────────────────────────────── */
 function useVoice() {
   const [speaking, setSpeaking] = useState(false);
@@ -1417,28 +1139,28 @@ function FirstAidPage({ setPage }) {
     {
       id: "cpr", title: "CPR", subtitle: "Cardiopulmonary Resuscitation", color: RED, icon: <IHeart />,
       when: "Person is unresponsive and not breathing normally.",
-      warning: "Call for help or dial 10177 before starting CPR.",
+      warning: "Call 10177 on speaker and send someone for an AED. Not trained in rescue breaths? Give continuous chest compressions.",
       steps: [
-        { n: "01", title: "Check responsiveness", body: "Tap shoulders firmly and shout: Are you okay? If no response, call for emergency help immediately — dial 10177." },
-        { n: "02", title: "Position the person", body: "Lay them on a firm, flat surface on their back. Kneel beside their chest." },
-        { n: "03", title: "Open the airway", body: "Tilt head back gently with one hand on forehead, two fingers lifting the chin. Look for visible obstructions." },
-        { n: "04", title: "Check for breathing", body: "Look, listen and feel for breathing for no more than 10 seconds. Occasional gasps are not normal breathing." },
-        { n: "05", title: "Begin chest compressions", body: "Place heel of hand on centre of chest. Lock fingers and compress hard and fast — 5 to 6 centimetres deep at 100 to 120 beats per minute. Allow full chest recoil after each compression." },
-        { n: "06", title: "Give rescue breaths", body: "After 30 compressions, give 2 rescue breaths. Pinch nose, seal your mouth over theirs, breathe in for 1 second until chest rises. Repeat." },
-        { n: "07", title: "Continue cycles", body: "Maintain the 30 to 2 ratio — 30 compressions then 2 breaths. Continue until the person breathes normally, an AED is available, or emergency services arrive." },
+        { n: "01", title: "Check for danger and response", body: "Make sure the area is safe for you. Tap both shoulders firmly and shout: Are you all right? If there is no response, shout for help." },
+        { n: "02", title: "Open the airway", body: "Lay the person on their back on a firm surface and kneel beside them. Place one hand on the forehead and two fingertips under the bony part of the chin, then gently tilt the head back." },
+        { n: "03", title: "Check for normal breathing", body: "Keeping the airway open, look for chest movement and listen for breathing for no more than 10 seconds. Occasional gasps are not normal breathing. If you are unsure, act as if breathing is not normal." },
+        { n: "04", title: "Call 10177 and get an AED", body: "Call 10177 and put the phone on speaker so you can keep your hands free. Send someone to bring an AED — a defibrillator — if one is nearby." },
+        { n: "05", title: "Give chest compressions", body: "Put the heel of one hand on the lower half of the breastbone, in the centre of the chest, with your other hand on top and fingers interlocked. Keep your arms straight and your shoulders directly over your hands. Push down 5 to 6 centimetres, 100 to 120 times a minute, and let the chest rise fully after each push." },
+        { n: "06", title: "Give 2 rescue breaths if trained", body: "After 30 compressions, open the airway, pinch the nose, seal your lips around their mouth and blow steadily for 1 second while watching the chest rise. Give 2 breaths, then restart compressions within 10 seconds. If you are not trained or not willing, keep giving compressions without breaths." },
+        { n: "07", title: "Use the AED and keep going", body: "Switch the AED on as soon as it arrives and follow its voice prompts. Make sure nobody touches the person while it analyses or shocks. Continue CPR until professional help takes over, the person wakes up, moves and breathes normally, or you are too exhausted to continue. Swap rescuers every 2 minutes if you can." },
       ]
     },
     {
       id: "choking", title: "Choking", subtitle: "Airway Obstruction Response", color: ORANGE, icon: <ILung />,
       when: "Person cannot speak, cough effectively, or is turning blue.",
-      warning: "If person can cough — encourage them to keep coughing. Do NOT interfere.",
+      warning: "If they can cough or speak, encourage coughing and do not hit their back. Act only when coughing stops working.",
       steps: [
-        { n: "01", title: "Confirm choking", body: "Ask: Are you choking? If they cannot answer, cannot breathe, or are clutching their throat — act immediately. Call 10177." },
-        { n: "02", title: "Encourage coughing", body: "If they can cough, encourage strong coughs. If coughing is ineffective or absent, proceed to back blows." },
-        { n: "03", title: "Give 5 back blows", body: "Lean the person forward. Use the heel of your hand to deliver 5 firm blows between the shoulder blades. Check the mouth after each blow." },
-        { n: "04", title: "Give 5 abdominal thrusts", body: "Stand behind them. Make a fist above the navel, cover with your other hand. Give 5 sharp inward and upward thrusts. Check the mouth after each." },
-        { n: "05", title: "Alternate and repeat", body: "Alternate between 5 back blows and 5 abdominal thrusts until the object is expelled or the person loses consciousness." },
-        { n: "06", title: "If unconscious", body: "Lower to floor. Begin CPR immediately. Each time you open the airway, look for the object before giving breaths — remove only if clearly visible." },
+        { n: "01", title: "Recognise severe choking", body: "Ask: Are you choking? Severe choking means they cannot speak, cough effectively or breathe, and may clutch their throat or turn blue. Act immediately and get someone to call 10177." },
+        { n: "02", title: "Encourage coughing", body: "If they can speak, cough and breathe, the blockage is mild. Encourage them to keep coughing, stay with them, and do not slap their back. Watch closely in case coughing stops working." },
+        { n: "03", title: "Give up to 5 back blows", body: "Stand to the side and slightly behind them. Support their chest with one hand and lean them well forward. Give up to 5 sharp blows between the shoulder blades with the heel of your other hand, checking after each one whether the blockage has cleared." },
+        { n: "04", title: "Give up to 5 abdominal thrusts", body: "Stand behind them and put both arms around their upper abdomen while they lean forward. Place your fist, thumb side in, between the navel and the bottom of the breastbone. Grasp it with your other hand and pull sharply inwards and upwards, up to 5 times. For pregnant or very large people, give chest thrusts instead." },
+        { n: "05", title: "Keep alternating", body: "Continue alternating 5 back blows with 5 abdominal thrusts until the blockage clears or they become unresponsive. Anyone given abdominal thrusts must be checked by a medical professional afterwards." },
+        { n: "06", title: "If they become unresponsive", body: "Support them and lower them gently to the floor. Call 10177 and start CPR with chest compressions straight away. Before giving breaths, look in the mouth and remove an object only if you can clearly see it. Never sweep your finger blindly." },
       ]
     },
     {
@@ -1446,13 +1168,13 @@ function FirstAidPage({ setPage }) {
       when: "Significant external bleeding from wound or laceration.",
       warning: "Wear gloves if available. Do NOT remove an embedded object.",
       steps: [
-        { n: "01", title: "Protect yourself", body: "Put on gloves or use a clean plastic bag before touching blood. Your safety comes first." },
-        { n: "02", title: "Expose the wound", body: "Cut away or remove clothing around the wound carefully to assess severity." },
-        { n: "03", title: "Apply direct pressure", body: "Press firmly on the wound with a clean cloth, bandage, or clothing. Maintain continuous firm pressure." },
-        { n: "04", title: "Do not remove the dressing", body: "If blood soaks through, add more material on top — do NOT lift and replace. Lifting disturbs clot formation." },
-        { n: "05", title: "Elevate if possible", body: "Raise the bleeding limb above heart level if there is no suspected fracture. This reduces blood flow to the area." },
-        { n: "06", title: "Treat for shock", body: "Lay person flat, elevate legs — unless there is a head or chest injury. Keep them warm. Do not give food or drink. Monitor consciousness." },
-        { n: "07", title: "Call for emergency help", body: "Dial 10177 for severe or uncontrolled bleeding. Apply a tourniquet 5 centimetres above the wound only if bleeding is life-threatening and uncontrollable." },
+        { n: "01", title: "Protect yourself and call 10177", body: "Put on gloves, or cover your hands with a clean plastic bag, before touching blood. For severe bleeding — spurting, pooling, or soaking through clothing — call 10177 on speaker or get someone else to call." },
+        { n: "02", title: "Find the source", body: "Lay the person down. Open, cut or remove clothing so you can see exactly where the blood is coming from. If an object is stuck in the wound, do not pull it out." },
+        { n: "03", title: "Press hard on the wound", body: "Cover the wound with a clean dressing or cloth and press directly on it with both hands. Lean over it with straight arms and use your body weight. For a deep wound, pack gauze or cloth firmly into it, then keep pressing." },
+        { n: "04", title: "Keep the pressure on", body: "Do not lift the dressing to check. If blood soaks through, put more material on top and press harder. Keep firm, continuous pressure until help arrives." },
+        { n: "05", title: "Tourniquet for life-threatening limb bleeding", body: "If firm pressure does not control severe bleeding from an arm or leg, apply a tourniquet 5 to 7 centimetres above the wound, never over a joint. Tighten it until the bleeding stops, note the time, and do not loosen it. It will hurt — that is expected." },
+        { n: "06", title: "Bandage and watch for shock", body: "Once bleeding is controlled, bandage firmly over the dressing. Keep the person lying down and warm, and give nothing to eat or drink. Watch for shock: pale, cold, clammy skin, fast breathing, confusion or drowsiness." },
+        { n: "07", title: "Hand over to responders", body: "Stay with the person and keep checking their breathing. Tell responders what happened and the time any tourniquet was applied. If they become unresponsive and stop breathing normally, start CPR." },
       ]
     },
     {
@@ -1460,13 +1182,13 @@ function FirstAidPage({ setPage }) {
       when: "Thermal, chemical, or electrical burn to skin.",
       warning: "Do NOT apply ice, butter, toothpaste or any cream. Do NOT burst blisters.",
       steps: [
-        { n: "01", title: "Remove from source", body: "Immediately remove the person from heat, flame, or chemical source. Ensure your own safety first." },
-        { n: "02", title: "Cool the burn", body: "Run cool — not cold or iced — running water over the burn for 20 minutes. Start within 3 hours of the burn occurring." },
-        { n: "03", title: "Remove clothing and jewellery", body: "Carefully remove clothing and jewellery around the burn — unless they are stuck to the skin." },
-        { n: "04", title: "Cover loosely", body: "Cover the burn with a non-fluffy sterile dressing or clean cling film. Do NOT wrap tightly." },
-        { n: "05", title: "Chemical burns", body: "Brush off dry chemicals first, then flush with large amounts of water for at least 20 minutes. Remove contaminated clothing." },
-        { n: "06", title: "Electrical burns", body: "Do NOT touch the person until the power source is off. Electrical burns require immediate hospital care — always call 10177." },
-        { n: "07", title: "Seek medical attention", body: "All burns larger than 3 centimetres, burns on face, hands, feet, or genitals, or burns in children require emergency medical care." },
+        { n: "01", title: "Stop the burning", body: "Make sure you are safe, then move the person away from the heat source and switch it off if you can. If their clothes are on fire: stop, drop and roll, or smother the flames with a heavy blanket." },
+        { n: "02", title: "Cool with running water for 20 minutes", body: "Hold the burn under cool or lukewarm running water for 20 minutes, starting as soon as possible. Cooling still helps up to 3 hours after the burn. Never use ice or iced water, and keep the rest of the person warm." },
+        { n: "03", title: "Remove jewellery and clothing", body: "While cooling, gently remove rings, watches and clothing near the burn before swelling starts. Leave anything that is stuck to the skin." },
+        { n: "04", title: "Cover loosely", body: "Lay strips of clean cling film along the burn rather than wrapping it tightly around a limb, or use a clean non-fluffy dressing. Do not apply creams, butter, toothpaste or ice, and do not burst blisters." },
+        { n: "05", title: "Chemical burns", body: "Protect yourself with gloves. Brush off any dry chemical, remove contaminated clothing, then flush with plenty of running water for at least 20 minutes. Call 10177 and note the name of the chemical." },
+        { n: "06", title: "Electrical burns", body: "Do not touch the person until the power is switched off at the plug or mains. Stay well away from high-voltage lines. Call 10177, check their breathing and start CPR if needed. Electrical burns always need hospital care." },
+        { n: "07", title: "When to get emergency care", body: "Call 10177 or go to hospital if the burn is larger than the person's hand, is on the face, hands, feet, genitals or a joint, looks white, leathery or charred, is chemical or electrical, or involves smoke inhalation, a child, an older adult or a pregnant person." },
       ]
     },
   ], []);
@@ -1568,7 +1290,8 @@ function FirstAidPage({ setPage }) {
     setSimAuto(false);
     setSimPaused(false);
     setSimWaiting(false);
-    setSimRunning(false);
+    // A manually chosen step loops its animation until another step or the guide is started.
+    setSimRunning(true);
     setSimStep(step);
   }
 
@@ -1659,9 +1382,9 @@ function FirstAidPage({ setPage }) {
         {/* ── SIMULATION MODE ── */}
         {mode === "simulate" && (
           <div style={{ animation: "fadeIn .3s ease" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", gap: 18 }}>
               {/* Left: Animation panel */}
-              <div style={{ background: WHITE, borderRadius: 12, border: `1px solid ${BD}`, borderTop: `4px solid ${g.color}`, overflow: "hidden" }}>
+              <div style={{ flex: "2 1 560px", minWidth: 0, background: WHITE, borderRadius: 12, border: `1px solid ${BD}`, borderTop: `4px solid ${g.color}`, overflow: "hidden" }}>
                 <div style={{ padding: "16px 20px", borderBottom: `1px solid ${BD}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
                     <div style={{ fontSize: 9.5, fontWeight: 700, color: g.color, letterSpacing: 1.5, textTransform: "uppercase", fontFamily: "'IBM Plex Sans',sans-serif" }}>Simulation</div>
@@ -1676,12 +1399,13 @@ function FirstAidPage({ setPage }) {
                 <div role="status" aria-live="polite" style={{padding:"9px 16px",background:simWaiting?GOLDL:PAPER,borderBottom:`1px solid ${BD}`,fontSize:11.5,color:simWaiting?"#6B4800":SL,lineHeight:1.5}}>
                   {simAuto ? simWaiting ? "Brief pause — next step starts in 4 seconds. Pause or select a step at any time." : `Step ${simStep + 1} of ${totalSteps} · shown for about ${Math.round(simStepDuration / 1000)} seconds before the pause.` : "Start the guided simulation to move through the visual steps automatically, or select any step manually."}
                 </div>
-                <div style={{ padding: "20px 16px 12px", background: PAPER, minHeight: 220 }}>
-                  <SimComponent step={simStep} running={simRunning} />
-                  <div aria-live="polite" style={{maxWidth:480,margin:"12px auto 0",padding:"12px 14px",background:WHITE,border:`1px solid ${g.color}35`,borderLeft:`3px solid ${g.color}`,borderRadius:7}}>
-                    <div style={{fontSize:12,fontWeight:700,color:g.color,fontFamily:"'IBM Plex Serif',serif",marginBottom:4}}>{g.steps[simStep].title}</div>
-                    <p style={{fontSize:12,color:SL,lineHeight:1.65,fontFamily:"'IBM Plex Sans',sans-serif"}}>{g.steps[simStep].body}</p>
-                  </div>
+                <div style={{ padding: "16px 16px 12px", background: PAPER, minHeight: 220 }}>
+                  <SimComponent step={simStep} running={simRunning} color={g.color} caption={
+                    <div aria-live="polite" style={{margin:"12px 0 0",padding:"12px 14px",background:WHITE,border:`1px solid ${g.color}35`,borderLeft:`3px solid ${g.color}`,borderRadius:7}}>
+                      <div style={{fontSize:12,fontWeight:700,color:g.color,fontFamily:"'IBM Plex Serif',serif",marginBottom:4}}>{g.steps[simStep].title}</div>
+                      <p style={{fontSize:12,color:SL,lineHeight:1.65,fontFamily:"'IBM Plex Sans',sans-serif"}}>{g.steps[simStep].body}</p>
+                    </div>
+                  } />
                 </div>
                 {/* Step nav */}
                 <div style={{ padding: "12px 16px", borderTop: `1px solid ${BD}`, display: "flex", alignItems: "center", gap: 8 }}>
@@ -1696,7 +1420,7 @@ function FirstAidPage({ setPage }) {
               </div>
 
               {/* Right: Steps list with highlight */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ flex: "1 1 280px", minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
                 <div style={{ background: `${g.color}0d`, border: `1px solid ${g.color}22`, borderRadius: 8, padding: "10px 14px", marginBottom: 4 }}>
                   <span style={{ fontSize: 12, color: g.color === GOLD ? "#6B4800" : g.color, fontWeight: 600, fontFamily: "'IBM Plex Sans',sans-serif",display:"inline-flex",alignItems:"center",gap:5 }}><TriangleAlert size={14} aria-hidden="true"/>{g.warning}</span>
                 </div>
@@ -1832,20 +1556,20 @@ const AID_DB = {
   chest_pain: {
     calm: "Stay calm everyone. Keep the patient still and seated. Do not let them walk. Focus and follow each step.",
     steps: [
+      { text: "Call 10177 now and keep the line open. Give your exact location. Do not leave the patient alone.", tools: ["Mobile phone"], alt: ["Ask a bystander to call while you stay"], anim: "call" },
       { text: "Sit the patient upright or in the most comfortable position. Do not let them walk or exert themselves in any way.", tools: ["Chair", "Wall to lean against"], alt: ["Floor with back against wall"], anim: "rest" },
       { text: "Loosen all tight clothing immediately — collar, tie, belt, or bra strap. This reduces pressure and helps breathing.", tools: [], alt: ["Loosen by hand gently"], anim: "loosen" },
-      { text: "If the patient is conscious and NOT allergic to aspirin — give ONE 325mg aspirin tablet. Ask them to chew it slowly.", tools: ["Aspirin 325mg"], alt: ["If none available — skip and proceed to monitoring"], anim: "medicine" },
-      { text: "Monitor breathing and pulse every 30 seconds. Stay close. If breathing stops — begin CPR immediately.", tools: ["Watch or phone timer"], alt: ["Count seconds aloud"], anim: "monitor" },
-      { text: "Call 10177 immediately and keep the line open. Give your exact location. Do not leave the patient alone.", tools: ["Mobile phone"], alt: ["Ask a bystander to call while you stay"], anim: "call" },
+      { text: "If the patient is an adult, conscious, able to swallow and NOT allergic to aspirin — give one 300 mg aspirin tablet to chew slowly.", tools: ["Aspirin 300mg"], alt: ["If none available — skip and proceed to monitoring"], anim: "medicine" },
+      { text: "Stay close and watch their breathing and responsiveness. If they become unresponsive and stop breathing normally — begin CPR immediately.", tools: ["Watch or phone timer"], alt: ["Count seconds aloud"], anim: "monitor" },
     ]
   },
   unconscious: {
     calm: "Everyone move back — give the patient at least one metre of space. Designate one person to assist. We begin now.",
     steps: [
       { text: "Tap shoulders firmly and shout their name. If no response — call 10177 immediately before doing anything else.", tools: ["Mobile phone"], alt: ["Ask bystander to call while you stay"], anim: "tap" },
-      { text: "Tilt head back, lift chin, look for chest rise, listen and feel for breath for 10 seconds. Occasional gasps are not breathing.", tools: [], alt: [], anim: "airway" },
+      { text: "Tilt the head back and lift the chin. Look for chest movement and listen for normal breathing for no more than 10 seconds. Occasional gasps are not normal breathing.", tools: [], alt: [], anim: "airway" },
       { text: "If breathing — place in the recovery position: roll onto their side, top knee forward, head tilted back to keep airway open.", tools: [], alt: ["Use a jacket under head for comfort"], anim: "recovery" },
-      { text: "If NOT breathing — begin CPR: 30 hard chest compressions (5–6 cm deep) then 2 rescue breaths. Continue until help arrives.", tools: ["AED if available"], alt: ["Compression-only CPR if not trained in rescue breaths"], anim: "cpr" },
+      { text: "If NOT breathing normally — begin CPR: 30 hard chest compressions (5–6 cm deep, 100–120 per minute) then 2 rescue breaths. Send someone for an AED. Continue until help arrives.", tools: ["AED if available"], alt: ["Continuous compressions without breaths if not trained in rescue breaths"], anim: "cpr" },
       { text: "Check breathing every 2 minutes. Keep them warm. Do not give food or water. Stay with them until services arrive.", tools: ["Jacket or blanket"], alt: ["Any available clothing or fabric"], anim: "monitor" },
     ]
   },
@@ -1855,24 +1579,24 @@ const AID_DB = {
       { text: "Protect yourself first — put on latex gloves or place a plastic bag over your hands before touching blood.", tools: ["Latex gloves"], alt: ["Plastic bag", "Multiple layers of clean cloth as a barrier"], anim: "gloves" },
       { text: "Apply FIRM continuous pressure directly on the wound with the cleanest material available. Do not lift once applied.", tools: ["Sterile bandage", "Clean cloth"], alt: ["T-shirt", "Sanitary pad — highly absorbent", "Any clean fabric"], anim: "pressure" },
       { text: "If blood soaks through — do NOT lift the dressing. Add more material on top and press harder. Lifting disturbs clot formation.", tools: ["Additional cloth layers"], alt: ["Any clean absorbent material stacked on top"], anim: "layer" },
-      { text: "Raise the bleeding limb above heart level if NO fracture is suspected. Use a bag or backpack to prop it up.", tools: ["Bag", "Backpack", "Rolled clothing"], alt: ["Any raised stable object the limb can rest on"], anim: "elevate" },
-      { text: "If bleeding is life-threatening and uncontrolled on a limb — apply tourniquet 5 cm above wound. Note exact time applied. Last resort only.", tools: ["Commercial tourniquet", "Belt", "Necktie"], alt: ["Torn shirt strip twisted tight with a pen or stick"], anim: "tourniquet" },
+      { text: "Call 10177 for severe bleeding. Keep the person lying down and warm, give nothing to eat or drink, and keep pressing until help arrives.", tools: ["Mobile phone", "Jacket or blanket"], alt: ["Ask a bystander to call while you keep pressing"], anim: "call" },
+      { text: "If firm pressure does not control life-threatening bleeding from an arm or leg — apply a tourniquet 5–7 cm above the wound, never over a joint. Tighten until bleeding stops, note the time, and do not loosen it.", tools: ["Commercial tourniquet"], alt: ["Wide strip of cloth (at least 4 cm) twisted tight with a stick or pen"], anim: "tourniquet" },
     ]
   },
   choking: {
     calm: "Stay calm. If the patient can cough — stand back and let them cough. Only act if coughing stops. Follow now.",
     steps: [
       { text: "Ask: Are you choking? If they can cough effectively — step back and encourage them. Do not interfere with effective coughing.", tools: [], alt: [], anim: "cough" },
-      { text: "If they cannot cough or breathe — lean them forward and deliver 5 firm back blows with the heel of your hand between shoulder blades. Check the mouth after each.", tools: [], alt: [], anim: "backblow" },
-      { text: "If object not expelled — move to abdominal thrusts: stand behind, make a fist above the navel, cover with other hand, give 5 sharp inward-upward thrusts.", tools: [], alt: [], anim: "thrust" },
-      { text: "Alternate: 5 back blows then 5 abdominal thrusts. Check inside the mouth after each set. Remove object ONLY if clearly visible.", tools: [], alt: [], anim: "alternate" },
-      { text: "If the patient loses consciousness — lower them to the floor carefully and begin CPR immediately. Call 10177.", tools: ["Mobile phone"], alt: [], anim: "cpr" },
+      { text: "If they cannot cough, speak or breathe — support their chest, lean them well forward and give up to 5 sharp back blows between the shoulder blades with the heel of your hand. Check after each blow whether it has cleared.", tools: [], alt: [], anim: "backblow" },
+      { text: "If it has not cleared — stand behind them, place your fist (thumb side in) between the navel and the bottom of the breastbone, grasp it with your other hand and pull sharply inwards and upwards, up to 5 times. Use chest thrusts for pregnant or very large people.", tools: [], alt: [], anim: "thrust" },
+      { text: "Keep alternating 5 back blows and 5 abdominal thrusts. Get someone to call 10177 if it has not cleared. Anyone given abdominal thrusts must be checked by a medical professional.", tools: ["Mobile phone"], alt: [], anim: "alternate" },
+      { text: "If the patient becomes unresponsive — lower them to the floor carefully, call 10177 and begin CPR. Remove an object only if you can clearly see it; never sweep blindly.", tools: ["Mobile phone"], alt: [], anim: "cpr" },
     ]
   },
   seizure: {
     calm: "Do not restrain the patient. Clear the space around them. Time the seizure from this moment. Stay close.",
     steps: [
-      { text: "Clear all hard or sharp objects from around the patient immediately. Do NOT restrain them — this causes injury.", tools: [], alt: [], anim: "clear" },
+      { text: "Clear all hard or sharp objects from around the patient immediately. Do NOT restrain them and never put anything in their mouth.", tools: [], alt: [], anim: "clear" },
       { text: "Protect the patient's head — place something soft underneath it. A folded jacket, bag, or clothing works perfectly.", tools: ["Jacket", "Sweater", "Bag"], alt: ["Your hands if nothing else is available"], anim: "head" },
       { text: "Time the seizure now. If it lasts more than 5 minutes — call 10177 immediately.", tools: ["Watch or phone timer"], alt: ["Count the seconds aloud"], anim: "timer" },
       { text: "When convulsions stop — gently roll onto their side into the recovery position to prevent choking on saliva.", tools: [], alt: [], anim: "recovery" },
@@ -1882,21 +1606,21 @@ const AID_DB = {
   allergic: {
     calm: "This may be anaphylaxis. Act immediately and calmly. Every second matters. Follow now.",
     steps: [
-      { text: "Ask immediately: Do you have an EpiPen? If yes — retrieve it and inject into the outer thigh, through clothing if needed. Press and hold 10 seconds.", tools: ["EpiPen / Epinephrine auto-injector"], alt: ["If no EpiPen — call 10177 immediately and proceed to step 3"], anim: "epipen" },
+      { text: "Ask immediately: Do you have an EpiPen? If yes — retrieve it and inject into the outer thigh, through clothing if needed. Hold it in place for the time printed on the device (3 seconds for an EpiPen).", tools: ["EpiPen / Epinephrine auto-injector"], alt: ["If no EpiPen — call 10177 immediately and proceed to step 3"], anim: "epipen" },
       { text: "Call 10177 immediately even after EpiPen use. The patient MUST go to hospital.", tools: ["Mobile phone"], alt: [], anim: "call" },
       { text: "Lay the patient flat and raise their legs — unless they are having difficulty breathing, in which case keep them seated upright.", tools: [], alt: ["Use a bag or backpack to prop legs"], anim: "flat" },
       { text: "Monitor breathing constantly. If breathing stops — begin CPR immediately.", tools: [], alt: [], anim: "monitor" },
-      { text: "If symptoms return after 15 minutes and a second EpiPen is available — administer it. Do NOT substitute antihistamines.", tools: ["Second EpiPen if available"], alt: [], anim: "medicine" },
+      { text: "If there is no improvement after 5 minutes, or symptoms return, and a second auto-injector is available — give it. Do NOT substitute antihistamines.", tools: ["Second EpiPen if available"], alt: [], anim: "medicine" },
     ]
   },
   burns: {
     calm: "The immediate danger is past. We treat the burn correctly now. The order of these steps matters.",
     steps: [
-      { text: "Run COOL — not cold or iced — running water over the burn for a full 20 minutes. Start this immediately.", tools: ["Running tap", "Water bottle"], alt: ["Any clean cool water source"], anim: "water" },
+      { text: "Run cool or lukewarm — never iced — running water over the burn for a full 20 minutes. Start immediately; it still helps up to 3 hours later. Keep the rest of the person warm.", tools: ["Running tap", "Water bottle"], alt: ["Any clean cool water source"], anim: "water" },
       { text: "While cooling — do NOT apply ice, butter, toothpaste, oil, or any cream. Do NOT burst any blisters.", tools: [], alt: [], anim: "noice" },
       { text: "Remove clothing and jewellery from around the burn carefully — ONLY if not stuck to the skin.", tools: ["Scissors"], alt: ["Loosen by hand — stop if stuck"], anim: "remove" },
-      { text: "After 20 minutes — cover the burn loosely with a non-fluffy sterile dressing or cling film. Do NOT wrap tightly.", tools: ["Sterile dressing", "Cling film"], alt: ["Clean plastic bag", "Non-fluffy cloth"], anim: "cover" },
-      { text: "Seek emergency care for any burn larger than 3 cm, burns on face, hands, feet, genitals, or burns in children.", tools: ["Mobile phone — call 10177"], alt: [], anim: "call" },
+      { text: "After 20 minutes — lay strips of cling film along the burn, or use a non-fluffy sterile dressing. Do NOT wrap tightly around a limb.", tools: ["Sterile dressing", "Cling film"], alt: ["Clean plastic bag", "Non-fluffy cloth"], anim: "cover" },
+      { text: "Seek emergency care for any burn larger than the person's hand; on the face, hands, feet, genitals or a joint; deep, white or charred burns; chemical or electrical burns; or burns in children, older adults or pregnant people.", tools: ["Mobile phone — call 10177"], alt: [], anim: "call" },
     ]
   },
   high_fever: {
@@ -1906,16 +1630,16 @@ const AID_DB = {
       { text: "Give cool water to drink slowly if conscious and able to swallow — 250ml every 15 minutes.", tools: ["Water bottle or cup"], alt: ["Ice chips if available"], anim: "hydrate" },
       { text: "Place a cool damp cloth on the forehead, neck, wrists, and armpits. Replace frequently as it warms.", tools: ["Cloth or paper towel", "Cool water"], alt: ["Wet shirt fabric", "Ice pack wrapped in cloth"], anim: "cloth" },
       { text: "Give paracetamol or ibuprofen at the correct dose if available and not allergic.", tools: ["Paracetamol 500mg–1g", "Ibuprofen 400mg"], alt: ["Aspirin for adults only — NOT for children under 16"], anim: "medicine" },
-      { text: "Call 10177 if temperature stays above 39°C after 30 minutes, patient is a child, or there is neck stiffness or a rash.", tools: ["Thermometer", "Phone"], alt: ["Hot forehead with sweating signals over 38°C"], anim: "call" },
+      { text: "Call 10177 immediately for a stiff neck, a rash that does not fade when pressed, confusion, a seizure or difficulty breathing. Also seek care if the temperature stays above 39°C or the patient is a young child.", tools: ["Thermometer", "Phone"], alt: ["Hot forehead with sweating signals over 38°C"], anim: "call" },
     ]
   },
   limb_injury: {
     calm: "Keep the patient still. Do not attempt to straighten the limb. Stabilise exactly as found.",
     steps: [
       { text: "Do NOT attempt to straighten, realign, or move the injured limb. Immobilise it exactly in the position it was found.", tools: [], alt: [], anim: "still" },
-      { text: "Build an improvised splint — pad the limb with soft material, place rigid supports on both sides, and secure loosely.", tools: ["Rolled newspaper", "Cardboard", "Umbrella"], alt: ["Stiff board or stick", "Rolled clothing as padding"], anim: "splint" },
+      { text: "Support the limb in the position found with padding such as rolled clothing. Only build an improvised splint if help will be delayed or the person must be moved.", tools: ["Rolled clothing", "Cardboard", "Rolled newspaper"], alt: ["Stiff board or stick", "Your hands to steady it"], anim: "splint" },
       { text: "Apply a cold pack wrapped in cloth to reduce swelling — 20 minutes on, then 20 minutes off.", tools: ["Ice pack"], alt: ["Frozen food bag wrapped in cloth", "Cold water bottle"], anim: "ice" },
-      { text: "Elevate the limb gently above heart level where possible to reduce swelling.", tools: ["Bag", "Pillow", "Rolled clothing"], alt: [], anim: "elevate" },
+      { text: "If it does not cause pain, keep the supported limb gently raised to reduce swelling. Do not force it into position.", tools: ["Bag", "Pillow", "Rolled clothing"], alt: [], anim: "elevate" },
       { text: "Watch for danger signs: extreme pain on movement, pale or blue skin below the injury, numbness. If present — call 10177 immediately.", tools: ["Mobile phone"], alt: [], anim: "monitor" },
     ]
   },
@@ -1924,7 +1648,7 @@ const AID_DB = {
     steps: [
       { text: "Help the patient into an upright sitting position — leaning slightly forward with hands on knees is best for breathing. Never lay flat.", tools: ["Chair", "Surface to lean on"], alt: ["Sitting on floor leaning against wall"], anim: "upright" },
       { text: "Loosen all tight clothing around the neck and chest — collar, tie, bra strap, belt.", tools: [], alt: ["Loosen by hand gently"], anim: "loosen" },
-      { text: "If they have a prescribed blue reliever inhaler — retrieve it now. 2 puffs, wait 1 minute, then 2 more puffs if no improvement.", tools: ["Blue reliever inhaler"], alt: ["Fan gently with paper if no inhaler"], anim: "inhaler" },
+      { text: "If they have a prescribed blue reliever inhaler — help them use it: 1 puff every 30–60 seconds, up to 10 puffs. If they get worse or are not better after 10 puffs, call 10177.", tools: ["Blue reliever inhaler"], alt: ["Fan gently with paper if no inhaler"], anim: "inhaler" },
       { text: "Guide the patient to breathe slowly — in through the nose for 4 counts, out for 6 counts. Breathe visibly with them to help them regulate.", tools: [], alt: [], anim: "breathe" },
       { text: "If no improvement in 5 minutes or patient turns blue — call 10177 immediately and continue monitoring.", tools: ["Mobile phone"], alt: [], anim: "call" },
     ]
@@ -2055,7 +1779,7 @@ function TriagePage({ setPage }) {
         steps: [
           { text:"Keep the patient calm and still. Do not leave them alone.", tools:[], alt:[], anim:"comfort" },
           { text:"Check responsiveness — tap shoulders and call their name. If no response, call 10177 immediately.", tools:["Phone"], alt:[], anim:"tap" },
-          { text:"Check breathing — look, listen, feel. If not breathing, begin CPR immediately.", tools:[], alt:[], anim:"airway" },
+          { text:"Check breathing — look for chest movement and listen for up to 10 seconds. If not breathing normally, begin CPR immediately.", tools:[], alt:[], anim:"airway" },
           { text:"Control any visible bleeding with firm direct pressure using the cleanest material available.", tools:["Clean cloth"], alt:["T-shirt","jacket"], anim:"pressure" },
           { text:"Keep the patient warm and comfortable. Monitor continuously until emergency services arrive.", tools:["Jacket or blanket"], alt:["Any available fabric"], anim:"monitor" },
         ]
