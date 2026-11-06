@@ -88,7 +88,8 @@ async function apiRequest(user, path, options = {}) {
   if (response.status === 204) return null;
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const requestError = new Error(payload.error || "The request could not be completed.");
+    // A crashed or misconfigured server returns a plain-text error page, not JSON.
+    const requestError = new Error(payload.error || `The CEIS service is unavailable right now (error ${response.status}). Call for help directly.`);
     requestError.status = response.status;
     throw requestError;
   }
