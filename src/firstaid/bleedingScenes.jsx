@@ -1,5 +1,5 @@
 /* Severe bleeding simulation scenes: wound on the casualty's thigh. */
-import { BODY, COLORS, GLOVE, LOOKS, add, clamp01, lerp, mix, phase, profileRig, seq, shade, solveLimb } from "./rig.js";
+import { BODY, COLORS, GLOVE, INK, LOOKS, clamp01, lerp, mix, phase, profileRig, seq, solveLimb } from "./rig.js";
 import { Arrow, Bubble, Callout, Cross, Floor, FrontLower, FrontUpper, GroundShadow, Panel, Phone, Profile, Tag } from "./figures.jsx";
 import { InsetText, LegDiagram } from "./diagrams.jsx";
 
@@ -163,7 +163,7 @@ const step2 = {
       title: "Object stuck in the wound?",
       render: () => (
         <g>
-          <rect x={14} y={92} width={232} height={44} rx={10} fill={LOOKS.casualty.skin} stroke={shade(LOOKS.casualty.skin, -0.3)} />
+          <rect x={14} y={92} width={232} height={44} rx={10} fill={LOOKS.casualty.skin} stroke={INK} />
           <path d="M122 96 L128 40 L136 40 L138 96Z" fill="#9AA3AE" stroke="#5E6670" />
           <rect x={86} y={78} width={30} height={16} rx={6} fill="#F7F7F2" stroke="#C9CBC2" />
           <rect x={144} y={78} width={30} height={16} rx={6} fill="#F7F7F2" stroke="#C9CBC2" />
@@ -209,7 +209,7 @@ const step3 = {
         const fill = clamp01((t % 6) / 4);
         return (
           <g>
-            <path d="M14 60 L110 60 Q118 60 120 70 L126 120 Q130 132 140 120 L146 70 Q148 60 156 60 L246 60 L246 150 L14 150Z" fill={LOOKS.casualty.skin} stroke={shade(LOOKS.casualty.skin, -0.3)} />
+            <path d="M14 60 L110 60 Q118 60 120 70 L126 120 Q130 132 140 120 L146 70 Q148 60 156 60 L246 60 L246 150 L14 150Z" fill={LOOKS.casualty.skin} stroke={INK} />
             <path d={`M122 ${124 - fill * 58} L144 ${124 - fill * 58} L142 124 Q133 130 124 124Z`} fill="#F7F7F2" stroke="#C9CBC2" />
             <path d={`M133 ${66 - fill * 4} Q140 ${40} 160 ${34}`} fill="none" stroke="#F7F7F2" strokeWidth={7} />
             <rect x={110} y={46 - fill * 8} width={46} height={20} rx={6} fill={GLOVE} opacity={0.9} />

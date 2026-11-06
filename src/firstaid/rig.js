@@ -111,15 +111,31 @@ export function solveLimb(root, target, l1, l2, bend = 1, straight = false) {
 
 // ── Figure dimensions and looks ─────────────────────────────────
 export const BODY = { torso: 92, upperArm: 50, forearm: 45, hand: 16, thigh: 68, shin: 64, foot: 23 };
-export const INK = "#1C2333";
+// Flat cartoon style: pastel fills, one bold ink outline, blushed cheeks.
+export const INK = "#23262D";
+export const OUTLINE = 2;
+export const BLUSH = "#EE7F86";
 
 export const LOOKS = {
-  rescuer: { skin: "#8D5A3B", shirt: "#26408B", sleeve: "long", pants: "#2E3440", shoe: "#1B1F27", hair: "#17130F" },
-  casualty: { skin: "#C48A5E", shirt: "#7EA6CB", sleeve: "short", pants: "#3E527A", shoe: "#5B4636", hair: "#2A1D14" },
-  bystander: { skin: "#6E4428", shirt: "#B6542F", sleeve: "short", pants: "#4A4F58", shoe: "#222", hair: "#120E0B" },
-  paramedic: { skin: "#A86F48", shirt: "#2F7D4F", sleeve: "long", pants: "#264B36", shoe: "#1B1F27", hair: "#1A1410" },
+  rescuer: { skin: "#8D5A3B", shirt: "#78AEE0", sleeve: "short", pants: "#5E92CC", shoe: "#2B2F38", hair: "#1E1915" },
+  casualty: { skin: "#D9A47A", shirt: "#6F8F58", sleeve: "short", pants: "#4A4E57", shoe: "#6B4F3A", hair: "#2A1D14" },
+  bystander: { skin: "#6E4428", shirt: "#E8925E", sleeve: "short", pants: "#4F6D8F", shoe: "#2B2F38", hair: "#120E0B" },
+  paramedic: { skin: "#A86F48", shirt: "#3E8E5E", sleeve: "long", pants: "#2E5541", shoe: "#2B2F38", hair: "#1A1410" },
 };
-export const GLOVE = "#4E9BDD";
+export const GLOVE = "#3F7FD8";
+
+/** Scene backdrop, in the soft sky-blue of the illustration style. */
+export const SCENE = { sky: "#A9D1F1", floor: "#8DBDE5", floorEdge: "#79ADDA", shadow: "#4F7FB0", inset: "#EEF6FD", border: "#B9D3EA", water: "#3B8FDB" };
+
+/**
+ * Gives props drawn without an explicit stroke (phones, AEDs, dressings, taps)
+ * the same ink outline as the figures. Shapes with their own stroke, inside a
+ * stroked group, unfilled, or semi-transparent (water, glows) are left alone.
+ */
+export const TOON_CSS = `
+.fa-toon :is(path,rect,circle,ellipse,polygon):not([stroke]):not([fill="none"]):not([opacity]):not([fill-opacity]):not(g[stroke] *):not(g[opacity] *) {
+  stroke: ${INK}; stroke-width: 1.5px; stroke-linejoin: round;
+}`;
 
 // ── Profile (side-view) figure ──────────────────────────────────
 // Canonical torso frame: hip at origin, neck at (0, −L), front is +x.
@@ -157,5 +173,5 @@ export function frontRig(pose) {
   };
 }
 
-export const COLORS = { ink: INK, text: "#2B3448", muted: "#5E6B85", red: "#C62828", green: "#2E7D32", amber: "#B26A00", blue: "#1F5FAF", blood: "#9E1B1B" };
+export const COLORS = { ink: INK, text: "#2B3448", muted: "#44506A", red: "#C62828", green: "#2E7D32", amber: "#B26A00", blue: "#1F5FAF", blood: "#9E1B1B" };
 

@@ -1,41 +1,61 @@
-/* Drawing components for the first-aid simulations (figures, props, labels). */
-import { BODY, COLORS, GLOVE, INK, add, capsule, clamp01, dirOf, frontRig, mul, norm, profileRig, pt, rotate, shade, smoothClosed, smoothOpen, solveLimb, sub, torsoOutline } from "./rig.js";
+/* Drawing components for the first-aid simulations (figures, props, labels).
+   Figures use a flat cartoon style: pastel fills with one bold ink outline
+   around each body part, simple faces and blushed cheeks. */
+import { BLUSH, BODY, COLORS, GLOVE, INK, OUTLINE, SCENE, add, capsule, clamp01, dirOf, frontRig, mul, norm, profileRig, pt, rotate, shade, smoothClosed, solveLimb, sub, torsoOutline } from "./rig.js";
 
 const r1 = n => Math.round(n * 10) / 10;
+const ellipsePath = (cx, cy, rx, ry) => `M${r1(cx - rx)} ${r1(cy)} A${r1(rx)} ${r1(ry)} 0 1 0 ${r1(cx + rx)} ${r1(cy)} A${r1(rx)} ${r1(ry)} 0 1 0 ${r1(cx - rx)} ${r1(cy)}Z`;
+const FAR = -0.12;
 
-function Hand({ wrist, dir, look, grip, far, gloves }) {
-  const skin = gloves ? GLOVE : look.skin;
-  const fill = far ? shade(skin, -0.18) : skin;
-  if (grip === "fist") {
-    const c = add(wrist, mul(dir, 6.5));
-    return <circle cx={c[0]} cy={c[1]} r={7} fill={fill} stroke={shade(skin, -0.35)} strokeWidth={0.8} />;
-  }
-  const tip = add(wrist, mul(dir, grip === "heel" ? 13 : BODY.hand));
-  const thumb = add(wrist, mul(rotate(dir, -35), 9));
+/**
+ * Draws overlapping shapes as one outlined silhouette: every shape is
+ * stroked in ink first, then every fill goes on top, so joints such as
+ * elbows and knees show no seams.
+ */
+function Silhouette({ parts, w = OUTLINE }) {
   return (
     <g>
-      <path d={capsule(add(wrist, mul(dir, 2)), thumb, 2.6, 2.2)} fill={fill} stroke={shade(skin, -0.35)} strokeWidth={0.6} />
-      <path d={capsule(wrist, tip, 6, 4.6)} fill={fill} stroke={shade(skin, -0.35)} strokeWidth={0.8} />
+      {parts.map((p, i) => <path key={`o${i}`} d={p.d} fill={INK} stroke={INK} strokeWidth={w * 2} strokeLinejoin="round" />)}
+      {parts.map((p, i) => <path key={`f${i}`} d={p.d} fill={p.fill} stroke="none" />)}
     </g>
   );
+}
+
+function handParts({ wrist, dir, fill, grip }) {
+  if (grip === "fist") return [{ d: ellipsePath(...add(wrist, mul(dir, 6.5)), 7.2, 7.2), fill }];
+  const tip = add(wrist, mul(dir, grip === "heel" ? 13 : BODY.hand));
+  const thumb = add(wrist, mul(rotate(dir, -35), 9));
+  return [
+    { d: capsule(add(wrist, mul(dir, 2)), thumb, 2.8, 2.4), fill },
+    { d: capsule(wrist, tip, 6.2, 4.8), fill },
+  ];
+}
+
+/** Bare hands merge into the arm; gloved hands are drawn on top with their own cuff line. */
+function Glove({ wrist, dir, grip, far }) {
+  return <Silhouette parts={handParts({ wrist, dir, grip, fill: far ? shade(GLOVE, FAR) : GLOVE })} />;
 }
 
 function ProfileArm({ rig, spec, look, far }) {
   if (!spec) return null;
   const bend = (spec.bend ?? 1) * rig.facing;
   const { mid, end } = solveLimb(rig.shoulder, spec.to, BODY.upperArm, BODY.forearm, bend, spec.straight);
-  const sleeve = far ? shade(look.shirt, -0.2) : look.shirt;
-  const skin = far ? shade(look.skin, -0.18) : look.skin;
-  const forearmColor = look.sleeve === "long" ? sleeve : skin;
+  const shirt = far ? shade(look.shirt, FAR) : look.shirt;
+  const skin = far ? shade(look.skin, FAR) : look.skin;
+  const long = look.sleeve === "long";
   const handDir = spec.hand != null ? dirOf(spec.hand) : norm(sub(end, mid));
+  const hand = spec.gloves ? [] : handParts({ wrist: end, dir: handDir, grip: spec.grip, fill: skin });
+  const arm = [
+    ...hand,
+    { d: capsule(rig.shoulder, mid, 10, 8.2), fill: long ? shirt : skin },
+    { d: capsule(mid, end, 8.2, 6.4), fill: long ? shirt : skin },
+  ];
+  const sleeveEnd = add(rig.shoulder, mul(norm(sub(mid, rig.shoulder)), 26));
   return (
     <g>
-      {look.sleeve === "short" && <path d={capsule(mid, end, 7.8, 6.2)} fill={skin} stroke={shade(look.skin, -0.3)} strokeWidth={0.7} />}
-      {look.sleeve === "short" && <path d={capsule(rig.shoulder, add(rig.shoulder, mul(norm(sub(mid, rig.shoulder)), 30)), 10.5, 9.5)} fill={skin} />}
-      <path d={capsule(rig.shoulder, mid, 10.5, 8.2)} fill={look.sleeve === "short" ? skin : sleeve} stroke={shade(look.sleeve === "short" ? look.skin : look.shirt, -0.3)} strokeWidth={0.7} />
-      {look.sleeve === "short" && <path d={capsule(rig.shoulder, add(rig.shoulder, mul(norm(sub(mid, rig.shoulder)), 24)), 11, 10)} fill={sleeve} />}
-      {look.sleeve !== "short" && <path d={capsule(mid, end, 8.2, 6.4)} fill={forearmColor} stroke={shade(look.shirt, -0.3)} strokeWidth={0.7} />}
-      <Hand wrist={end} dir={handDir} look={look} grip={spec.grip} far={far} gloves={spec.gloves} />
+      <Silhouette parts={arm} />
+      {!long && <path d={capsule(rig.shoulder, sleeveEnd, 11.4, 10.6)} fill={shirt} stroke={INK} strokeWidth={OUTLINE} strokeLinejoin="round" />}
+      {spec.gloves && <Glove wrist={end} dir={handDir} grip={spec.grip} far={far} />}
     </g>
   );
 }
@@ -45,14 +65,13 @@ function ProfileLeg({ rig, spec, look, far }) {
   // Knees bend toward the front by default.
   const bend = (spec.bend ?? -1) * rig.facing;
   const { mid, end } = solveLimb(rig.hipJoint, spec.to, BODY.thigh, BODY.shin, bend);
-  const pants = far ? shade(look.pants, -0.22) : look.pants;
+  const pants = far ? shade(look.pants, FAR) : look.pants;
   const shin = norm(sub(end, mid));
   const footDir = spec.foot != null ? dirOf(spec.foot) : rotate(shin, -90 * rig.facing);
   return (
     <g>
-      <path d={capsule(rig.hipJoint, mid, 15, 10.5)} fill={pants} stroke={shade(look.pants, -0.35)} strokeWidth={0.7} />
-      <path d={capsule(mid, end, 10.5, 7.2)} fill={pants} stroke={shade(look.pants, -0.35)} strokeWidth={0.7} />
-      <path d={capsule(add(end, mul(footDir, -3)), add(end, mul(footDir, BODY.foot)), 7, 5.2)} fill={far ? shade(look.shoe, 0.1) : look.shoe} />
+      <Silhouette parts={[{ d: capsule(rig.hipJoint, mid, 15, 11), fill: pants }, { d: capsule(mid, end, 11, 8), fill: pants }]} />
+      <path d={capsule(add(end, mul(footDir, -4)), add(end, mul(footDir, BODY.foot)), 7.4, 5.6)} fill={far ? shade(look.shoe, FAR) : look.shoe} stroke={INK} strokeWidth={OUTLINE} strokeLinejoin="round" />
     </g>
   );
 }
@@ -60,22 +79,24 @@ function ProfileLeg({ rig, spec, look, far }) {
 /** Side-view head drawn facing +x with the neck base at the origin. */
 export function ProfileHead({ look, face = "open", mouth = 0 }) {
   const facePoints = [[6, -41], [11, -35.5], [12.6, -30.5], [11.7, -27.6], [13.2, -25], [17.2, -19], [14.3, -17], [13.9, -15.2], [14.6, -13.8], [13.2, -12.6], [14, -11.3], [13, -8.4], [9.5, -5.6], [3.5, -5], [-1, -9], [-3, -22]];
-  const ink = shade(look.skin, -0.55);
+  const line = { stroke: INK, strokeLinecap: "round", strokeLinejoin: "round", fill: "none" };
   return (
     <g>
-      <path d={capsule([0, 2], [1.5, -12], 7, 6.4)} fill={look.skin} stroke={shade(look.skin, -0.3)} strokeWidth={0.7} />
-      <ellipse cx={-1} cy={-27} rx={14.6} ry={15.6} fill={look.skin} stroke={shade(look.skin, -0.3)} strokeWidth={0.7} />
-      <path d={smoothClosed(facePoints)} fill={look.skin} />
-      <path d={smoothOpen(facePoints.slice(0, 13))} fill="none" stroke={shade(look.skin, -0.3)} strokeWidth={0.7} />
-      <path d="M9.5 -39.5 C6 -44.5 -6 -45.5 -12.5 -38.5 C-17 -32 -16.8 -21.5 -12.5 -15.5 L-9.6 -17.5 C-11.6 -23.5 -10.6 -30.5 -5.6 -34.2 C-0.6 -37.6 5.6 -37.4 9.6 -35.6 Z" fill={look.hair} />
-      <ellipse cx={-1.6} cy={-25} rx={3.3} ry={4.6} fill={shade(look.skin, -0.12)} stroke={shade(look.skin, -0.32)} strokeWidth={0.6} />
-      <path d={face === "distress" ? "M8.4 -31.6 L12.4 -30.2" : "M8.4 -30.6 L12.4 -30.6"} stroke={look.hair} strokeWidth={1.4} strokeLinecap="round" />
+      <Silhouette parts={[
+        { d: capsule([0, 2], [1.5, -12], 7, 6.6), fill: look.skin },
+        { d: ellipsePath(-1, -27, 14.6, 15.6), fill: look.skin },
+        { d: smoothClosed(facePoints), fill: look.skin },
+      ]} />
+      <path d="M10.5 -38.5 C6 -45.5 -7 -46.5 -13.5 -38.5 C-18.5 -31.5 -18 -21 -13 -14.5 L-9.4 -17.5 C-11.4 -23.5 -10.4 -30.5 -5.4 -33.8 C-1 -36.6 4.4 -36.2 7.6 -33.4 C9.4 -35 10.4 -36.6 10.5 -38.5 Z" fill={look.hair} stroke={INK} strokeWidth={OUTLINE} strokeLinejoin="round" />
+      <ellipse cx={-1.6} cy={-24.6} rx={3} ry={4.2} fill={shade(look.skin, -0.08)} stroke={INK} strokeWidth={1.4} />
+      <ellipse cx={8.4} cy={-19.4} rx={3.8} ry={2.3} fill={BLUSH} opacity={0.6} />
+      <path d={face === "distress" ? "M7.6 -32.6 L12.6 -30.6" : "M7.8 -31.4 Q10.2 -32.6 12.6 -31.2"} {...line} strokeWidth={1.5} />
       {face === "closed"
-        ? <path d="M8.6 -26.8 Q10.2 -25.6 11.9 -26.8" fill="none" stroke={ink} strokeWidth={1} strokeLinecap="round" />
-        : <circle cx={10.4} cy={-27.1} r={1.35} fill={INK} />}
+        ? <path d="M8.2 -27.2 Q10.3 -25.4 12.4 -27.2" {...line} strokeWidth={1.5} />
+        : <ellipse cx={10.6} cy={-26.9} rx={1.5} ry={1.9} fill={INK} />}
       {mouth > 0.05
-        ? <ellipse cx={12.6} cy={-12.9} rx={1.8} ry={0.6 + mouth * 2.4} fill="#4A1F1A" />
-        : <path d="M11.6 -12.6 L14 -12.8" stroke={ink} strokeWidth={0.9} strokeLinecap="round" />}
+        ? <ellipse cx={12.4} cy={-12.9} rx={1.9} ry={0.7 + mouth * 2.4} fill="#7A2E2A" stroke={INK} strokeWidth={1} />
+        : <path d="M10.8 -12.4 Q12.6 -11.6 14 -12.8" {...line} strokeWidth={1.2} />}
     </g>
   );
 }
@@ -92,17 +113,19 @@ export function Profile({ pose, look, layer = "all" }) {
   if (layer === "nearArm") return <ProfileArm rig={rig} spec={pose.armN} look={look} />;
   const outline = torsoOutline(L, pose.press, pose.rise);
   const shirt = torsoOutline(L, pose.press, pose.rise, 0.3);
+  const ink = { stroke: INK, strokeWidth: OUTLINE, strokeLinejoin: "round" };
   return (
     <g>
       <ProfileArm rig={rig} spec={pose.armF} look={look} far />
       <ProfileLeg rig={rig} spec={pose.legF} look={look} far />
       <g transform={`translate(${pt(pose.hip)}) rotate(${r1(rig.a + 90)}) scale(${rig.facing},1)`}>
-        <path d={smoothClosed([...outline, [2, 4]])} fill={look.pants} stroke={shade(look.pants, -0.35)} strokeWidth={0.7} />
-        <path d={smoothClosed([[14.2, -0.24 * L], ...shirt, [-13.2, -0.24 * L]])} fill={look.shirt} stroke={shade(look.shirt, -0.3)} strokeWidth={0.7} />
-        <path d={`M14 ${r1(-0.25 * L)} L-13 ${r1(-0.25 * L)}`} stroke={shade(look.pants, -0.4)} strokeWidth={2} />
+        <path d={smoothClosed([...outline, [2, 4]])} fill={look.pants} {...ink} />
         <g transform={`translate(3 ${-L}) rotate(${r1(-(pose.head ?? 0))})`}>
           <ProfileHead look={look} face={pose.face} mouth={pose.mouth} />
         </g>
+        <path d={smoothClosed([[14.6, -0.24 * L], ...shirt, [-13.6, -0.24 * L]])} fill={look.shirt} {...ink} />
+        {/* V-neck collar where the neck meets the shirt */}
+        <path d={`M8 ${r1(-0.97 * L)} L2 ${r1(-0.88 * L)} L-3 ${r1(-0.97 * L)}`} fill="none" {...ink} strokeWidth={1.4} strokeLinecap="round" />
       </g>
       <ProfileLeg rig={rig} spec={pose.legN} look={look} />
       {layer === "all" && <ProfileArm rig={rig} spec={pose.armN} look={look} />}
@@ -115,13 +138,19 @@ function FrontArm({ shoulder, spec, look, bend }) {
   if (!spec) return null;
   const { mid, end } = solveLimb(shoulder, spec.to, BODY.upperArm, BODY.forearm, bend, spec.straight);
   const dir = spec.hand != null ? dirOf(spec.hand) : norm(sub(end, mid));
-  const skin = spec.gloves ? GLOVE : look.skin;
+  const long = look.sleeve === "long";
   const tip = add(end, mul(dir, spec.grip === "heel" ? 11 : 14));
+  const hand = { d: capsule(end, tip, 6.6, 5.8), fill: spec.gloves ? GLOVE : look.skin };
+  const sleeveEnd = add(shoulder, mul(norm(sub(mid, shoulder)), 24));
   return (
     <g>
-      <path d={capsule(shoulder, mid, 10, 8)} fill={look.shirt} stroke={shade(look.shirt, -0.3)} strokeWidth={0.7} />
-      <path d={capsule(mid, end, 8, 6.3)} fill={look.sleeve === "long" ? look.shirt : look.skin} stroke={shade(look.shirt, -0.3)} strokeWidth={0.7} />
-      <path d={capsule(end, tip, 6.4, 5.6)} fill={skin} stroke={shade(skin, -0.35)} strokeWidth={0.8} />
+      <Silhouette parts={[
+        ...(spec.gloves ? [] : [hand]),
+        { d: capsule(shoulder, mid, 9.6, 8), fill: long ? look.shirt : look.skin },
+        { d: capsule(mid, end, 8, 6.4), fill: long ? look.shirt : look.skin },
+      ]} />
+      {!long && <path d={capsule(shoulder, sleeveEnd, 11, 10.2)} fill={look.shirt} stroke={INK} strokeWidth={OUTLINE} strokeLinejoin="round" />}
+      {spec.gloves && <Silhouette parts={[hand]} />}
     </g>
   );
 }
@@ -130,20 +159,25 @@ function FrontHead({ look, at, headDown = 0, turn = 0, talk = 0, neck = true }) 
   const [x, y] = at;
   const eyeY = y - 1 + headDown * 5;
   const fx = x + turn * 4;
+  const line = { stroke: INK, strokeLinecap: "round", strokeLinejoin: "round", fill: "none" };
   return (
     <g>
-      {neck && <rect x={x - 5.5} y={y + 9} width={11} height={13} fill={shade(look.skin, -0.12)} />}
-      <ellipse cx={x - 13.2} cy={eyeY + 1} rx={2.6} ry={4.4} fill={shade(look.skin, -0.1)} />
-      <ellipse cx={x + 13.2} cy={eyeY + 1} rx={2.6} ry={4.4} fill={shade(look.skin, -0.1)} />
-      <ellipse cx={x} cy={y} rx={13.4} ry={15.8} fill={look.skin} stroke={shade(look.skin, -0.3)} strokeWidth={0.7} />
-      <path d={`M${x - 13.6} ${y - 2 + headDown * 8} C${x - 15} ${y - 20} ${x + 15} ${y - 20} ${x + 13.6} ${y - 2 + headDown * 8} C${x + 9} ${y - 9 + headDown * 7} ${x - 9} ${y - 9 + headDown * 7} ${x - 13.6} ${y - 2 + headDown * 8}Z`} fill={look.hair} />
+      <Silhouette parts={[
+        ...(neck ? [{ d: capsule([x, y + 8], [x, y + 21], 6, 6), fill: look.skin }] : []),
+        { d: ellipsePath(x - 13.2, eyeY + 1, 3, 4.6), fill: look.skin },
+        { d: ellipsePath(x + 13.2, eyeY + 1, 3, 4.6), fill: look.skin },
+        { d: ellipsePath(x, y, 13.6, 15.8), fill: look.skin },
+      ]} />
+      <path d={`M${x - 14} ${y - 1 + headDown * 8} C${x - 16} ${y - 22} ${x + 16} ${y - 22} ${x + 14} ${y - 1 + headDown * 8} C${x + 10} ${y - 10 + headDown * 7} ${x + 2} ${y - 12 + headDown * 7} ${x - 3} ${y - 8 + headDown * 7} C${x - 7} ${y - 10 + headDown * 7} ${x - 11} ${y - 7 + headDown * 7} ${x - 14} ${y - 1 + headDown * 8}Z`} fill={look.hair} stroke={INK} strokeWidth={OUTLINE} strokeLinejoin="round" />
       {headDown < 0.85 && <>
-        <circle cx={fx - 5} cy={eyeY} r={1.4} fill={INK} />
-        <circle cx={fx + 5} cy={eyeY} r={1.4} fill={INK} />
-        <path d={`M${fx} ${eyeY + 2} L${fx - 0.8} ${eyeY + 6.5} L${fx + 1} ${eyeY + 6.8}`} fill="none" stroke={shade(look.skin, -0.4)} strokeWidth={0.8} />
+        <ellipse cx={fx - 8.4} cy={eyeY + 6} rx={3.2} ry={2} fill={BLUSH} opacity={0.6} />
+        <ellipse cx={fx + 8.4} cy={eyeY + 6} rx={3.2} ry={2} fill={BLUSH} opacity={0.6} />
+        <ellipse cx={fx - 5} cy={eyeY} rx={1.4} ry={1.8} fill={INK} />
+        <ellipse cx={fx + 5} cy={eyeY} rx={1.4} ry={1.8} fill={INK} />
+        <path d={`M${fx} ${eyeY + 2.5} Q${fx - 1.4} ${eyeY + 6} ${fx + 0.8} ${eyeY + 6.4}`} {...line} strokeWidth={1} />
         {talk > 0.1
-          ? <ellipse cx={fx} cy={eyeY + 10.5} rx={2.6} ry={1 + talk * 1.8} fill="#4A1F1A" />
-          : <path d={`M${fx - 3} ${eyeY + 10.5} Q${fx} ${eyeY + 12} ${fx + 3} ${eyeY + 10.5}`} fill="none" stroke={shade(look.skin, -0.5)} strokeWidth={0.9} />}
+          ? <ellipse cx={fx} cy={eyeY + 10.5} rx={2.6} ry={1 + talk * 1.8} fill="#7A2E2A" stroke={INK} strokeWidth={1} />
+          : <path d={`M${fx - 3} ${eyeY + 10.2} Q${fx} ${eyeY + 12.2} ${fx + 3} ${eyeY + 10.2}`} {...line} strokeWidth={1.2} />}
       </>}
     </g>
   );
@@ -152,10 +186,10 @@ function FrontHead({ look, at, headDown = 0, turn = 0, talk = 0, neck = true }) 
 /** Kneeling thighs; draw before the casualty so they are hidden behind them. */
 export function FrontLower({ pose, look, ground }) {
   return (
-    <g>
-      <path d={capsule([pose.x - 10, pose.hipY + 4], [pose.x - 13, ground - 8], 13, 10)} fill={shade(look.pants, -0.1)} />
-      <path d={capsule([pose.x + 10, pose.hipY + 4], [pose.x + 13, ground - 8], 13, 10)} fill={shade(look.pants, -0.1)} />
-    </g>
+    <Silhouette parts={[
+      { d: capsule([pose.x - 10, pose.hipY + 4], [pose.x - 13, ground - 8], 13, 10), fill: shade(look.pants, -0.06) },
+      { d: capsule([pose.x + 10, pose.hipY + 4], [pose.x + 13, ground - 8], 13, 10), fill: shade(look.pants, -0.06) },
+    ]} />
   );
 }
 
@@ -165,11 +199,13 @@ export function FrontUpper({ pose, look }) {
   const { x, hipY } = pose;
   const s = rig.shoulderY;
   const torso = `M${x - 17} ${hipY + 6} L${x - 20} ${s + 30} C${x - 25} ${s + 14} ${x - 27} ${s + 2} ${x - 17} ${s - 2} L${x + 17} ${s - 2} C${x + 27} ${s + 2} ${x + 25} ${s + 14} ${x + 20} ${s + 30} L${x + 17} ${hipY + 6}Z`;
+  const neck = (pose.headDrop ?? 0) < 12;
   return (
     <g>
-      <path d={torso} fill={look.shirt} stroke={shade(look.shirt, -0.3)} strokeWidth={0.8} />
-      <path d={`M${x - 6} ${s - 1} Q${x} ${s + 6} ${x + 6} ${s - 1}`} fill={shade(look.shirt, -0.25)} />
-      <FrontHead look={look} at={rig.head} headDown={pose.headDown} turn={pose.turn} talk={pose.talk} neck={(pose.headDrop ?? 0) < 12} />
+      {neck && <FrontHead look={look} at={rig.head} headDown={pose.headDown} turn={pose.turn} talk={pose.talk} />}
+      <path d={torso} fill={look.shirt} stroke={INK} strokeWidth={OUTLINE} strokeLinejoin="round" />
+      {neck && <path d={`M${x - 7} ${s - 1.5} L${x} ${s + 9} L${x + 7} ${s - 1.5}`} fill={look.skin} stroke={INK} strokeWidth={1.4} strokeLinejoin="round" />}
+      {(pose.headDrop ?? 0) >= 12 && <FrontHead look={look} at={rig.head} headDown={pose.headDown} turn={pose.turn} talk={pose.talk} neck={false} />}
       <FrontArm shoulder={rig.left} spec={pose.armL} look={look} bend={1} />
       <FrontArm shoulder={rig.right} spec={pose.armR} look={look} bend={-1} />
     </g>
@@ -180,14 +216,14 @@ export function FrontUpper({ pose, look }) {
 export function Floor({ y, width = 640 }) {
   return (
     <g>
-      <rect x={0} y={y} width={width} height={360 - y} fill="#DCE3EE" />
-      <line x1={0} y1={y} x2={width} y2={y} stroke="#B7C2D6" strokeWidth={1.5} />
+      <rect x={0} y={y} width={width} height={360 - y} fill={SCENE.floor} stroke="none" />
+      <line x1={0} y1={y} x2={width} y2={y} stroke={SCENE.floorEdge} strokeWidth={2} />
     </g>
   );
 }
 
 export function GroundShadow({ x, y, rx, ry = 5 }) {
-  return <ellipse cx={x} cy={y} rx={rx} ry={ry} fill="#9AA7BE" opacity={0.35} />;
+  return <ellipse cx={x} cy={y} rx={rx} ry={ry} fill={SCENE.shadow} opacity={0.28} stroke="none" />;
 }
 
 /** Leader-line label: a dot on the target joined to a text box. */
@@ -217,7 +253,7 @@ export function Arrow({ from, to, color = COLORS.red, width = 2.2, head = 7 }) {
   return (
     <g>
       <line x1={from[0]} y1={from[1]} x2={base[0]} y2={base[1]} stroke={color} strokeWidth={width} strokeLinecap="round" />
-      <path d={`M${pt(to)} L${pt(add(base, mul(n, head * 0.55)))} L${pt(sub(base, mul(n, head * 0.55)))}Z`} fill={color} />
+      <path d={`M${pt(to)} L${pt(add(base, mul(n, head * 0.55)))} L${pt(sub(base, mul(n, head * 0.55)))}Z`} fill={color} stroke="none" />
     </g>
   );
 }
@@ -232,7 +268,7 @@ export function Bubble({ at, text, tail = "left", color = COLORS.ink, size = 11 
     <g>
       <rect x={x} y={y} width={width} height={height} rx={8} fill="#fff" stroke={color} strokeWidth={1.2} />
       <path d={`M${tx - 5} ${y + height - 0.6} L${tx + (tail === "left" ? -8 : 8)} ${y + height + 9} L${tx + 5} ${y + height - 0.6}`} fill="#fff" stroke={color} strokeWidth={1.2} strokeLinejoin="round" />
-      <rect x={tx - 5.5} y={y + height - 2} width={11} height={2.6} fill="#fff" />
+      <rect x={tx - 5.5} y={y + height - 2} width={11} height={2.6} fill="#fff" stroke="none" />
       {lines.map((line, i) => (
         <text key={i} x={x + 8} y={y + 4 + (i + 1) * (size + 3)} fontSize={size} fontWeight={600} fill={color} fontFamily="'IBM Plex Sans',sans-serif">{line}</text>
       ))}

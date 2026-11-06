@@ -1,5 +1,5 @@
 /* Burns simulation scenes: kitchen burn to the forearm, chemical and electrical burns. */
-import { BODY, COLORS, LOOKS, clamp01, lerp, mix, phase, profileRig, shade, solveLimb } from "./rig.js";
+import { BODY, COLORS, INK, LOOKS, SCENE, clamp01, lerp, mix, phase, profileRig, solveLimb } from "./rig.js";
 import { Arrow, Callout, Check, Cross, Floor, GroundShadow, Panel, Phone, Profile, Tag, TimerRing } from "./figures.jsx";
 import { ArmCloseUp, DontItem, InsetText, StopDropRoll, TorsoFront } from "./diagrams.jsx";
 
@@ -33,11 +33,11 @@ function Counter() {
 function Stream({ t, width = 6 }) {
   return (
     <g>
-      <rect x={SPOUT[0] - width / 2} y={SPOUT[1] - 6} width={width} height={BURN[1] - SPOUT[1] - 1} fill="#7CC4FF" opacity={0.75} />
+      <rect x={SPOUT[0] - width / 2} y={SPOUT[1] - 6} width={width} height={BURN[1] - SPOUT[1] - 1} fill={SCENE.water} opacity={0.75} />
       <line x1={SPOUT[0]} y1={SPOUT[1]} x2={SPOUT[0]} y2={BURN[1] - 8} stroke="#fff" strokeWidth={1.4} strokeDasharray="5 7" strokeDashoffset={-t * 60} />
       {[0, 1, 2, 3, 4].map(i => {
         const p = (t * 2 + i / 5) % 1;
-        return <circle key={i} cx={BURN[0] - 10 + i * 5} cy={BURN[1] + 8 + p * 30} r={1.6} fill="#7CC4FF" opacity={1 - p} />;
+        return <circle key={i} cx={BURN[0] - 10 + i * 5} cy={BURN[1] + 8 + p * 30} r={1.6} fill={SCENE.water} opacity={1 - p} />;
       })}
     </g>
   );
@@ -83,7 +83,7 @@ const C = p => [CLOSE.x + p[0] * CLOSE.s, CLOSE.y + p[1] * CLOSE.s];
 function CloseUp({ children, overlay }) {
   return (
     <>
-      <rect x={0} y={0} width={640} height={360} fill="#EEF2F7" />
+      <rect x={0} y={0} width={640} height={360} fill={SCENE.sky} stroke="none" />
       <g transform={`translate(${CLOSE.x} ${CLOSE.y}) scale(${CLOSE.s})`}>{children}</g>
       {overlay}
     </>
@@ -221,8 +221,8 @@ const step3 = {
         <ArmCloseUp burn={0.7} stream={{ x: 95, t }} />
         <rect x={wx} y={76} width={12} height={32} rx={3} fill="#3C4458" opacity={1 - clamp01((watch - 0.85) * 6)} />
         <rect x={rx} y={88.5} width={4} height={6} rx={1} fill="#D4A017" opacity={1 - clamp01((ring - 0.85) * 6)} />
-        <path d={`M${wx + 4} 70 q10 -10 22 -6 l-4 10z`} fill={LOOKS.rescuer.skin} stroke={shade(LOOKS.rescuer.skin, -0.3)} strokeWidth={0.6} />
-        <path d={`M${rx + 1} 112 q8 10 20 6 l-4 -8z`} fill={LOOKS.rescuer.skin} stroke={shade(LOOKS.rescuer.skin, -0.3)} strokeWidth={0.6} opacity={k > 2.8 ? 1 : 0} />
+        <path d={`M${wx + 4} 70 q10 -10 22 -6 l-4 10z`} fill={LOOKS.rescuer.skin} stroke={INK} strokeWidth={0.6} />
+        <path d={`M${rx + 1} 112 q8 10 20 6 l-4 -8z`} fill={LOOKS.rescuer.skin} stroke={INK} strokeWidth={0.6} opacity={k > 2.8 ? 1 : 0} />
       </CloseUp>
     );
   },
@@ -254,7 +254,7 @@ const step4 = {
         <Tag x={16} y={16} text="No creams · don't burst blisters" color={COLORS.red} size={11} />
       </>}>
         <ArmCloseUp burn={0.5} film={film} />
-        {film < 1 && <path d={`M${handX - 6} ${74 + strip * 9} q10 -14 26 -8 l-6 12z`} fill={LOOKS.rescuer.skin} stroke={shade(LOOKS.rescuer.skin, -0.3)} strokeWidth={0.6} />}
+        {film < 1 && <path d={`M${handX - 6} ${74 + strip * 9} q10 -14 26 -8 l-6 12z`} fill={LOOKS.rescuer.skin} stroke={INK} strokeWidth={0.6} />}
       </CloseUp>
     );
   },
@@ -302,7 +302,7 @@ const step5 = {
         <Tag x={430} y={322} text="Call 10177 · note the chemical name" color={COLORS.red} size={11} />
       </>}>
         <ArmCloseUp burn={0.6} powder={1 - brush} stream={flushing ? { x: 95, t } : null} gloveHand={!flushing ? [gx, 70] : null} />
-        {flushing && <rect x={70} y={0} width={50} height={80} fill="#7CC4FF" opacity={0.35} />}
+        {flushing && <rect x={70} y={0} width={50} height={80} fill={SCENE.water} opacity={0.35} />}
       </CloseUp>
     );
   },
@@ -384,20 +384,20 @@ function BodyMap({ t }) {
   return (
     <g transform={`translate(${BODY_ORIGIN[0]} ${BODY_ORIGIN[1]}) scale(${BS})`}>
       {[[[12, 30], [-2, 100], [-7, 168]], [[108, 30], [122, 100], [127, 168]]].map((arm, i) => (
-        <g key={i} fill={skin} stroke={shade(skin, -0.3)}>
+        <g key={i} fill={skin} stroke={INK}>
           <path d={`M${arm[0][0] - 9} ${arm[0][1]} L${arm[1][0] - 8} ${arm[1][1]} L${arm[2][0] - 7} ${arm[2][1]} L${arm[2][0] + 7} ${arm[2][1]} L${arm[1][0] + 8} ${arm[1][1]} L${arm[0][0] + 9} ${arm[0][1]}Z`} />
           <ellipse cx={arm[2][0]} cy={arm[2][1] + 12} rx={9} ry={14} />
         </g>
       ))}
       {[[38, 36], [82, 84]].map(([x, x2]) => (
-        <g key={x} fill={skin} stroke={shade(skin, -0.3)}>
+        <g key={x} fill={skin} stroke={INK}>
           <path d={`M${x - 18} 146 L${x - 12} 245 L${x - 9} 330 L${x + 9} 330 L${x + 12} 245 L${x + 18} 146Z`} />
           <ellipse cx={x2} cy={340} rx={14} ry={7} />
         </g>
       ))}
       <TorsoFront />
       <rect x={50} y={-12} width={20} height={20} fill={skin} />
-      <ellipse cx={60} cy={-36} rx={24} ry={30} fill={skin} stroke={shade(skin, -0.3)} />
+      <ellipse cx={60} cy={-36} rx={24} ry={30} fill={skin} stroke={INK} />
       <path d="M36 -44 C36 -72 84 -72 84 -44 C76 -56 44 -56 36 -44Z" fill={LOOKS.casualty.hair} />
       <circle cx={51} cy={-36} r={2.2} fill="#222" /><circle cx={69} cy={-36} r={2.2} fill="#222" />
       <path d="M53 -20 Q60 -16 67 -20" fill="none" stroke="#5A3520" strokeWidth={1.4} />
@@ -411,7 +411,7 @@ function HandCompare() {
   return (
     <g transform="translate(470 104)">
       <ellipse cx={30} cy={30} rx={62} ry={42} fill="#D9473A" opacity={0.6} />
-      <path d="M8 60 L6 26 Q6 18 12 18 Q18 18 18 26 L18 6 Q18 -2 24 -2 Q30 -2 30 6 L30 2 Q30 -6 36 -6 Q42 -6 42 2 L42 8 Q42 0 48 0 Q54 0 54 8 L54 44 Q54 66 34 70 Q14 70 8 60Z" fill={skin} stroke={shade(skin, -0.35)} opacity={0.9} />
+      <path d="M8 60 L6 26 Q6 18 12 18 Q18 18 18 26 L18 6 Q18 -2 24 -2 Q30 -2 30 6 L30 2 Q30 -6 36 -6 Q42 -6 42 2 L42 8 Q42 0 48 0 Q54 0 54 8 L54 44 Q54 66 34 70 Q14 70 8 60Z" fill={skin} stroke={INK} opacity={0.9} />
       <text x={30} y={98} textAnchor="middle" fontSize={10.5} fontWeight={700} fill={COLORS.red} style={font}>Larger than their hand</text>
       <text x={30} y={111} textAnchor="middle" fontSize={9.5} fill={COLORS.text} style={font}>(palm and fingers) → hospital</text>
     </g>
@@ -423,7 +423,7 @@ const step7 = {
   rest: 0.4,
   main: t => (
     <>
-      <rect x={0} y={0} width={640} height={360} fill="#F4F6FA" />
+      <rect x={0} y={0} width={640} height={360} fill={SCENE.sky} stroke="none" />
       <BodyMap t={t} />
       <Callout at={B([82, -30])} to={[310, 40]} text="Face, neck or airway" color={COLORS.red} />
       <Callout at={B([136, 180])} to={[310, 186]} text="Hands" color={COLORS.red} />

@@ -3,6 +3,7 @@ import { BLEEDING_SCENES } from "./bleedingScenes.jsx";
 import { BURNS_SCENES } from "./burnsScenes.jsx";
 import { CHOKING_SCENES } from "./chokingScenes.jsx";
 import { CPR_SCENES } from "./cprScenes.jsx";
+import { SCENE, TOON_CSS } from "./rig.js";
 
 const SCENES = { cpr: CPR_SCENES, choking: CHOKING_SCENES, bleeding: BLEEDING_SCENES, burns: BURNS_SCENES };
 
@@ -40,7 +41,8 @@ function FirstAidSimulation({ guide, step, running, color, caption }) {
   const t = !running && clock === 0 ? scene.rest : clock;
   return (
     <div>
-      <svg viewBox="0 0 640 360" role="img" aria-label={scene.label} style={{ width: "100%", display: "block", borderRadius: 8, background: "#F4F6FA", border: "1px solid #DCE2EC" }}>
+      <style>{TOON_CSS}</style>
+      <svg className="fa-toon" viewBox="0 0 640 360" role="img" aria-label={scene.label} style={{ width: "100%", display: "block", borderRadius: 8, background: SCENE.sky, border: `1px solid ${SCENE.border}` }}>
         {scene.main(t)}
       </svg>
       {caption}
@@ -48,7 +50,7 @@ function FirstAidSimulation({ guide, step, running, color, caption }) {
         {scene.insets.map(inset => (
           <figure key={inset.title} style={{ margin: 0, background: "#fff", border: "1px solid #DCE2EC", borderRadius: 8, overflow: "hidden" }}>
             <figcaption style={{ padding: "7px 10px", fontSize: 11, fontWeight: 700, color: "#344060", borderBottom: "1px solid #E8EDF5", fontFamily: "'IBM Plex Sans',sans-serif" }}>{inset.title}</figcaption>
-            <svg viewBox="0 0 260 170" role="img" aria-label={inset.title} style={{ width: "100%", display: "block", background: "#F8FAFC" }}>
+            <svg className="fa-toon" viewBox="0 0 260 170" role="img" aria-label={inset.title} style={{ width: "100%", display: "block", background: SCENE.inset }}>
               {inset.render(t)}
             </svg>
           </figure>

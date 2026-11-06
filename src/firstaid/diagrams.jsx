@@ -1,5 +1,5 @@
 /* Close-up diagrams for the first-aid simulation insets. */
-import { COLORS, GLOVE, INK, LOOKS, capsule, clamp01, lerp, shade } from "./rig.js";
+import { COLORS, GLOVE, INK, LOOKS, SCENE, capsule, clamp01, lerp, shade } from "./rig.js";
 import { Profile, ProfileHead } from "./figures.jsx";
 
 const SKIN = LOOKS.casualty.skin;
@@ -27,11 +27,11 @@ export function ChestTopView({ pulse = 0, hands = true }) {
   const sink = pulse * 2.5;
   return (
     <g>
-      <circle cx={34} cy={85} r={21} fill={SKIN} stroke={shade(SKIN, -0.3)} strokeWidth={0.8} />
+      <circle cx={34} cy={85} r={21} fill={SKIN} stroke={INK} strokeWidth={0.8} />
       <path d="M22 70 C14 78 14 92 22 100 C18 92 18 78 22 70Z" fill={LOOKS.casualty.hair} />
       <path d="M13 76 Q8 85 13 94 Q16 85 13 76Z" fill={LOOKS.casualty.hair} />
       <rect x={53} y={76} width={16} height={18} fill={shade(SKIN, -0.08)} />
-      <path d="M68 42 Q66 24 86 24 L222 34 Q240 38 240 60 L240 110 Q240 132 222 136 L86 146 Q66 146 68 128 Z" fill={SKIN} stroke={shade(SKIN, -0.3)} strokeWidth={0.8} />
+      <path d="M68 42 Q66 24 86 24 L222 34 Q240 38 240 60 L240 110 Q240 132 222 136 L86 146 Q66 146 68 128 Z" fill={SKIN} stroke={INK} strokeWidth={0.8} />
       {[0, 1, 2, 3, 4].map(i => (
         <g key={i} stroke={shade(SKIN, -0.16)} strokeWidth={1} fill="none">
           <path d={`M${92 + i * 15} 80 Q${86 + i * 15} 55 ${100 + i * 15} 32`} />
@@ -49,12 +49,12 @@ export function ChestTopView({ pulse = 0, hands = true }) {
         <g transform={`translate(0 ${sink * 0.2})`}>
           <path d="M120 170 L122 98 L146 98 L148 170Z" fill={LOOKS.rescuer.shirt} />
           <circle cx={134} cy={86 + sink * 0.1} r={13 + pulse * 3} fill="none" stroke={COLORS.red} strokeWidth={1.4} opacity={pulse} />
-          <rect x={120} y={54} width={28} height={40} rx={9} fill={shade(LOOKS.rescuer.skin, -0.12)} stroke={shade(LOOKS.rescuer.skin, -0.4)} strokeWidth={0.8} />
-          {[123.5, 130.5, 137.5, 144.5].map(x => <path key={x} d={capsule([x, 58], [x, 34], 3.1, 2.7)} fill={shade(LOOKS.rescuer.skin, -0.12)} stroke={shade(LOOKS.rescuer.skin, -0.4)} strokeWidth={0.7} />)}
-          <path d={capsule([146, 82], [158, 70], 3.4, 3)} fill={shade(LOOKS.rescuer.skin, -0.12)} stroke={shade(LOOKS.rescuer.skin, -0.4)} strokeWidth={0.7} />
-          <rect x={121} y={60} width={27} height={36} rx={9} fill={LOOKS.rescuer.skin} stroke={shade(LOOKS.rescuer.skin, -0.4)} strokeWidth={0.8} />
-          {[127, 134, 141].map(x => <path key={x} d={capsule([x, 62], [x, 49], 3, 2.7)} fill={LOOKS.rescuer.skin} stroke={shade(LOOKS.rescuer.skin, -0.4)} strokeWidth={0.7} />)}
-          <path d={capsule([122, 84], [111, 74], 3.4, 3)} fill={LOOKS.rescuer.skin} stroke={shade(LOOKS.rescuer.skin, -0.4)} strokeWidth={0.7} />
+          <rect x={120} y={54} width={28} height={40} rx={9} fill={shade(LOOKS.rescuer.skin, -0.12)} stroke={INK} strokeWidth={0.8} />
+          {[123.5, 130.5, 137.5, 144.5].map(x => <path key={x} d={capsule([x, 58], [x, 34], 3.1, 2.7)} fill={shade(LOOKS.rescuer.skin, -0.12)} stroke={INK} strokeWidth={0.7} />)}
+          <path d={capsule([146, 82], [158, 70], 3.4, 3)} fill={shade(LOOKS.rescuer.skin, -0.12)} stroke={INK} strokeWidth={0.7} />
+          <rect x={121} y={60} width={27} height={36} rx={9} fill={LOOKS.rescuer.skin} stroke={INK} strokeWidth={0.8} />
+          {[127, 134, 141].map(x => <path key={x} d={capsule([x, 62], [x, 49], 3, 2.7)} fill={LOOKS.rescuer.skin} stroke={INK} strokeWidth={0.7} />)}
+          <path d={capsule([122, 84], [111, 74], 3.4, 3)} fill={LOOKS.rescuer.skin} stroke={INK} strokeWidth={0.7} />
           <ellipse cx={134} cy={90} rx={9} ry={4} fill={COLORS.red} opacity={0.25 + pulse * 0.35} />
         </g>
       )}
@@ -70,7 +70,7 @@ export function AirwayHead({ tilt }) {
   return (
     <g>
       <g transform="translate(70 126) scale(2.35)">
-        <path d={capsule([0, 2], [0, 22], 7, 7.5)} fill={SKIN} stroke={shade(SKIN, -0.3)} strokeWidth={0.4} />
+        <path d={capsule([0, 2], [0, 22], 7, 7.5)} fill={SKIN} stroke={INK} strokeWidth={0.4} />
         <path d="M-1.6 0 L-1.6 22 M2.6 0 L2.6 22" stroke="#E9A2A2" strokeWidth={0.8} />
         <rect x={-1.6} y={0} width={4.2} height={22} fill="#F6D2D2" />
         <g transform={`rotate(${-tilt})`}>
@@ -132,7 +132,7 @@ export const TORSO_MARKS = {
 export function TorsoFront({ x = 0, y = 0, s = 1, skin = SKIN, children }) {
   return (
     <g transform={`translate(${x} ${y}) scale(${s})`}>
-      <path d="M50 0 L70 0 L72 14 Q96 14 108 22 Q116 28 116 46 L114 70 L104 70 L102 48 Q100 80 98 104 Q96 128 102 150 L18 150 Q24 128 22 104 Q20 80 18 48 L16 70 L6 70 L4 46 Q4 28 12 22 Q24 14 48 14 Z" fill={skin} stroke={shade(skin, -0.3)} strokeWidth={0.9} />
+      <path d="M50 0 L70 0 L72 14 Q96 14 108 22 Q116 28 116 46 L114 70 L104 70 L102 48 Q100 80 98 104 Q96 128 102 150 L18 150 Q24 128 22 104 Q20 80 18 48 L16 70 L6 70 L4 46 Q4 28 12 22 Q24 14 48 14 Z" fill={skin} stroke={INK} strokeWidth={0.9} />
       <path d="M60 24 Q42 20 22 22 M60 24 Q78 20 98 22" fill="none" stroke={shade(skin, -0.22)} strokeWidth={1.6} />
       <rect x={56.5} y={24} width={7} height={50} rx={3.5} fill={BONE} opacity={0.75} />
       <circle cx={40} cy={54} r={2.2} fill={shade(skin, -0.35)} />
@@ -150,8 +150,8 @@ export function TorsoBack({ x = 0, y = 0, s = 1, skin = SKIN, shirt = LOOKS.casu
     <g transform={`translate(${x} ${y}) scale(${s})`}>
       <ellipse cx={60} cy={-14} rx={15} ry={17} fill={LOOKS.casualty.hair} />
       <rect x={52} y={-2} width={16} height={16} fill={skin} />
-      <path d="M48 14 Q24 14 12 22 Q4 28 4 46 L6 70 L16 70 L18 48 Q20 80 22 104 Q24 128 18 150 L102 150 Q96 128 98 104 Q100 80 102 48 L104 70 L114 70 L116 46 Q116 28 108 22 Q96 14 72 14 Z" fill={shirt} stroke={shade(shirt, -0.3)} strokeWidth={0.9} />
-      <path d="M30 26 L52 30 L44 68 Z M90 26 L68 30 L76 68 Z" fill={shade(shirt, -0.1)} stroke={shade(shirt, -0.28)} strokeWidth={0.9} />
+      <path d="M48 14 Q24 14 12 22 Q4 28 4 46 L6 70 L16 70 L18 48 Q20 80 22 104 Q24 128 18 150 L102 150 Q96 128 98 104 Q100 80 102 48 L104 70 L114 70 L116 46 Q116 28 108 22 Q96 14 72 14 Z" fill={shirt} stroke={INK} strokeWidth={0.9} />
+      <path d="M30 26 L52 30 L44 68 Z M90 26 L68 30 L76 68 Z" fill={shade(shirt, -0.1)} stroke={INK} strokeWidth={0.9} />
       <line x1={60} y1={16} x2={60} y2={140} stroke={shade(shirt, -0.25)} strokeWidth={1.2} strokeDasharray="4 3" />
       {children}
     </g>
@@ -162,7 +162,7 @@ export function TorsoBack({ x = 0, y = 0, s = 1, skin = SKIN, shirt = LOOKS.casu
 export function LegDiagram({ tight = 0 }) {
   return (
     <g>
-      <path d="M14 70 Q14 52 30 52 L146 60 Q160 56 172 62 L238 72 L238 92 L172 98 Q160 104 146 100 L30 108 Q14 108 14 90Z" fill={LOOKS.casualty.skin} stroke={shade(LOOKS.casualty.skin, -0.3)} strokeWidth={0.9} />
+      <path d="M14 70 Q14 52 30 52 L146 60 Q160 56 172 62 L238 72 L238 92 L172 98 Q160 104 146 100 L30 108 Q14 108 14 90Z" fill={LOOKS.casualty.skin} stroke={INK} strokeWidth={0.9} />
       <circle cx={160} cy={80} r={13} fill="none" stroke={COLORS.red} strokeWidth={1.2} strokeDasharray="3 2" />
       <text x={160} y={124} textAnchor="middle" fontSize={8.5} fill={COLORS.red} style={label}>knee: never here</text>
       <path d="M104 72 Q110 78 116 74 Q112 82 106 80Z" fill={COLORS.blood} />
@@ -200,9 +200,9 @@ export function ArmCloseUp({ burn = 1, stream = null, film = 0, wrap = false, ri
   const skin = LOOKS.casualty.skin;
   return (
     <g>
-      <path d="M0 76 L150 82 Q164 78 176 80 L214 84 Q228 84 232 92 Q230 100 214 102 L176 104 Q164 106 150 104 L0 112Z" fill={skin} stroke={shade(skin, -0.3)} strokeWidth={0.9} />
-      {[0, 1, 2, 3].map(i => <path key={i} d={capsule([214, 86 + i * 4.4], [246 - Math.abs(i - 1.5) * 4, 86 + i * 4.4], 2.3, 2)} fill={skin} stroke={shade(skin, -0.3)} strokeWidth={0.6} />)}
-      <path d={capsule([180, 80], [196, 72], 3, 2.6)} fill={skin} stroke={shade(skin, -0.3)} strokeWidth={0.6} />
+      <path d="M0 76 L150 82 Q164 78 176 80 L214 84 Q228 84 232 92 Q230 100 214 102 L176 104 Q164 106 150 104 L0 112Z" fill={skin} stroke={INK} strokeWidth={0.9} />
+      {[0, 1, 2, 3].map(i => <path key={i} d={capsule([214, 86 + i * 4.4], [246 - Math.abs(i - 1.5) * 4, 86 + i * 4.4], 2.3, 2)} fill={skin} stroke={INK} strokeWidth={0.6} />)}
+      <path d={capsule([180, 80], [196, 72], 3, 2.6)} fill={skin} stroke={INK} strokeWidth={0.6} />
       <ellipse cx={95} cy={94} rx={40} ry={11} fill="#D9473A" opacity={0.55 * burn + 0.08} />
       <ellipse cx={95} cy={94} rx={24} ry={6} fill="#B7221A" opacity={0.45 * burn} />
       {powder > 0 && Array.from({ length: 22 }, (_, i) => (
@@ -212,16 +212,16 @@ export function ArmCloseUp({ burn = 1, stream = null, film = 0, wrap = false, ri
       {ring > 0 && <rect x={lerp(226, 252, 1 - ring)} y={88.5} width={4} height={6} rx={1} fill="#D4A017" opacity={ring} />}
       {stream && (
         <g>
-          <rect x={stream.x - 5} y={0} width={10} height={80} fill="#7CC4FF" opacity={0.55} />
+          <rect x={stream.x - 5} y={0} width={10} height={80} fill={SCENE.water} opacity={0.55} />
           <path d={`M${stream.x} 0 L${stream.x} 80`} stroke="#fff" strokeWidth={2} strokeDasharray="6 8" strokeDashoffset={-stream.t * 60} opacity={0.8} />
-          {[0, 1, 2, 3].map(i => <circle key={i} cx={stream.x - 16 + i * 10} cy={74 - ((stream.t * 3 + i * 0.3) % 1) * 10} r={1.6} fill="#7CC4FF" />)}
+          {[0, 1, 2, 3].map(i => <circle key={i} cx={stream.x - 16 + i * 10} cy={74 - ((stream.t * 3 + i * 0.3) % 1) * 10} r={1.6} fill={SCENE.water} />)}
         </g>
       )}
       {film > 0 && [0, 1, 2].slice(0, Math.ceil(film * 3)).map(i => (
         <rect key={i} x={52} y={80 + i * 9} width={88 * clamp01(film * 3 - i)} height={11} fill="#DDEFFF" opacity={0.55} stroke="#9CC9F0" strokeWidth={0.8} />
       ))}
       {wrap && [0, 1, 2, 3, 4].map(i => <path key={i} d={`M${56 + i * 18} 72 L${70 + i * 18} 116`} stroke="#9CC9F0" strokeWidth={9} opacity={0.55} />)}
-      {gloveHand && <path d={capsule(gloveHand, [gloveHand[0] + 26, gloveHand[1] - 8], 7, 6)} fill={GLOVE} stroke={shade(GLOVE, -0.3)} strokeWidth={0.8} />}
+      {gloveHand && <path d={capsule(gloveHand, [gloveHand[0] + 26, gloveHand[1] - 8], 7, 6)} fill={GLOVE} stroke={INK} strokeWidth={0.8} />}
     </g>
   );
 }
