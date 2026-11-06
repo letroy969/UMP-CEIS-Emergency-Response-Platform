@@ -252,8 +252,9 @@ const NO_CAMERA = { fwd: p => p, transform: null, inverse: null };
 export const useCamera = () => useContext(CameraContext) ?? NO_CAMERA;
 
 /** World point (x, y) is drawn at screen point (sx, sy), magnified z times. */
-export function makeCamera({ x, y, z, sx, sy }) {
+export function makeCamera({ x = 0, y = 0, z = 1, sx = 0, sy = 0, hideUi = false }) {
   return {
+    hideUi,
     fwd: p => [sx + (p[0] - x) * z, sy + (p[1] - y) * z],
     transform: `translate(${r1(sx)} ${r1(sy)}) scale(${z}) translate(${r1(-x)} ${r1(-y)})`,
     inverse: `translate(${r1(x)} ${r1(y)}) scale(${1 / z}) translate(${r1(-sx)} ${r1(-sy)})`,
@@ -263,6 +264,7 @@ export function makeCamera({ x, y, z, sx, sy }) {
 /** Draws children in screen coordinates, unaffected by the camera. */
 export function Screen({ children }) {
   const cam = useCamera();
+  if (cam.hideUi) return null;
   return <g data-fa="ui" transform={cam.inverse ?? undefined}>{children}</g>;
 }
 

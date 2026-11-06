@@ -14,7 +14,7 @@ function prefersReducedMotion() {
 }
 
 /** Seconds since the step started; frozen while not running or with reduced motion. */
-function useSceneClock(running, resetKey) {
+export function useSceneClock(running, resetKey) {
   const [t, setT] = useState(0);
   const elapsed = useRef(0);
   useEffect(() => {

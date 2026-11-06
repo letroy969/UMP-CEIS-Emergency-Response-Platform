@@ -159,7 +159,7 @@ export function profileRig(pose) {
   const front = mul([-d[1], d[0]], facing);
   const local = ([x, y]) => add(add(pose.hip, mul(front, x)), mul(d, -y));
   const head = pose.head ?? 0;
-  const headLocal = ([x, y]) => { const r = rotate([x, y], -head); return local([r[0] + 3, r[1] - L]); };
+  const headLocal = ([x, y]) => { const r = rotate(mul([x, y], HEAD_SCALE), -head); return local([r[0] + 3, r[1] - L]); };
   return { L, a, d, facing, front, local, headLocal, shoulder: local([-2, -0.86 * L]), hipJoint: local([0, -4]) };
 }
 
