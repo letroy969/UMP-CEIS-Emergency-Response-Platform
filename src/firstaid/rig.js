@@ -115,9 +115,11 @@ export const BODY = { torso: 92, upperArm: 50, forearm: 45, hand: 16, thigh: 68,
 export const INK = "#23262D";
 export const OUTLINE = 2;
 export const BLUSH = "#EE7F86";
+/** Cartoon proportions: heads drawn a little larger than life. */
+export const HEAD_SCALE = 1.15;
 
 export const LOOKS = {
-  rescuer: { skin: "#8D5A3B", shirt: "#78AEE0", sleeve: "short", pants: "#5E92CC", shoe: "#2B2F38", hair: "#1E1915" },
+  rescuer: { skin: "#8D5A3B", shirt: "#78AEE0", sleeve: "short", pants: "#5E92CC", shoe: "#2B2F38", hair: "#1E1915", hairStyle: "bun", stethoscope: true },
   casualty: { skin: "#D9A47A", shirt: "#6F8F58", sleeve: "short", pants: "#4A4E57", shoe: "#6B4F3A", hair: "#2A1D14" },
   bystander: { skin: "#6E4428", shirt: "#E8925E", sleeve: "short", pants: "#4F6D8F", shoe: "#2B2F38", hair: "#120E0B" },
   paramedic: { skin: "#A86F48", shirt: "#3E8E5E", sleeve: "long", pants: "#2E5541", shoe: "#2B2F38", hair: "#1A1410" },

@@ -1,6 +1,6 @@
 /* Burns simulation scenes: kitchen burn to the forearm, chemical and electrical burns. */
 import { BODY, COLORS, INK, LOOKS, SCENE, clamp01, lerp, mix, phase, profileRig, solveLimb } from "./rig.js";
-import { Arrow, Callout, Check, Cross, Floor, GroundShadow, Panel, Phone, Profile, Tag, TimerRing } from "./figures.jsx";
+import { Arrow, Callout, Screen, Check, Cross, Floor, GroundShadow, Panel, Phone, Profile, Tag, TimerRing } from "./figures.jsx";
 import { ArmCloseUp, DontItem, InsetText, StopDropRoll, TorsoFront } from "./diagrams.jsx";
 
 const G = 318;
@@ -177,8 +177,10 @@ const step2 = {
     return (
       <SinkScene t={t} blanket={blanket} burnK={1 - minutes / 30}>
         <TimerRing x={52} y={58} r={32} progress={minutes / 20} label={`${String(Math.floor(minutes)).padStart(2, "0")}:00`} color={COLORS.blue} />
-        <text x={94} y={50} fontSize={11} fontWeight={700} fill={COLORS.ink} style={font}>Cool for 20 minutes</text>
-        <text x={94} y={65} fontSize={9.5} fill={COLORS.muted} style={font}>shown speeded up</text>
+        <Screen>
+          <text x={94} y={50} fontSize={11} fontWeight={700} fill={COLORS.ink} style={font}>Cool for 20 minutes</text>
+          <text x={94} y={65} fontSize={9.5} fill={COLORS.muted} style={font}>shown speeded up</text>
+        </Screen>
         <Callout at={[SPOUT[0], SPOUT[1] + 12]} to={[600, 60]} anchor="end" text={["Cool or lukewarm", "running water"]} />
         {blanket > 0.5 && <Callout at={SINK_RIG.local([-18, -0.7 * 92])} to={[250, 130]} anchor="end" text={["Keep the rest of", "them warm"]} />}
         <Tag x={16} y={100} text="No ice or iced water" color={COLORS.red} size={11} />

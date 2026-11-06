@@ -3,6 +3,8 @@ import { BLEEDING_SCENES } from "./bleedingScenes.jsx";
 import { BURNS_SCENES } from "./burnsScenes.jsx";
 import { CHOKING_SCENES } from "./chokingScenes.jsx";
 import { CPR_SCENES } from "./cprScenes.jsx";
+import { CAMERAS } from "./cameras.js";
+import { CameraContext, makeCamera } from "./figures.jsx";
 import { SCENE, TOON_CSS } from "./rig.js";
 
 const SCENES = { cpr: CPR_SCENES, choking: CHOKING_SCENES, bleeding: BLEEDING_SCENES, burns: BURNS_SCENES };
@@ -39,11 +41,14 @@ function FirstAidSimulation({ guide, step, running, color, caption }) {
   const scene = SCENES[guide][step];
   const clock = useSceneClock(running, `${guide}-${step}`);
   const t = !running && clock === 0 ? scene.rest : clock;
+  const camera = CAMERAS[guide][step] ? makeCamera(CAMERAS[guide][step]) : null;
   return (
     <div>
       <style>{TOON_CSS}</style>
       <svg className="fa-toon" viewBox="0 0 640 360" role="img" aria-label={scene.label} style={{ width: "100%", display: "block", borderRadius: 8, background: SCENE.sky, border: `1px solid ${SCENE.border}` }}>
-        {scene.main(t)}
+        <CameraContext.Provider value={camera}>
+          {camera ? <g transform={camera.transform}>{scene.main(t)}</g> : scene.main(t)}
+        </CameraContext.Provider>
       </svg>
       {caption}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 10, marginTop: 12 }}>

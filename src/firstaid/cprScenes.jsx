@@ -1,6 +1,6 @@
 /* CPR simulation scenes. Each scene draws a 640×360 main view plus close-up insets. */
 import { COLORS, LOOKS, add, dirOf, mix, mul, phase, profileRig, seq } from "./rig.js";
-import { Arrow, Bubble, Callout, Check, Floor, FrontLower, FrontUpper, GroundShadow, Panel, Phone, Profile, Tag, TimerRing } from "./figures.jsx";
+import { Arrow, Bubble, Screen, Callout, Check, Floor, FrontLower, FrontUpper, GroundShadow, Panel, Phone, Profile, Tag, TimerRing } from "./figures.jsx";
 import { AedSign, AirwayHead, BreathTrace, ChestTopView, InsetText, Pointer, TORSO_MARKS, TorsoFront } from "./diagrams.jsx";
 
 const G = 300;
@@ -55,7 +55,7 @@ function CompressionHud({ t }) {
   const cm = depth * 5.5;
   const recoil = c > 0.78 || c < 0.06;
   return (
-    <g style={font}>
+    <Screen><g style={font}>
       <rect x={14} y={14} width={200} height={150} rx={8} fill="#fff" stroke="#C8D0E0" />
       <text x={26} y={34} fontSize={9.5} fontWeight={700} fill={COLORS.muted} letterSpacing={1}>COMPRESSIONS</text>
       <text x={26} y={74} fontSize={38} fontWeight={700} fill={COLORS.red} fontFamily="'IBM Plex Mono',monospace">{String(count).padStart(2, "0")}</text>
@@ -69,7 +69,7 @@ function CompressionHud({ t }) {
       {[0, 2, 4, 6].map(v => <text key={v} x={190} y={32 + v * 15.5} fontSize={8} fill={COLORS.muted}>{v} cm</text>)}
       <path d={`M162 ${28 + cm * 15.5} l-8 -5 v10z`} fill={COLORS.red} />
       <rect x={168} y={28} width={16} height={cm * 15.5} rx={3} fill={COLORS.red} opacity={0.55} />
-    </g>
+    </g></Screen>
   );
 }
 
@@ -203,7 +203,7 @@ const step2 = {
         <Panel x={16} y={16} w={236} title="Position" lines={["On their back, on a firm flat surface.", "Kneel beside their head and chest."]} />
         <Callout at={[hands.forehead[0] - 2, hands.forehead[1] + 1]} to={[236, 168]} anchor="end" text={["Hand on the forehead —", "tilt the head back gently"]} />
         <Callout at={hands.chin} to={[430, 200]} text={["Two fingertips under", "the bony part of the chin —", "lift the chin"]} />
-        {tilt > 20 && <Tag x={252} y={96} text="Airway open" color={COLORS.green} />}
+        {tilt > 20 && <Tag x={16} y={92} text="Airway open" color={COLORS.green} size={11} />}
         {reach > 0.5 && tilt < 20 && <Arrow from={[280, 252]} to={[268, 272]} color={COLORS.amber} />}
       </Scene>
     );
@@ -245,8 +245,10 @@ const step3 = {
     return (
       <Scene rescuer={rescuer} cas={cas}>
         <TimerRing x={52} y={58} r={30} progress={Math.min(k, 10) / 10} label={`${Math.min(10, Math.floor(k))} s`} />
-        <text x={92} y={50} fontSize={11} fontWeight={700} fill={COLORS.ink} style={font}>Look and listen</text>
-        <text x={92} y={65} fontSize={10} fill={COLORS.muted} style={font}>no more than 10 seconds</text>
+        <Screen>
+          <text x={92} y={50} fontSize={11} fontWeight={700} fill={COLORS.ink} style={font}>Look and listen</text>
+          <text x={92} y={65} fontSize={10} fill={COLORS.muted} style={font}>no more than 10 seconds</text>
+        </Screen>
         <line x1={eye[0]} y1={eye[1]} x2={STERNUM[0]} y2={STERNUM[1] - 2} stroke={COLORS.blue} strokeWidth={1.2} strokeDasharray="4 3" />
         <Callout at={[STERNUM[0], STERNUM[1] - 1]} to={[430, 196]} text={["Look: is the chest", "rising and falling?"]} />
         <Callout at={[mouth[0] - 6, mouth[1] - 10]} to={[236, 150]} anchor="end" text={["Listen and feel at", "the mouth for breath"]} />

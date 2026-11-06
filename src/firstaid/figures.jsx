@@ -1,11 +1,32 @@
 /* Drawing components for the first-aid simulations (figures, props, labels).
    Figures use a flat cartoon style: pastel fills with one bold ink outline
    around each body part, simple faces and blushed cheeks. */
-import { BLUSH, BODY, COLORS, GLOVE, INK, OUTLINE, SCENE, add, capsule, clamp01, dirOf, frontRig, mul, norm, profileRig, pt, rotate, shade, smoothClosed, solveLimb, sub, torsoOutline } from "./rig.js";
+import { createContext, useContext } from "react";
+import { BLUSH, BODY, HEAD_SCALE, COLORS, GLOVE, INK, OUTLINE, SCENE, add, capsule, clamp01, dirOf, frontRig, mul, norm, profileRig, pt, rotate, shade, smoothClosed, solveLimb, sub, torsoOutline } from "./rig.js";
 
 const r1 = n => Math.round(n * 10) / 10;
 const ellipsePath = (cx, cy, rx, ry) => `M${r1(cx - rx)} ${r1(cy)} A${r1(rx)} ${r1(ry)} 0 1 0 ${r1(cx + rx)} ${r1(cy)} A${r1(rx)} ${r1(ry)} 0 1 0 ${r1(cx - rx)} ${r1(cy)}Z`;
 const FAR = -0.12;
+const TUBE = "#3A3F4B";
+
+/** A stethoscope tube: an ink outline with the dark tube colour inside. */
+function Tube({ d }) {
+  return (
+    <g fill="none" strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} stroke={INK} strokeWidth={4.4} />
+      <path d={d} stroke={TUBE} strokeWidth={2.2} />
+    </g>
+  );
+}
+
+function ChestPiece({ x, y, r = 3.8 }) {
+  return (
+    <g>
+      <circle cx={x} cy={y} r={r} fill="#C9D3DE" stroke={INK} strokeWidth={1.6} />
+      <circle cx={x} cy={y} r={r * 0.45} fill="#8E9BAA" stroke="none" />
+    </g>
+  );
+}
 
 /**
  * Draws overlapping shapes as one outlined silhouette: every shape is
@@ -82,6 +103,7 @@ export function ProfileHead({ look, face = "open", mouth = 0 }) {
   const line = { stroke: INK, strokeLinecap: "round", strokeLinejoin: "round", fill: "none" };
   return (
     <g>
+      {look.hairStyle === "bun" && <circle cx={-15.5} cy={-33} r={6.8} fill={look.hair} stroke={INK} strokeWidth={OUTLINE} />}
       <Silhouette parts={[
         { d: capsule([0, 2], [1.5, -12], 7, 6.6), fill: look.skin },
         { d: ellipsePath(-1, -27, 14.6, 15.6), fill: look.skin },
@@ -120,12 +142,16 @@ export function Profile({ pose, look, layer = "all" }) {
       <ProfileLeg rig={rig} spec={pose.legF} look={look} far />
       <g transform={`translate(${pt(pose.hip)}) rotate(${r1(rig.a + 90)}) scale(${rig.facing},1)`}>
         <path d={smoothClosed([...outline, [2, 4]])} fill={look.pants} {...ink} />
-        <g transform={`translate(3 ${-L}) rotate(${r1(-(pose.head ?? 0))})`}>
+        <g transform={`translate(3 ${-L}) rotate(${r1(-(pose.head ?? 0))}) scale(${HEAD_SCALE})`}>
           <ProfileHead look={look} face={pose.face} mouth={pose.mouth} />
         </g>
         <path d={smoothClosed([[14.6, -0.24 * L], ...shirt, [-13.6, -0.24 * L]])} fill={look.shirt} {...ink} />
         {/* V-neck collar where the neck meets the shirt */}
         <path d={`M8 ${r1(-0.97 * L)} L2 ${r1(-0.88 * L)} L-3 ${r1(-0.97 * L)}`} fill="none" {...ink} strokeWidth={1.4} strokeLinecap="round" />
+        {look.stethoscope && <>
+          <Tube d={`M-5 ${r1(-0.99 * L)} C-9 ${r1(-0.82 * L)} -1 ${r1(-0.69 * L)} 9 ${r1(-0.66 * L)} M10 ${r1(-0.98 * L)} C13 ${r1(-0.86 * L)} 12 ${r1(-0.73 * L)} 9 ${r1(-0.66 * L)} L10 ${r1(-0.58 * L)}`} />
+          <ChestPiece x={10.4} y={r1(-0.55 * L)} />
+        </>}
       </g>
       <ProfileLeg rig={rig} spec={pose.legN} look={look} />
       {layer === "all" && <ProfileArm rig={rig} spec={pose.armN} look={look} />}
@@ -161,7 +187,8 @@ function FrontHead({ look, at, headDown = 0, turn = 0, talk = 0, neck = true }) 
   const fx = x + turn * 4;
   const line = { stroke: INK, strokeLinecap: "round", strokeLinejoin: "round", fill: "none" };
   return (
-    <g>
+    <g transform={`translate(${r1(x)} ${r1(y + 15)}) scale(${HEAD_SCALE}) translate(${r1(-x)} ${r1(-(y + 15))})`}>
+      {look.hairStyle === "bun" && headDown < 0.5 && <circle cx={x} cy={y - 17} r={6.4} fill={look.hair} stroke={INK} strokeWidth={OUTLINE} />}
       <Silhouette parts={[
         ...(neck ? [{ d: capsule([x, y + 8], [x, y + 21], 6, 6), fill: look.skin }] : []),
         { d: ellipsePath(x - 13.2, eyeY + 1, 3, 4.6), fill: look.skin },
@@ -205,6 +232,10 @@ export function FrontUpper({ pose, look }) {
       {neck && <FrontHead look={look} at={rig.head} headDown={pose.headDown} turn={pose.turn} talk={pose.talk} />}
       <path d={torso} fill={look.shirt} stroke={INK} strokeWidth={OUTLINE} strokeLinejoin="round" />
       {neck && <path d={`M${x - 7} ${s - 1.5} L${x} ${s + 9} L${x + 7} ${s - 1.5}`} fill={look.skin} stroke={INK} strokeWidth={1.4} strokeLinejoin="round" />}
+      {look.stethoscope && neck && <>
+        <Tube d={`M${x - 8} ${s - 1} C${x - 13} ${s + 14} ${x - 7} ${s + 27} ${x + 2} ${s + 29} M${x + 8} ${s - 1} C${x + 12} ${s + 12} ${x + 9} ${s + 25} ${x + 2} ${s + 29} L${x + 2} ${s + 35}`} />
+        <ChestPiece x={x + 2} y={s + 39} />
+      </>}
       {(pose.headDrop ?? 0) >= 12 && <FrontHead look={look} at={rig.head} headDown={pose.headDown} turn={pose.turn} talk={pose.talk} neck={false} />}
       <FrontArm shoulder={rig.left} spec={pose.armL} look={look} bend={1} />
       <FrontArm shoulder={rig.right} spec={pose.armR} look={look} bend={-1} />
@@ -212,37 +243,62 @@ export function FrontUpper({ pose, look }) {
   );
 }
 
+// ── Scene camera ────────────────────────────────────────────────
+// Scenes are drawn in "world" coordinates on a 640×360 stage. A camera
+// zooms the stage in on the people so they fill the frame, while labels,
+// panels and counters stay in screen space at their normal size.
+export const CameraContext = createContext(null);
+const NO_CAMERA = { fwd: p => p, transform: null, inverse: null };
+export const useCamera = () => useContext(CameraContext) ?? NO_CAMERA;
+
+/** World point (x, y) is drawn at screen point (sx, sy), magnified z times. */
+export function makeCamera({ x, y, z, sx, sy }) {
+  return {
+    fwd: p => [sx + (p[0] - x) * z, sy + (p[1] - y) * z],
+    transform: `translate(${r1(sx)} ${r1(sy)}) scale(${z}) translate(${r1(-x)} ${r1(-y)})`,
+    inverse: `translate(${r1(x)} ${r1(y)}) scale(${1 / z}) translate(${r1(-sx)} ${r1(-sy)})`,
+  };
+}
+
+/** Draws children in screen coordinates, unaffected by the camera. */
+export function Screen({ children }) {
+  const cam = useCamera();
+  return <g data-fa="ui" transform={cam.inverse ?? undefined}>{children}</g>;
+}
+
 // ── Scene furniture and annotation ──────────────────────────────
-export function Floor({ y, width = 640 }) {
+export function Floor({ y }) {
+  // Extends well past the stage so it still fills the frame when zoomed.
   return (
-    <g>
-      <rect x={0} y={y} width={width} height={360 - y} fill={SCENE.floor} stroke="none" />
-      <line x1={0} y1={y} x2={width} y2={y} stroke={SCENE.floorEdge} strokeWidth={2} />
+    <g data-fa="floor">
+      <rect x={-1000} y={y} width={2640} height={1000} fill={SCENE.floor} stroke="none" />
+      <line x1={-1000} y1={y} x2={1640} y2={y} stroke={SCENE.floorEdge} strokeWidth={2} />
     </g>
   );
 }
 
 export function GroundShadow({ x, y, rx, ry = 5 }) {
-  return <ellipse cx={x} cy={y} rx={rx} ry={ry} fill={SCENE.shadow} opacity={0.28} stroke="none" />;
+  return <ellipse data-fa="floor" cx={x} cy={y} rx={rx} ry={ry} fill={SCENE.shadow} opacity={0.28} stroke="none" />;
 }
 
 /** Leader-line label: a dot on the target joined to a text box. */
-export function Callout({ at, to, text, color = COLORS.blue, anchor = "start", size = 10.5 }) {
+export function Callout({ at: target, to, text, color = COLORS.blue, anchor = "start", size = 10.5 }) {
+  const at = useCamera().fwd(target);
   const lines = Array.isArray(text) ? text : [text];
   const width = Math.max(...lines.map(line => line.length)) * size * 0.54 + 12;
   const height = lines.length * (size + 3) + 7;
   const x = anchor === "end" ? to[0] - width : anchor === "middle" ? to[0] - width / 2 : to[0];
   const y = to[1] - height / 2;
-  const join = [anchor === "end" ? to[0] : anchor === "middle" ? to[0] : to[0], to[1]];
+  const join = to;
   return (
-    <g>
+    <Screen>
       <line x1={at[0]} y1={at[1]} x2={join[0]} y2={join[1]} stroke={color} strokeWidth={1.1} />
       <circle cx={at[0]} cy={at[1]} r={3} fill="#fff" stroke={color} strokeWidth={1.6} />
       <rect x={x} y={y} width={width} height={height} rx={4} fill="#fff" stroke={color} strokeWidth={1} />
       {lines.map((line, i) => (
         <text key={i} x={x + 6} y={y + 5 + (i + 1) * (size + 3) - 3} fontSize={size} fill={COLORS.text} fontFamily="'IBM Plex Sans',sans-serif" fontWeight={i === 0 ? 600 : 400}>{line}</text>
       ))}
-    </g>
+    </Screen>
   );
 }
 
@@ -262,17 +318,21 @@ export function Bubble({ at, text, tail = "left", color = COLORS.ink, size = 11 
   const lines = Array.isArray(text) ? text : [text];
   const width = Math.max(...lines.map(line => line.length)) * size * 0.55 + 16;
   const height = lines.length * (size + 3) + 10;
-  const [x, y] = at;
-  const tx = tail === "left" ? x + 12 : x + width - 12;
+  const tailOffset = tail === "left" ? 12 : width - 12;
+  const lean = tail === "left" ? -8 : 8;
+  const tip = useCamera().fwd([at[0] + tailOffset + lean, at[1] + height + 9]);
+  const x = Math.min(634 - width, Math.max(6, tip[0] - tailOffset - lean));
+  const y = Math.max(6, tip[1] - height - 9);
+  const tx = x + tailOffset;
   return (
-    <g>
+    <Screen>
       <rect x={x} y={y} width={width} height={height} rx={8} fill="#fff" stroke={color} strokeWidth={1.2} />
       <path d={`M${tx - 5} ${y + height - 0.6} L${tx + (tail === "left" ? -8 : 8)} ${y + height + 9} L${tx + 5} ${y + height - 0.6}`} fill="#fff" stroke={color} strokeWidth={1.2} strokeLinejoin="round" />
       <rect x={tx - 5.5} y={y + height - 2} width={11} height={2.6} fill="#fff" stroke="none" />
       {lines.map((line, i) => (
         <text key={i} x={x + 8} y={y + 4 + (i + 1) * (size + 3)} fontSize={size} fontWeight={600} fill={color} fontFamily="'IBM Plex Sans',sans-serif">{line}</text>
       ))}
-    </g>
+    </Screen>
   );
 }
 
@@ -280,14 +340,14 @@ export function Bubble({ at, text, tail = "left", color = COLORS.ink, size = 11 
 export function Panel({ x, y, w, title, lines = [], color = COLORS.blue, size = 10 }) {
   const h = 22 + lines.length * (size + 4);
   return (
-    <g>
+    <Screen>
       <rect x={x} y={y} width={w} height={h} rx={6} fill="#fff" stroke={color} strokeWidth={1} />
       <rect x={x} y={y} width={4} height={h} rx={2} fill={color} />
       <text x={x + 11} y={y + 15} fontSize={size + 1} fontWeight={700} fill={color} fontFamily="'IBM Plex Sans',sans-serif">{title}</text>
       {lines.map((line, i) => (
         <text key={i} x={x + 11} y={y + 30 + i * (size + 4)} fontSize={size} fill={COLORS.text} fontFamily="'IBM Plex Sans',sans-serif">{line}</text>
       ))}
-    </g>
+    </Screen>
   );
 }
 
@@ -310,21 +370,23 @@ export function TimerRing({ x, y, r = 18, progress, label, color = COLORS.blue }
   const k = clamp01(progress);
   const end = add([x, y], mul(dirOf(-90 + k * 359.9), r));
   return (
-    <g>
+    <Screen>
       <circle cx={x} cy={y} r={r} fill="#fff" stroke="#D5DCE8" strokeWidth={4} />
       {k > 0 && <path d={`M${x} ${y - r} A${r} ${r} 0 ${k > 0.5 ? 1 : 0} 1 ${pt(end)}`} fill="none" stroke={color} strokeWidth={4} strokeLinecap="round" />}
       <text x={x} y={y + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={COLORS.ink} fontFamily="'IBM Plex Mono',monospace">{label}</text>
-    </g>
+    </Screen>
   );
 }
 
-export function Tag({ x, y, text, color = COLORS.red, size = 10 }) {
+export function Tag({ x: wx, y: wy, text, color = COLORS.red, size = 10, world = false }) {
+  const cam = useCamera();
+  const [x, y] = world ? cam.fwd([wx, wy]) : [wx, wy];
   const w = text.length * size * 0.6 + 12;
   return (
-    <g>
+    <Screen>
       <rect x={x} y={y} width={w} height={size + 8} rx={3} fill={color} />
       <text x={x + 6} y={y + size + 2.5} fontSize={size} fontWeight={700} fill="#fff" fontFamily="'IBM Plex Sans',sans-serif">{text}</text>
-    </g>
+    </Screen>
   );
 }
 

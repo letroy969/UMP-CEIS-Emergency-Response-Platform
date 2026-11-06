@@ -1,6 +1,6 @@
 /* Choking simulation scenes (adult, conscious then unresponsive). */
 import { COLORS, LOOKS, add, phase, profileRig, seq } from "./rig.js";
-import { Arrow, Bubble, Callout, Check, Cross, Floor, GroundShadow, Panel, Phone, Profile, Tag } from "./figures.jsx";
+import { Arrow, Bubble, Screen, Callout, Check, Cross, Floor, GroundShadow, Panel, Phone, Profile, Tag } from "./figures.jsx";
 import { InsetText, TORSO_MARKS, TorsoBack, TorsoFront } from "./diagrams.jsx";
 
 const G = 318;
@@ -89,12 +89,12 @@ function Layered({ cas, rescuer }) {
 
 function Counter({ label, count, color = COLORS.amber }) {
   return (
-    <g>
+    <Screen>
       <rect x={16} y={16} width={168} height={58} rx={8} fill="#fff" stroke="#C8D0E0" />
       <text x={28} y={36} fontSize={9.5} fontWeight={700} fill={COLORS.muted} letterSpacing={1} fontFamily="'IBM Plex Sans',sans-serif">{label}</text>
       {[1, 2, 3, 4, 5].map(i => <circle key={i} cx={34 + (i - 1) * 26} cy={56} r={9} fill={i <= count ? color : "#E3E8F0"} />)}
       {[1, 2, 3, 4, 5].map(i => <text key={i} x={34 + (i - 1) * 26} y={60} textAnchor="middle" fontSize={10} fontWeight={700} fill={i <= count ? "#fff" : COLORS.muted} fontFamily="'IBM Plex Sans',sans-serif">{i}</text>)}
-    </g>
+    </Screen>
   );
 }
 
@@ -153,8 +153,8 @@ const step1 = {
       <Stage>
         <Profile pose={cas} look={LOOKS.casualty} />
         <Profile pose={rescuer} look={LOOKS.rescuer} />
-        {k < 4.4 && <Bubble at={[388, 68]} text="Are you choking?" tail="left" />}
-        {k > 2.4 && k < 4.4 && <text x={196} y={62} fontSize={11} fontWeight={700} fill={COLORS.red} fontFamily="'IBM Plex Sans',sans-serif">Nods — can't speak</text>}
+        {k < 4.4 && <Bubble at={[455, 40]} text="Are you choking?" tail="left" />}
+        {k > 2.4 && k < 4.4 && <Tag x={16} y={16} text="Nods — can’t speak" color={COLORS.red} size={11} />}
         {k >= 4.4 && <Panel x={16} y={16} w={262} color={COLORS.red} title="Severe choking — act now" lines={["Cannot speak, breathe or cough well", "May clutch the throat or turn blue", "Get someone to call 10177"]} />}
         <Callout at={profileRig(cas).headLocal([8, -5])} to={[150, 200]} anchor="end" text={["Hands at the", "throat: the choking", "sign"]} />
       </Stage>
@@ -305,7 +305,7 @@ const step5 = {
     return (
       <Stage>
         {blows ? <BackBlowScene k={k} showLabels={false} /> : <ThrustScene k={k - 6.5} showLabels={false} />}
-        <Panel x={430} y={16} w={194} color={COLORS.amber} title="Repeat the cycle" lines={["5 back blows", "→ 5 abdominal thrusts", "→ until it clears or they", "   become unresponsive"]} />
+        <Panel x={16} y={86} w={194} color={COLORS.amber} title="Repeat the cycle" lines={["5 back blows", "→ 5 abdominal thrusts", "→ until it clears or they", "   become unresponsive"]} />
       </Stage>
     );
   },

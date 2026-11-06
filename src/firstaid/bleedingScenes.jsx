@@ -290,7 +290,7 @@ const step5 = {
       <Scene rescuer={rescuer} under={<Blood amp={amp} t={t} pool={0.9} />} over={<><Wound /><Pads count={2} stain={1} /><Tourniquet on={on} twist={twist} /></>}>
         <Callout at={[TQ[0], TQ[1] + 24]} to={[236, 230]} anchor="end" text={["5–7 cm above the wound,", "never over a joint"]} />
         {!writing && <Callout at={[TQ[0], TQ[1] - 4]} to={[440, 120]} color={COLORS.red} text={["Twist until the", "bleeding stops"]} />}
-        {writing && <><Tag x={TQ[0] + 24} y={TQ[1] - 46} text={`TIME ON ${"14:32"}`} color={COLORS.red} size={11} /><Callout at={[TQ[0] + 6, TQ[1] - 4]} to={[440, 160]} text={["Note the time it", "went on — tell 10177"]} /></>}
+        {writing && <><Tag x={TQ[0] + 24} y={TQ[1] - 46} text={`TIME ON ${"14:32"}`} color={COLORS.red} size={11} world /><Callout at={[TQ[0] + 6, TQ[1] - 4]} to={[440, 160]} text={["Note the time it", "went on — tell 10177"]} /></>}
         <Tag x={16} y={16} text="Only for life-threatening bleeding from an arm or leg" color={COLORS.ink} size={10.5} />
       </Scene>
     );
@@ -370,7 +370,7 @@ const step7 = {
     };
     const rescuer = { x: 400, hipY: 232, lean: 4, turn: 1, talk: !walking && Math.sin(k * 10) > 0 ? 0.8 : 0.2, armL: { to: [384, 250], hand: 90 }, armR: { to: !walking ? [TQ[0] + 30, 236] : [416, 250], hand: 160 } };
     return (
-      <Scene rescuer={rescuer} under={<Blood amp={0} t={t} pool={0.9} />} over={<><Pads count={2} stain={1} /><Tourniquet twist={0.4} /><Tag x={TQ[0] - 96} y={TQ[1] - 30} text="TIME ON 14:32" color={COLORS.red} size={9} /></>}>
+      <Scene rescuer={rescuer} under={<Blood amp={0} t={t} pool={0.9} />} over={<><Pads count={2} stain={1} /><Tourniquet twist={0.4} /><Tag x={TQ[0] - 96} y={TQ[1] - 30} text="TIME ON 14:32" color={COLORS.red} size={9} world /></>}>
         <Profile pose={paramedic} look={LOOKS.paramedic} />
         <rect x={x - 40} y={G - 112} width={26} height={22} rx={3} fill="#E6F2EA" stroke="#2F7D4F" />
         <path d={`M${x - 27} ${G - 106} v10 m-5 -5 h10`} stroke="#C62828" strokeWidth={2.4} />
