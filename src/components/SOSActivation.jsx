@@ -37,7 +37,7 @@ export default function SOSActivation({ user }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div style={{ flex: "1 1 300px" }}>
           <div style={{ color: "#9d1b1b", fontSize: 15, fontWeight: 800, marginBottom: 4 }}>Need urgent campus help?</div>
-          <p style={{ color: "#62413d", fontSize: 12.5, lineHeight: 1.55 }}>SOS sends your identity and GPS location to the incident system and tries to assign the nearest responder who has marked themselves available.</p>
+          <p style={{ color: "#62413d", fontSize: 12.5, lineHeight: 1.55 }}>SOS sends your identity and GPS location to the incident system, alerts the admin team and campus responders, and tries to assign the nearest responder who has marked themselves available.</p>
         </div>
         <button type="button" onClick={sendSOS} disabled={busy}
           aria-label={busy ? "Sending SOS" : "Send emergency SOS"}
@@ -48,8 +48,8 @@ export default function SOSActivation({ user }) {
       </div>
       {result && <p role="status" aria-live="polite" style={{ color: result.dispatch?.assigned ? "#176b39" : "#8a4b08", fontSize: 12.5, marginTop: 12, lineHeight: 1.55 }}>
         {result.dispatch?.assigned
-          ? `SOS ${result.incident.reference} sent. ${result.dispatch.responder} was assigned (${result.dispatch.distanceKm} km away). Keep your phone available.`
-          : `SOS ${result.incident.reference} recorded, but no available responder was found. Call Campus Security or emergency services now.`}
+          ? `SOS ${result.incident.reference} sent. ${result.dispatch.responder} was dispatched (${result.dispatch.distanceKm} km away) and the admin team and campus responders have been alerted. Keep your phone available.`
+          : `SOS ${result.incident.reference} sent. The admin team and campus responders have been alerted, and the first responder to accept it will come to your location. If you are in immediate danger, also call Campus Security or 10177.`}
       </p>}
       {error && <p role="alert" style={{ color: "#9d1b1b", fontSize: 12.5, marginTop: 12 }}>{error}</p>}
       <div style={{ marginTop: 10, color: "#62413d", fontSize: 11.5 }}>

@@ -173,7 +173,9 @@ service cloud.firestore {
       allow read: if verified()
         && (admin()
           || resource.data.reportedBy == request.auth.uid
-          || (responder() && resource.data.responderUid == request.auth.uid));
+          || (responder() && resource.data.responderUid == request.auth.uid)
+          // Unassigned SOS alerts are broadcast to every responder so one can accept it.
+          || (responder() && resource.data.isSOS == true && resource.data.responderUid == null));
 
       // Incident writes go through the authenticated Express API so that
       // dispatch, state transitions, notification hooks, and audit events stay atomic.

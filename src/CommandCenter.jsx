@@ -45,7 +45,7 @@ import { STYLES } from "./pages/portalStyles.js";
 import { createCheckin, createIncident, getCheckin, listIncidents, uploadIncidentAttachment } from "./incidentApi.js";
 
 const STUDENT_PORTAL_BACKGROUND = new URL(
-  "../Home page  src/UMP-Great-Hall-IMG-Western-Lobby-03.webp",
+  "../REporter Background/ReporterBackground.jpg",
   import.meta.url,
 ).href;
 

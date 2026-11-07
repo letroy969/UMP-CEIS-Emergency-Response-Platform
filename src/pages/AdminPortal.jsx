@@ -24,6 +24,8 @@ import PushNotificationsButton from "../components/PushNotificationsButton.jsx";
 import CampusAlertComposer from "../components/CampusAlertComposer.jsx";
 import IncidentAnalyticsPanel from "../components/IncidentAnalyticsPanel.jsx";
 
+const ADMIN_PORTAL_BACKGROUND = new URL("../../Administration Backgrounf/Administration Background.jpg", import.meta.url).href;
+
 export default function AdminPortal({ user, authUser, onLogout }) {
   const [view, setView]             = useState(user.access === "staff" ? "input" : "dashboard");
   const [incidents, setIncidents]   = useState([]);
@@ -111,8 +113,12 @@ export default function AdminPortal({ user, authUser, onLogout }) {
     ...(user.access === "admin" ? [["access",ShieldCheck,`Access Requests${accessRequests.length ? ` (${accessRequests.length})` : ""}`]] : []),
   ];
   return (
-    <div style={{minHeight:"100vh",background:PAPER,fontFamily:"'IBM Plex Sans',sans-serif"}}>
+    <div className="student-portal-shell" style={{minHeight:"100vh",background:"transparent",fontFamily:"'IBM Plex Sans',sans-serif"}}>
       <style>{STYLES}</style>
+      <div className="student-portal-background" aria-hidden="true">
+        <img src={ADMIN_PORTAL_BACKGROUND} alt="" />
+        <div />
+      </div>
 
       {/* P1 ALERT BANNER */}
       {p1count>0&&(

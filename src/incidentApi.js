@@ -127,6 +127,26 @@ export function subscribeIncidents(user, onRows, onError, mine = false) {
   }
 }
 
+// Live feed of SOS alerts no responder has accepted yet (responders only).
+export function subscribeOpenSOS(user, onRows, onError) {
+  if (!user) throw new Error("Sign in to access SOS alerts.");
+  try {
+    return onSnapshot(
+      query(collection(db, "incidents"), where("isSOS", "==", true), where("responderUid", "==", null), orderBy("createdAt", "desc")),
+      snapshot => onRows(snapshot.docs.map(item => present(item.id, item.data()))),
+      error => onError(new Error(error.message || "Could not monitor SOS alerts.")),
+    );
+  } catch (error) {
+    onError(new Error(error.message || "Could not monitor SOS alerts."));
+    return () => {};
+  }
+}
+
+export async function claimSOS(user, incidentId) {
+  const payload = await apiRequest(user, `/incidents/${encodeURIComponent(incidentId)}/claim`, { method: "POST" });
+  return payload.incident;
+}
+
 export async function createIncident(user, incident) {
   if (!user) throw new Error("Sign in to submit an incident report.");
   if (!INCIDENT_TYPES.has(incident.type) || !PRIORITIES.has(incident.priority)

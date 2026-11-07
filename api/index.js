@@ -203,35 +203,52 @@ async function createIncidentRecord(services, user, input, {
   }
 
   let assignment = null;
-  if (sos) assignment = await autoAssignNearest(services, data);
+  if (sos) {
+    // The SOS is already saved; a dispatch failure must not lose it. Admins and
+    // responders are still alerted and can claim it from their portals.
+    try {
+      assignment = await autoAssignNearest(services, data);
+    } catch (error) {
+      console.error("SOS auto-dispatch failed", incidentRef.id, error);
+    }
+  }
   if (assignment) {
-    await services.db.runTransaction(async transaction => {
-      const fresh = await transaction.get(incidentRef);
-      if (!fresh.exists || fresh.get("status") !== "NEW") return;
-      const assignedAt = Timestamp.now();
-      transaction.update(incidentRef, {
+    try {
+      await services.db.runTransaction(async transaction => {
+        const fresh = await transaction.get(incidentRef);
+        if (!fresh.exists || fresh.get("status") !== "NEW") return;
+        const assignedAt = Timestamp.now();
+        transaction.update(incidentRef, {
+          responderUid: assignment.uid,
+          responder: assignment.name,
+          dispatchedByUid: "system",
+          status: "TEAM_DISPATCHED",
+          dispatchedAt: assignedAt,
+          updatedAt: assignedAt,
+        });
+        transaction.create(incidentRef.collection("events").doc(), {
+          event: "RESPONDER_AUTO_DISPATCHED",
+          actorUid: "system",
+          responderUid: assignment.uid,
+          distanceKm: assignment.distanceKm,
+          status: "TEAM_DISPATCHED",
+          createdAt: assignedAt,
+        });
+      });
+      Object.assign(data, {
         responderUid: assignment.uid,
         responder: assignment.name,
-        dispatchedByUid: "system",
         status: "TEAM_DISPATCHED",
-        dispatchedAt: assignedAt,
-        updatedAt: assignedAt,
+        dispatchedAt: Timestamp.now(),
       });
-      transaction.create(incidentRef.collection("events").doc(), {
-        event: "RESPONDER_AUTO_DISPATCHED",
-        actorUid: "system",
-        responderUid: assignment.uid,
-        distanceKm: assignment.distanceKm,
-        status: "TEAM_DISPATCHED",
-        createdAt: assignedAt,
-      });
-    });
-    Object.assign(data, {
-      responderUid: assignment.uid,
-      responder: assignment.name,
-      status: "TEAM_DISPATCHED",
-      dispatchedAt: Timestamp.now(),
-    });
+    } catch (error) {
+      console.error("SOS assignment could not be recorded", incidentRef.id, error);
+      // Release the responder reserved by autoAssignNearest so they stay dispatchable.
+      await services.db.collection("responderPresence").doc(assignment.uid)
+        .update({ available: true, assignmentReservedAt: FieldValue.delete() })
+        .catch(() => {});
+      assignment = null;
+    }
   }
   return { ref: incidentRef, data, assignment, duplicate: false };
 }
@@ -627,24 +644,66 @@ app.get("/cleanup-evidence", async (req, res, next) => {
   }
 });
 
+const RESPONDER_ROLE_NAMES = ["responder", "security", "medical"];
+
+// Alerts every admin and every responder about a new SOS. The assigned responder
+// (if any) gets a separate "you are dispatched" alert. Never throws: the SOS is
+// already saved and visible on the Admin and Responder portals regardless.
+async function alertSos(services, created, { anonymous = false } = {}) {
+  const { reference } = created.data;
+  const data = { incidentId: created.ref.id, reference, kind: "sos" };
+  const lookup = async roles => {
+    try {
+      return await usersWithRole(services, roles);
+    } catch (error) {
+      console.error("SOS alert recipient lookup failed", roles, error);
+      return [];
+    }
+  };
+  const [adminIds, responderIds] = await Promise.all([lookup(["admin"]), lookup(RESPONDER_ROLE_NAMES)]);
+  const assignedUid = created.assignment?.uid || null;
+  const broadcast = [...new Set([...adminIds, ...responderIds])].filter(uid => uid !== assignedUid);
+  const who = anonymous ? "Anonymous visitor" : created.data.reporterName || "Campus user";
+  const body = created.assignment
+    ? `${reference}: SOS from ${who}. ${created.assignment.name} has been dispatched.`
+    : `${reference}: SOS from ${who}. No responder assigned yet. Open the Responder portal to accept it.`;
+  const send = async payload => {
+    try {
+      return await notifyUsers(services, { ...payload, data, emergency: true });
+    } catch (error) {
+      console.error("SOS alert delivery failed", created.ref.id, error);
+      return { error: "Alert delivery failed." };
+    }
+  };
+  const [broadcastResult, assignedResult] = await Promise.all([
+    send({ userIds: broadcast, title: anonymous ? "Anonymous campus SOS" : "Campus SOS alert", body }),
+    assignedUid
+      ? send({ userIds: [assignedUid], title: "You have been dispatched to an SOS", body: `${reference}: go to the reported GPS location now. Details are in your Responder portal.` })
+      : null,
+  ]);
+  return {
+    admins: adminIds.length,
+    responders: responderIds.length,
+    broadcast: broadcastResult,
+    assigned: assignedResult,
+  };
+}
+
 route("post", "/sos", authenticate, async (req, res) => {
   const services = getFirebaseServices();
   await enforceRateLimit(services.db, `sos_${req.user.uid}`, 3);
   const input = incidentInput(req.body, { sos: true });
-  const created = await createIncidentRecord(services, req.user, input, { sos: true });
-  const adminIds = await usersWithRole(services, ["admin"]);
-  const audience = [...new Set([...adminIds, ...(created.assignment ? [created.assignment.uid] : [])])];
-  const title = created.assignment ? "Responder dispatched" : "Campus emergency report";
-  const body = created.assignment
-    ? `${created.assignment.name} has been assigned to ${created.data.reference}.`
-    : `${created.data.reference}: SOS received. No available responder was found; administrator review is required.`;
-  const delivery = await notifyUsers(services, {
-    userIds: audience,
-    title,
-    body,
-    data: { incidentId: created.ref.id, reference: created.data.reference, kind: "sos" },
-    emergency: true,
-  });
+  let created;
+  try {
+    created = await createIncidentRecord(services, req.user, input, { sos: true });
+  } catch (error) {
+    console.error("SOS incident could not be saved", error);
+    if (!error.status) {
+      error.publicMessage = "Your SOS could not be saved to the incident system. Call UMP Campus Security on +27 13 002 0010 or 10177 now.";
+    }
+    throw error;
+  }
+  const delivery = await alertSos(services, created);
   res.status(201).json({
     incident: incidentForClient(created.ref.id, created.data),
     dispatch: created.assignment ? { assigned: true, responder: created.assignment.name, distanceKm: Number(created.assignment.distanceKm.toFixed(2)) } : { assigned: false },
@@ -671,21 +730,7 @@ route("post", "/sos/anonymous", requireAnonymousAppCheck, async (req, res) => {
   );
 
   let delivery = null;
-  if (!created.duplicate) {
-    const adminIds = await usersWithRole(services, ["admin"]);
-    const audience = [...new Set([...adminIds, ...(created.assignment ? [created.assignment.uid] : [])])];
-    const title = created.assignment ? "Responder assigned to anonymous SOS" : "Anonymous campus SOS received";
-    const body = created.assignment
-      ? `${created.assignment.name} has been assigned to ${created.data.reference}.`
-      : `${created.data.reference}: SOS received. No available responder was found; administrator review is required.`;
-    delivery = await notifyUsers(services, {
-      userIds: audience,
-      title,
-      body,
-      data: { incidentId: created.ref.id, reference: created.data.reference, kind: "sos" },
-      emergency: true,
-    });
-  }
+  if (!created.duplicate) delivery = await alertSos(services, created, { anonymous: true });
 
   res.status(created.duplicate ? 200 : 201).json({
     incident: incidentForClient(created.ref.id, created.data),
@@ -695,6 +740,54 @@ route("post", "/sos/anonymous", requireAnonymousAppCheck, async (req, res) => {
     notifications: delivery,
     duplicate: created.duplicate,
   });
+});
+
+// A responder accepts an SOS that auto-dispatch could not assign.
+route("post", "/incidents/:id/claim", authenticate, async (req, res) => {
+  if (!isResponder(req.user)) fail("Responder access is required.", 403);
+  const services = getFirebaseServices();
+  const id = text(req.params.id, "Incident id", { max: 150 });
+  const ref = services.db.collection("incidents").doc(id);
+  let claimed;
+  await services.db.runTransaction(async transaction => {
+    const snapshot = await transaction.get(ref);
+    if (!snapshot.exists) fail("Incident not found.", 404);
+    const before = snapshot.data();
+    if (before.isSOS !== true) fail("Only SOS alerts can be accepted from the Responder portal.", 403);
+    if (before.responderUid || before.status !== "NEW") fail("Another responder has already accepted this SOS.", 409);
+    const now = Timestamp.now();
+    const updates = {
+      responderUid: req.user.uid,
+      responder: req.user.name,
+      dispatchedByUid: req.user.uid,
+      status: "TEAM_DISPATCHED",
+      dispatchedAt: now,
+      updatedAt: now,
+    };
+    transaction.update(ref, updates);
+    transaction.create(ref.collection("events").doc(), {
+      event: "RESPONDER_ACCEPTED_SOS",
+      actorUid: req.user.uid,
+      fromStatus: before.status,
+      status: "TEAM_DISPATCHED",
+      responderUid: req.user.uid,
+      createdAt: now,
+    });
+    claimed = { ...before, ...updates };
+  });
+
+  try {
+    const adminIds = await usersWithRole(services, ["admin"]);
+    await notifyUsers(services, {
+      userIds: [...new Set([...adminIds, claimed.reportedBy].filter(Boolean))],
+      title: "Responder on the way",
+      body: `${claimed.reference}: ${req.user.name} accepted the SOS and is responding.`,
+      data: { incidentId: id, reference: claimed.reference, kind: "incident-update" },
+    });
+  } catch (error) {
+    console.error("SOS claim notification failed", id, error);
+  }
+  res.json({ incident: incidentForClient(id, claimed) });
 });
 
 route("patch", "/incidents/:id", authenticate, async (req, res) => {
