@@ -76,6 +76,17 @@ Complete these steps for a working deployment. Evidence uploads use Cloudflare R
 
 The API issues upload and view URLs valid for five minutes, checks uploaded file type/size/owner before registering it in Firestore, and rate-limits upload URL requests. The daily `/api/cleanup-evidence` job removes objects after 90 days; keep `CRON_SECRET` configured in Vercel for retention cleanup to run.
 
+### Administration
+
+Administrators get these Admin Portal tabs in addition to incidents, dispatch and access requests:
+
+- **Users** lists every Firebase Authentication account merged with its Firestore profile. Admins can change a role (student, staff, responder, administrator), suspend or reactivate an account, and delete it. Suspension disables sign-in, revokes sessions on every device, removes the user from SOS auto-dispatch and deletes their push tokens. Deletion removes the login, profile, emergency contacts, preferences, devices and safety check-ins; incident reports the user filed are kept. Deletion requires typing the account email and is blocked while a responder still holds active incidents. Admins cannot change their own account, so at least one administrator always remains.
+- **Audit Log** shows role changes, suspensions, reactivations, deletions, access-request decisions and campus alerts from the server-only `adminAuditLog` collection. Clients cannot read or write it directly.
+- **Incidents → Export CSV** downloads the filtered incidents with dispatch and resolution times. Cells are protected against spreadsheet formula injection.
+- **Incident timeline** in the incident detail panel shows the recorded `events` trail.
+
+`firestore.rules` treats a suspended admin or responder as unprivileged. After changing rules, deploy them with `firebase deploy --only firestore:rules --project ump-ceis`.
+
 Student registration requires exactly 19 characters: a 9-digit student number followed by `@ump.ac.za` (for example, `230021646@ump.ac.za`). Staff, responder, and admin forms require an email ending in `@ump.ac.za`. All registrants must verify their email before signing in. Student and staff accounts receive their respective portal access after email verification without administrator approval. Responder and admin requests remain pending until an existing admin approves them in **Role Access Requests**. Admin access is never self-assigned. Email verification proves mailbox control, not university affiliation, staff status, or responder training.
 
 ### Bootstrap the first administrator

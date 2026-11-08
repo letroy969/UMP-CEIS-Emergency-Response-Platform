@@ -41,6 +41,22 @@ export function roleSet(profile = {}) {
   return roles;
 }
 
+function millis(value) {
+  if (value == null) return null;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  const time = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isNaN(time) ? null : time;
+}
+
+// A profile is blocked while it is suspended indefinitely (accountStatus set, no
+// end date) or while a temporary ban's end date is still in the future. Expired
+// bans lift themselves without any scheduled job.
+export function isSuspendedProfile(profile, nowMs = Date.now()) {
+  if (profile?.accountStatus !== "suspended") return false;
+  const until = millis(profile.suspendedUntil);
+  return until == null || until > nowMs;
+}
+
 export function hasRole(user, role) {
   return user.roles.has(role);
 }
@@ -68,7 +84,22 @@ export async function authenticate(req, _res, next) {
     }
 
     const { auth, db } = (await import("./firebaseAdmin.js")).getFirebaseServices();
-    const claims = await auth.verifyIdToken(match[1], true);
+    let claims;
+    try {
+      claims = await auth.verifyIdToken(match[1], true);
+    } catch (cause) {
+      if (cause.code === "auth/user-disabled") {
+        const error = new Error("This account has been suspended. Contact the CEIS administrators.");
+        error.status = 403;
+        throw error;
+      }
+      if (cause.code === "auth/id-token-revoked") {
+        const error = new Error("Your session has ended. Sign in again.");
+        error.status = 401;
+        throw error;
+      }
+      throw cause;
+    }
     if (claims.email_verified !== true || typeof claims.email !== "string") {
       const error = new Error("Verify your email address before using CEIS.");
       error.status = 403;
@@ -83,6 +114,14 @@ export async function authenticate(req, _res, next) {
     }
 
     const profile = profileSnapshot.data();
+    if (isSuspendedProfile(profile)) {
+      const until = millis(profile.suspendedUntil);
+      const error = new Error(until
+        ? `This account is temporarily banned until ${new Date(until).toLocaleString("en-ZA", { timeZone: "Africa/Johannesburg", dateStyle: "medium", timeStyle: "short" })}.`
+        : "This account has been suspended. Contact the CEIS administrators.");
+      error.status = 403;
+      throw error;
+    }
     if (APPROVAL_REQUIRED_ROLES.has(profile.requestedRole)
       && profile.roleRequestStatus !== "approved") {
       const error = new Error("Your requested portal access has not been approved.");

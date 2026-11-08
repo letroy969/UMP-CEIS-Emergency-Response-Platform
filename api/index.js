@@ -10,6 +10,21 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { anonymousSosIncidentId, anonymousSosInput, anonymousSosRateLimitKey } from "./_lib/anonymousSos.js";
+import {
+  ACTIVE_INCIDENT_EXCLUDED_STATUSES,
+  assignableRole,
+  auditEntry,
+  banEndDate,
+  sendPasswordResetEmail,
+  auditEntryForClient,
+  deletionConfirmed,
+  isResponderProfile,
+  isSuspendedProfile,
+  roleChangeFields,
+  summarizeUser,
+  suspensionReason,
+  targetUid as adminTargetUid,
+} from "./_lib/adminUsers.js";
 import { authenticate, enforceRateLimit, hasRole, isResponder, requireRole } from "./_lib/auth.js";
 import { getFirebaseServices } from "./_lib/firebaseAdmin.js";
 import {
@@ -89,7 +104,9 @@ function incidentForClient(id, row) {
     locationCapturedAt: date(row.locationCapturedAt),
     locationSource: row.locationSource ?? null,
     campusVerified: row.campusVerified ?? null,
-    reporter: row.reporterName || "Student",
+    reporter: row.isAnonymous === true || !row.reportedBy ? "Anonymous" : row.reporterName || "Campus user",
+    isAnonymous: row.isAnonymous === true || !row.reportedBy,
+    isSOS: row.isSOS === true,
     createdAt,
     updatedAt: date(row.updatedAt),
     dispatchedAt: date(row.dispatchedAt),
@@ -97,6 +114,8 @@ function incidentForClient(id, row) {
     time: createdAt ? new Date(createdAt).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" }) : "",
   };
 }
+
+const RESPONDER_PRESENCE_FRESH_MS = 120000;
 
 function validAssignmentStatus(status) {
   if (!STATUSES.has(status)) fail("Choose a valid incident status.");
@@ -308,18 +327,24 @@ route("get", "/responders", authenticate, async (req, res) => {
   requireRole(req.user, ["admin"]);
   const services = getFirebaseServices();
   const ids = await usersWithRole(services, ["responder", "security", "medical"]);
-  const responders = await Promise.all(ids.map(async uid => {
+  const roster = await Promise.all(ids.map(async uid => {
     const [profile, presence] = await Promise.all([
       services.db.collection("users").doc(uid).get(),
       services.db.collection("responderPresence").doc(uid).get(),
     ]);
+    if (isSuspendedProfile(profile.data())) return null;
+    const lastSeenMs = presence.get("updatedAt")?.toMillis?.() ?? null;
     return {
       uid,
       name: profile.get("fullName") || profile.get("email") || "Responder",
-      available: presence.get("available") === true,
-      lastSeenAt: presence.get("updatedAt")?.toDate?.().toISOString?.() || null,
+      // Same freshness window SOS auto-dispatch uses: a responder who went on duty
+      // but whose app stopped reporting a location is not shown as available.
+      available: presence.get("available") === true && lastSeenMs != null && Date.now() - lastSeenMs <= RESPONDER_PRESENCE_FRESH_MS,
+      onDuty: presence.get("available") === true,
+      lastSeenAt: lastSeenMs == null ? null : new Date(lastSeenMs).toISOString(),
     };
   }));
+  const responders = roster.filter(Boolean);
   responders.sort((a, b) => a.name.localeCompare(b.name));
   res.json({ responders });
 });
@@ -364,14 +389,259 @@ route("patch", "/access-requests/:uid", authenticate, async (req, res) => {
       fail("This access request is no longer pending.", 409);
     }
     reviewedRole = requestedRole;
+    const now = Timestamp.now();
     transaction.update(profileRef, {
       ...(action === "approve" ? { role: requestedRole, roles: [requestedRole] } : {}),
       roleRequestStatus: action === "approve" ? "approved" : "rejected",
-      roleRequestReviewedAt: Timestamp.now(),
+      roleRequestReviewedAt: now,
       roleRequestReviewedBy: req.user.uid,
     });
+    transaction.create(services.db.collection("adminAuditLog").doc(), auditEntry(
+      req.user,
+      action === "approve" ? "ACCESS_REQUEST_APPROVED" : "ACCESS_REQUEST_REJECTED",
+      { uid: targetUid, email: profile.get("email") || null, name: profile.get("fullName") || null },
+      { requestedRole },
+      now,
+    ));
   });
   res.json({ uid: targetUid, requestedRole: reviewedRole, status: action === "approve" ? "approved" : "rejected" });
+});
+
+// Audit writes that follow an already-completed action must not turn a success
+// into an error response, so failures are logged instead of thrown.
+async function writeAudit(services, actor, action, target, details) {
+  try {
+    await services.db.collection("adminAuditLog").add(auditEntry(actor, action, target, details, Timestamp.now()));
+  } catch (error) {
+    console.error("Admin audit entry could not be written", action, target?.uid, error);
+  }
+}
+
+async function loadAdminTarget(services, uid) {
+  const [authRecord, profileSnapshot] = await Promise.all([
+    services.auth.getUser(uid).catch(error => {
+      if (error.code === "auth/user-not-found") return null;
+      throw error;
+    }),
+    services.db.collection("users").doc(uid).get(),
+  ]);
+  const profile = profileSnapshot.exists ? profileSnapshot.data() : null;
+  if (!authRecord && !profile) fail("User not found.", 404);
+  return { authRecord, profile, summary: summarizeUser(uid, authRecord, profile) };
+}
+
+// Removes a user from auto-dispatch and stops push alerts reaching their devices.
+async function detachResponderAndDevices(services, uid) {
+  await services.db.collection("responderPresence").doc(uid).delete();
+  await services.db.recursiveDelete(services.db.collection("users").doc(uid).collection("pushTokens"));
+}
+
+async function activeAssignmentCount(services, uid) {
+  const assigned = await services.db.collection("incidents").where("responderUid", "==", uid).limit(500).get();
+  return assigned.docs.filter(doc => !ACTIVE_INCIDENT_EXCLUDED_STATUSES.includes(doc.get("status"))).length;
+}
+
+route("get", "/admin/users", authenticate, async (req, res) => {
+  requireRole(req.user, ["admin"]);
+  const services = getFirebaseServices();
+  const MAX_AUTH_PAGES = 5;
+  const authUsers = new Map();
+  let pageToken;
+  let pages = 0;
+  do {
+    const page = await services.auth.listUsers(1000, pageToken);
+    page.users.forEach(record => authUsers.set(record.uid, record));
+    pageToken = page.pageToken;
+    pages += 1;
+  } while (pageToken && pages < MAX_AUTH_PAGES);
+  const profiles = await services.db.collection("users").limit(5000).get();
+  const profileMap = new Map(profiles.docs.map(doc => [doc.id, doc.data()]));
+  const uids = new Set([...authUsers.keys(), ...profileMap.keys()]);
+  const users = [...uids].map(uid => summarizeUser(uid, authUsers.get(uid) || null, profileMap.get(uid) || null));
+  users.sort((a, b) => a.name.localeCompare(b.name));
+  res.set("cache-control", "no-store").json({
+    users,
+    capped: Boolean(pageToken) || profiles.size === 5000,
+  });
+});
+
+route("patch", "/admin/users/:uid/role", authenticate, async (req, res) => {
+  requireRole(req.user, ["admin"]);
+  const services = getFirebaseServices();
+  await enforceRateLimit(services.db, `admin_action_${req.user.uid}`, 30);
+  const uid = adminTargetUid(req.params.uid, req.user.uid);
+  const role = assignableRole(req.body?.role);
+  const profileRef = services.db.collection("users").doc(uid);
+  let previousRole = null;
+  let wasResponder = false;
+  let target = null;
+  await services.db.runTransaction(async transaction => {
+    const snapshot = await transaction.get(profileRef);
+    if (!snapshot.exists) fail("This account has no CEIS profile yet. The user must sign in once before a role can be assigned.", 409);
+    const profile = snapshot.data();
+    previousRole = Array.isArray(profile.role) ? profile.role[0] : profile.role ?? null;
+    wasResponder = isResponderProfile(profile);
+    target = { uid, email: profile.email || null, name: profile.fullName || null };
+    const now = Timestamp.now();
+    transaction.update(profileRef, roleChangeFields(role, req.user.uid, now, FieldValue.delete()));
+    transaction.create(services.db.collection("adminAuditLog").doc(), auditEntry(
+      req.user, "USER_ROLE_CHANGED", target, { from: previousRole, to: role }, now,
+    ));
+  });
+  // A former responder must not stay eligible for SOS auto-dispatch.
+  let activeAssignments = 0;
+  if (wasResponder && role !== "responder") {
+    await services.db.collection("responderPresence").doc(uid).delete();
+    activeAssignments = await activeAssignmentCount(services, uid);
+  }
+  const { summary } = await loadAdminTarget(services, uid);
+  res.json({ user: summary, previousRole, activeAssignments });
+});
+
+route("post", "/admin/users/:uid/suspend", authenticate, async (req, res) => {
+  requireRole(req.user, ["admin"]);
+  const services = getFirebaseServices();
+  await enforceRateLimit(services.db, `admin_action_${req.user.uid}`, 30);
+  const uid = adminTargetUid(req.params.uid, req.user.uid);
+  const reason = suspensionReason(req.body?.reason);
+  // With an end date this is a temporary ban; without one the account is disabled.
+  const until = req.body?.until == null ? null : banEndDate(req.body.until);
+  const { authRecord, profile, summary } = await loadAdminTarget(services, uid);
+  if (until && !profile) fail("This account has never signed in, so it cannot be banned temporarily. Disable it instead.", 409);
+
+  if (until) {
+    // A ban is enforced through the profile (API, Firestore rules and sign-in
+    // check) so it lifts itself at the end date. Sign-in stays enabled in
+    // Firebase Auth; revoking tokens ends every current session now.
+    await services.db.collection("users").doc(uid).update({
+      accountStatus: "suspended",
+      suspendedAt: Timestamp.now(),
+      suspendedBy: req.user.uid,
+      suspendedReason: reason,
+      suspendedUntil: Timestamp.fromDate(until),
+    });
+    if (authRecord) {
+      // Converting a disabled account to a ban must re-enable sign-in, or the ban would never lift.
+      if (authRecord.disabled) await services.auth.updateUser(uid, { disabled: false });
+      await services.auth.revokeRefreshTokens(uid);
+    }
+  } else {
+    // Disable sign-in first: it is the step that actually locks the account out.
+    if (authRecord) {
+      await services.auth.updateUser(uid, { disabled: true });
+      await services.auth.revokeRefreshTokens(uid);
+    }
+    if (profile) {
+      await services.db.collection("users").doc(uid).update({
+        accountStatus: "suspended",
+        suspendedAt: Timestamp.now(),
+        suspendedBy: req.user.uid,
+        suspendedReason: reason,
+        suspendedUntil: FieldValue.delete(),
+      });
+    }
+  }
+  await detachResponderAndDevices(services, uid);
+  const activeAssignments = await activeAssignmentCount(services, uid);
+  await writeAudit(services, req.user, until ? "USER_TEMP_BANNED" : "USER_SUSPENDED", summary, {
+    reason,
+    activeAssignments,
+    ...(until ? { until: until.toISOString() } : {}),
+  });
+  const refreshed = await loadAdminTarget(services, uid);
+  res.json({ user: refreshed.summary, activeAssignments });
+});
+
+route("post", "/admin/users/:uid/reactivate", authenticate, async (req, res) => {
+  requireRole(req.user, ["admin"]);
+  const services = getFirebaseServices();
+  await enforceRateLimit(services.db, `admin_action_${req.user.uid}`, 30);
+  const uid = adminTargetUid(req.params.uid, req.user.uid);
+  const { authRecord, profile, summary } = await loadAdminTarget(services, uid);
+  if (authRecord) await services.auth.updateUser(uid, { disabled: false });
+  if (profile) {
+    await services.db.collection("users").doc(uid).update({
+      accountStatus: "active",
+      suspendedAt: FieldValue.delete(),
+      suspendedBy: FieldValue.delete(),
+      suspendedReason: FieldValue.delete(),
+      suspendedUntil: FieldValue.delete(),
+      reactivatedAt: Timestamp.now(),
+      reactivatedBy: req.user.uid,
+    });
+  }
+  await writeAudit(services, req.user, "USER_REACTIVATED", summary, {});
+  const refreshed = await loadAdminTarget(services, uid);
+  res.json({ user: refreshed.summary });
+});
+
+route("post", "/admin/users/:uid/password-reset", authenticate, async (req, res) => {
+  requireRole(req.user, ["admin"]);
+  const services = getFirebaseServices();
+  await enforceRateLimit(services.db, `admin_password_reset_${req.user.uid}`, 10, 10 * 60 * 1000);
+  const uid = adminTargetUid(req.params.uid, req.user.uid);
+  const signOutEverywhere = req.body?.signOutEverywhere === true;
+  const { authRecord, summary } = await loadAdminTarget(services, uid);
+  if (!authRecord?.email) fail("This account has no login with an email address to reset.", 409);
+  if (authRecord.disabled) fail("This account is disabled. Reactivate it before sending a password reset.", 409);
+  await sendPasswordResetEmail(authRecord.email, {
+    apiKey: process.env.VITE_FIREBASE_API_KEY,
+    appUrl: process.env.APP_URL,
+  });
+  if (signOutEverywhere) await services.auth.revokeRefreshTokens(uid);
+  await writeAudit(services, req.user, "PASSWORD_RESET_SENT", summary, { signOutEverywhere });
+  res.json({ sent: true, email: authRecord.email, signedOut: signOutEverywhere });
+});
+
+route("delete", "/admin/users/:uid", authenticate, async (req, res) => {
+  requireRole(req.user, ["admin"]);
+  const services = getFirebaseServices();
+  await enforceRateLimit(services.db, `admin_action_${req.user.uid}`, 30);
+  const uid = adminTargetUid(req.params.uid, req.user.uid);
+  const { authRecord, summary } = await loadAdminTarget(services, uid);
+  if (!deletionConfirmed(req.body?.confirmEmail, summary.email)) {
+    fail("Type the user's email address exactly to confirm deletion.");
+  }
+  const activeAssignments = await activeAssignmentCount(services, uid);
+  if (activeAssignments > 0) {
+    fail(`Reassign or close this responder's ${activeAssignments} active incident${activeAssignments === 1 ? "" : "s"} before deleting the account.`, 409);
+  }
+
+  // Every step tolerates data that is already gone, so a failed deletion can be retried.
+  if (authRecord) {
+    await services.auth.deleteUser(uid).catch(error => {
+      if (error.code !== "auth/user-not-found") throw error;
+    });
+  }
+  let deletedCheckins = 0;
+  for (;;) {
+    const checkins = await services.db.collection("safetyCheckins").where("userId", "==", uid).limit(400).get();
+    if (checkins.empty) break;
+    const batch = services.db.batch();
+    checkins.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+    deletedCheckins += checkins.size;
+  }
+  await services.db.collection("responderPresence").doc(uid).delete();
+  await services.db.recursiveDelete(services.db.collection("users").doc(uid));
+  const reported = await services.db.collection("incidents").where("reportedBy", "==", uid).count().get();
+  await writeAudit(services, req.user, "USER_DELETED", summary, {
+    role: summary.role,
+    deletedCheckins,
+    retainedIncidentReports: reported.data().count,
+  });
+  res.json({ deleted: true, uid, retainedIncidentReports: reported.data().count });
+});
+
+route("get", "/admin/audit-log", authenticate, async (req, res) => {
+  requireRole(req.user, ["admin"]);
+  const requested = Number.parseInt(req.query.limit, 10);
+  const pageSize = Number.isSafeInteger(requested) && requested > 0 ? Math.min(requested, 500) : 200;
+  const snapshot = await getFirebaseServices().db.collection("adminAuditLog")
+    .orderBy("createdAt", "desc")
+    .limit(pageSize)
+    .get();
+  res.set("cache-control", "no-store").json({ entries: snapshot.docs.map(doc => auditEntryForClient(doc.id, doc.data())) });
 });
 
 route("post", "/incidents", authenticate, async (req, res) => {
@@ -389,10 +659,12 @@ route("get", "/incidents/:id/emergency-contacts", authenticate, async (req, res)
   const snapshot = await incidentRef.get();
   if (!snapshot.exists) fail("Incident not found.", 404);
   const incident = snapshot.data();
+  // Responders see contacts for their active assignments and for any open SOS
+  // still waiting for a responder (the same SOS alerts they can already read).
+  const openSos = incident.isSOS === true && !incident.responderUid && incident.status === "NEW";
   const authorized = hasRole(req.user, "admin")
     || (isResponder(req.user)
-      && incident.responderUid === req.user.uid
-      && !["RESOLVED", "CLOSED"].includes(incident.status));
+      && ((incident.responderUid === req.user.uid && !["RESOLVED", "CLOSED"].includes(incident.status)) || openSos));
   if (!authorized) fail("You are not allowed to view contacts for this incident.", 403);
   if (typeof incident.reportedBy !== "string") {
     res.set("cache-control", "no-store").json({ contacts: [] });
@@ -412,6 +684,45 @@ route("get", "/incidents/:id/emergency-contacts", authenticate, async (req, res)
       relationship: contact.get("relationship"),
       phone: contact.get("phone"),
     })),
+  });
+});
+
+// Admin view of the verified account behind a non-anonymous report. Every view is
+// recorded on the incident's timeline, like emergency-contact views.
+route("get", "/incidents/:id/reporter", authenticate, async (req, res) => {
+  requireRole(req.user, ["admin"]);
+  const services = getFirebaseServices();
+  const incidentId = text(req.params.id, "Incident id", { max: 150 });
+  const incidentRef = services.db.collection("incidents").doc(incidentId);
+  const snapshot = await incidentRef.get();
+  if (!snapshot.exists) fail("Incident not found.", 404);
+  const reporterUid = snapshot.get("reportedBy");
+  if (snapshot.get("isAnonymous") === true || typeof reporterUid !== "string") {
+    fail("This report was submitted anonymously, so no profile is linked.", 404);
+  }
+  const [authRecord, profileSnapshot, reported] = await Promise.all([
+    services.auth.getUser(reporterUid).catch(error => {
+      if (error.code === "auth/user-not-found") return null;
+      throw error;
+    }),
+    services.db.collection("users").doc(reporterUid).get(),
+    services.db.collection("incidents").where("reportedBy", "==", reporterUid).count().get(),
+  ]);
+  if (!profileSnapshot.exists) fail("The account that filed this report has since been deleted.", 404);
+  const profile = profileSnapshot.data();
+  await incidentRef.collection("events").add({
+    event: "REPORTER_PROFILE_VIEWED",
+    actorUid: req.user.uid,
+    createdAt: Timestamp.now(),
+  });
+  res.set("cache-control", "no-store").json({
+    reporter: {
+      ...summarizeUser(reporterUid, authRecord, profile),
+      faculty: profile.faculty || null,
+      department: profile.department || null,
+      year: Number.isInteger(profile.year) ? profile.year : null,
+      incidentsReported: reported.data().count,
+    },
   });
 });
 
@@ -820,6 +1131,7 @@ route("patch", "/incidents/:id", authenticate, async (req, res) => {
       const responderProfile = await services.db.collection("users").doc(responderUid).get();
       const roles = [responderProfile.get("role"), ...(responderProfile.get("roles") || [])].flat();
       if (!responderProfile.exists || !roles.some(role => ["responder", "security", "medical"].includes(role))) fail("Choose a provisioned responder account.");
+      if (isSuspendedProfile(responderProfile.data())) fail("This responder account is suspended. Choose another responder.");
       updates.responderUid = responderUid;
       updates.responder = responderProfile.get("fullName") || responderProfile.get("email") || "Responder";
       updates.dispatchedByUid = req.user.uid;
@@ -924,6 +1236,7 @@ route("post", "/alerts", authenticate, async (req, res) => {
     title, body, createdBy: req.user.uid, scope: "campus", createdAt: FieldValue.serverTimestamp(),
   });
   const delivery = await notifyUsers(services, { userIds, title, body, data: { alertId: alertRef.id, kind: "campus-alert" }, emergency: true });
+  await writeAudit(services, req.user, "CAMPUS_ALERT_SENT", null, { alertId: alertRef.id, title, recipientCount: userIds.length });
   res.status(201).json({ id: alertRef.id, recipientCount: userIds.length, delivery });
 });
 

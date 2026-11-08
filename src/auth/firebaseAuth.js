@@ -55,6 +55,7 @@ function authError(error) {
     "auth/email-already-in-use": "An account already exists for this email. Sign in to request another verification email, or use password reset.",
     "auth/invalid-credential": "We could not sign you in. Check your email and password.",
     "auth/invalid-email": "Enter a valid email address.",
+    "auth/user-disabled": "This account has been suspended. Contact the CEIS administrators if you think this is a mistake.",
     "auth/too-many-requests": "Too many attempts. Wait a while and try again.",
     "auth/weak-password": "Choose a stronger password.",
     "auth/network-request-failed": "Could not connect to Firebase. Check your connection and try again.",
@@ -64,6 +65,14 @@ function authError(error) {
     "auth/unauthorized-continue-uri": "Firebase does not allow this email link's return address. In Firebase Console, open Authentication → Settings → Authorized domains and add localhost for local testing or your deployed app domain.",
   };
   return new Error(messages[error.code] || error.message || "Authentication failed. Please try again.");
+}
+
+// Mirrors isSuspendedProfile() on the API: a ban stops applying once suspendedUntil passes.
+export function activeSuspension(profile, now = Date.now()) {
+  if (profile?.accountStatus !== "suspended") return null;
+  const until = profile.suspendedUntil?.toDate?.() ?? (profile.suspendedUntil ? new Date(profile.suspendedUntil) : null);
+  if (until && until.getTime() <= now) return null;
+  return { until, reason: profile.suspendedReason || null };
 }
 
 function appUser(firebaseUser, profile) {
@@ -128,6 +137,14 @@ export async function loadAppUser(firebaseUser) {
   });
   window.localStorage.removeItem(roleRequestKey);
   window.localStorage.removeItem(nextRoleRequestKey);
+
+  const suspension = activeSuspension(profile);
+  if (suspension) {
+    await signOut(auth).catch(() => {});
+    throw new Error(suspension.until
+      ? `This account is temporarily banned until ${suspension.until.toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}.${suspension.reason ? ` Reason: ${suspension.reason}` : ""}`
+      : "This account has been suspended. Contact the CEIS administrators if you think this is a mistake.");
+  }
 
   return appUser(firebaseUser, profile);
 }

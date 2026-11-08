@@ -1,15 +1,17 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   Clock3,
+  Download,
   FileText,
+  ScrollText,
+  Users,
   Inbox,
   Map,
   MapPin,
   Radio,
   Siren,
   ShieldCheck,
-  UserRound,
   Zap,
 } from "lucide-react";
 import { NAVY, NAVY2, RED, REDL, ORANGE, ORANGEL, GREEN, GREENL, GOLD, WHITE, PAPER, PAPER2, BD, NK, SL, MID, INC_TYPES, PRIORITY, STATUS_FLOW, STATUS_LABEL, MBOMBELA_BUILDINGS, ZONE_COLORS } from "../constants.js";
@@ -23,6 +25,12 @@ import IncidentEmergencyContacts from "../components/IncidentEmergencyContacts.j
 import PushNotificationsButton from "../components/PushNotificationsButton.jsx";
 import CampusAlertComposer from "../components/CampusAlertComposer.jsx";
 import IncidentAnalyticsPanel from "../components/IncidentAnalyticsPanel.jsx";
+import UserManagementPanel from "../components/admin/UserManagementPanel.jsx";
+import AuditLogPanel from "../components/admin/AuditLogPanel.jsx";
+import IncidentTimeline from "../components/admin/IncidentTimeline.jsx";
+import ResponderSelect from "../components/admin/ResponderSelect.jsx";
+import ReporterInfo from "../components/admin/ReporterInfo.jsx";
+import { downloadCsv, incidentsToCsv } from "../admin/incidentCsv.js";
 
 const ADMIN_PORTAL_BACKGROUND = new URL("../../Administration Backgrounf/Administration Background.jpg", import.meta.url).href;
 
@@ -85,6 +93,35 @@ export default function AdminPortal({ user, authUser, onLogout }) {
     setTimeout(()=>setDispatchMsg(""),3000);
   }
 
+  // Role changes, suspensions and deletions can add or remove dispatchable responders.
+  const refreshResponders = useCallback(() => {
+    listResponders(authUser).then(setResponders).catch(error => setDataError(error.message));
+  }, [authUser]);
+
+  // Availability changes as responders go on and off duty, so keep the roster fresh.
+  useEffect(() => {
+    if (user.access !== "admin") return undefined;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        listResponders(authUser).then(setResponders).catch(() => {});
+      }
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, [authUser, user.access]);
+
+  const peopleNames = useMemo(() => ({
+    ...Object.fromEntries(responders.map(person => [person.uid, person.name])),
+    [authUser.uid]: "You",
+  }), [responders, authUser.uid]);
+
+  function exportIncidents() {
+    const csv = incidentsToCsv(filtered, {
+      type: Object.fromEntries(Object.entries(INC_TYPES).map(([key, value]) => [key, value.label])),
+      status: STATUS_LABEL,
+    });
+    downloadCsv(`ceis-incidents-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+  }
+
   async function reviewAccessRequest(uid, action) {
     setReviewingUid(uid);
     setDataError("");
@@ -110,7 +147,11 @@ export default function AdminPortal({ user, authUser, onLogout }) {
     ["analytics",BarChart3,"Analytics"],
     ["dashboard",Radio,"Dashboard"],["incidents",Siren,"Incidents"],["map",Map,"Live Map"],
     ["dispatch",Zap,"Assignments"],["input",Inbox,"Report Input"],
-    ...(user.access === "admin" ? [["access",ShieldCheck,`Access Requests${accessRequests.length ? ` (${accessRequests.length})` : ""}`]] : []),
+    ...(user.access === "admin" ? [
+      ["access",ShieldCheck,`Access Requests${accessRequests.length ? ` (${accessRequests.length})` : ""}`],
+      ["users",Users,"Users"],
+      ["audit",ScrollText,"Audit Log"],
+    ] : []),
   ];
   return (
     <div className="student-portal-shell" style={{minHeight:"100vh",background:"transparent",fontFamily:"'IBM Plex Sans',sans-serif"}}>
@@ -170,7 +211,9 @@ export default function AdminPortal({ user, authUser, onLogout }) {
         {dataError&&<div role="alert" style={{background:REDL,color:RED,padding:12,borderRadius:7,marginBottom:16}}>{dataError}</div>}
 
         {/* ── DASHBOARD ── */}
-        {view==="analytics"&&<IncidentAnalyticsPanel user={authUser} />}
+        {view==="analytics"&&<IncidentAnalyticsPanel incidents={incidents} />}
+        {view==="users"&&user.access==="admin"&&<UserManagementPanel authUser={authUser} incidents={incidents} onRolesChanged={refreshResponders} />}
+        {view==="audit"&&user.access==="admin"&&<AuditLogPanel authUser={authUser} />}
         {view==="access"&&user.access==="admin"&&(
           <section style={{animation:"fadeIn .35s ease"}}>
             <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,color:NK,marginBottom:6}}>Role access requests</h2>
@@ -269,6 +312,11 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                   {Object.keys(PRIORITY).map(p=><option key={p} value={p}>{p} — {PRIORITY[p].label}</option>)}
                 </select>
                 <div style={{marginLeft:"auto",fontSize:13,color:MID,alignSelf:"center"}}>{filtered.length} incident{filtered.length!==1?"s":""}</div>
+                {user.access==="admin"&&(
+                  <button type="button" onClick={exportIncidents} disabled={!filtered.length} title="Download the incidents matching these filters as a spreadsheet" style={{display:"inline-flex",alignItems:"center",gap:6,padding:"8px 12px",border:`1.5px solid ${BD}`,borderRadius:6,background:WHITE,color:NAVY,fontSize:12.5,fontWeight:700,cursor:filtered.length?"pointer":"not-allowed",opacity:filtered.length?1:0.5}}>
+                    <Download size={15} aria-hidden="true"/> Export CSV
+                  </button>
+                )}
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
                 {filtered.map(inc=>{
@@ -291,7 +339,10 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                         </div>
                         <div style={{fontSize:13,color:SL,marginBottom:4,lineHeight:1.5}}>{inc.desc||"No additional description supplied."}</div>
                         <div style={{fontSize:11.5,color:MID,display:"flex",alignItems:"center",flexWrap:"wrap",gap:"3px 6px"}}>
-                          <MapPin size={13} aria-hidden="true"/> {inc.loc} · <Clock3 size={13} aria-hidden="true"/> {inc.time} · <UserRound size={13} aria-hidden="true"/> {inc.responder}
+                          <MapPin size={13} aria-hidden="true"/> {inc.loc} · <Clock3 size={13} aria-hidden="true"/> {inc.time} · <Siren size={13} aria-hidden="true"/> {inc.responder}
+                        </div>
+                        <div style={{marginTop:5,display:"flex",alignItems:"center",gap:6,fontSize:11.5,color:MID}}>
+                          Reported by <ReporterInfo incident={inc} authUser={authUser} compact />
                         </div>
                       </div>
                     </button>
@@ -315,8 +366,11 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                 </div>
                 <div style={{padding:"16px 18px"}}>
                   <div style={{fontSize:10,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Description</div>
-                  <p style={{fontSize:13.5,color:SL,lineHeight:1.7,marginBottom:16}}>{selectedInc.desc}</p>
+                  <p style={{fontSize:13.5,color:SL,lineHeight:1.7,marginBottom:16}}>{selectedInc.desc || "No additional description supplied."}</p>
+                  <div style={{fontSize:10,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Reported by</div>
+                  <ReporterInfo incident={selectedInc} authUser={authUser} canViewProfile={user.access==="admin"} />
                   <IncidentEmergencyContacts incident={selectedInc} user={authUser} />
+                  <div style={{height:16}} />
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
                     {[["Type",INC_TYPES[selectedInc.type]?.label],["Building",`#${selectedInc.building}`],["Time",selectedInc.time],["Responder",selectedInc.responder]].map(([l,v])=>(
                       <div key={l} style={{background:PAPER,borderRadius:6,padding:"9px 11px"}}>
@@ -339,21 +393,21 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                   <div style={{fontSize:10,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Quick Dispatch</div>
                   {dispatchMsg&&<div style={{padding:"8px 12px",background:GREENL,border:`1px solid ${GREEN}28`,borderRadius:6,fontSize:12,color:GREEN,marginBottom:10}}>✓ {dispatchMsg}</div>}
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                    <select
-                      aria-label="Choose responder for selected incident"
-                      value={selectedResponders[selectedInc.id] || ""}
-                      onChange={event=>setSelectedResponders(value=>({...value,[selectedInc.id]:event.target.value}))}
-                      style={{flex:1,minWidth:0,padding:"9px 10px",border:`1px solid ${BD}`,borderRadius:6,color:NK,background:WHITE}}
-                    >
-                      <option value="">Select responder</option>
-                      {responders.map(person=><option key={person.uid} value={person.uid}>{person.name}</option>)}
-                    </select>
+                    <ResponderSelect
+                      ariaLabel="Choose responder for selected incident"
+                      responders={responders}
+                      incidents={incidents}
+                      value={selectedResponders[selectedInc.id]}
+                      onChange={uid=>setSelectedResponders(value=>({...value,[selectedInc.id]:uid}))}
+                      style={{flex:1}}
+                    />
                     <button
                       disabled={!selectedResponders[selectedInc.id]}
                       onClick={()=>assignResponder(selectedInc.id,selectedResponders[selectedInc.id])}
                       style={{padding:"9px 12px",background:NAVY,color:WHITE,border:0,borderRadius:6,fontWeight:700,cursor:"pointer",opacity:selectedResponders[selectedInc.id]?1:0.55}}
                     >Dispatch</button>
                   </div>
+                  {user.access==="admin"&&<IncidentTimeline incidentId={selectedInc.id} people={peopleNames} />}
                 </div>
               </div>
             ):(
@@ -449,17 +503,17 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                     </div>
                     <div style={{fontSize:14,fontWeight:700,color:NK,marginBottom:4,fontFamily:"'IBM Plex Serif',serif"}}>{inc.loc}</div>
                     <div style={{fontSize:12.5,color:SL,marginBottom:8}}>{inc.desc || "No additional description supplied."}</div>
+                    <div style={{marginBottom:8,display:"flex",alignItems:"center",gap:6,fontSize:11.5,color:MID}}>Reported by <ReporterInfo incident={inc} authUser={authUser} compact /></div>
                     <IncidentEvidenceList incident={inc} user={authUser} />
                     <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                      <select
-                        aria-label={`Responder for ${inc.reference || inc.id}`}
-                        value={selectedResponders[inc.id] || ""}
-                        onChange={event=>setSelectedResponders(value=>({...value,[inc.id]:event.target.value}))}
-                        style={{minWidth:180,padding:"8px 10px",border:`1px solid ${BD}`,borderRadius:5,color:NK,background:WHITE}}
-                      >
-                        <option value="">Select responder</option>
-                        {responders.map(person=><option key={person.uid} value={person.uid}>{person.name}</option>)}
-                      </select>
+                      <ResponderSelect
+                        ariaLabel={`Responder for ${inc.reference || inc.id}`}
+                        responders={responders}
+                        incidents={incidents}
+                        value={selectedResponders[inc.id]}
+                        onChange={uid=>setSelectedResponders(value=>({...value,[inc.id]:uid}))}
+                        style={{flex:"1 1 240px"}}
+                      />
                       <button
                         onClick={()=>assignResponder(inc.id,selectedResponders[inc.id])}
                         disabled={!responders.length || !selectedResponders[inc.id]}
@@ -480,9 +534,12 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                 <div style={{fontSize:12,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Provisioned Responders</div>
                 {responders.map(person=>{
                   const assigned = incidents.filter(inc=>inc.responderUid===person.uid && !["RESOLVED","CLOSED"].includes(inc.status)).length;
-                  return <div key={person.uid} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:8,padding:"12px 14px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <div><div style={{fontSize:13,fontWeight:700,color:NK}}>{person.name}</div><div style={{fontSize:11.5,color:SL,marginTop:2}}>Responder account</div></div>
-                    <div style={{padding:"4px 10px",background:assigned?ORANGEL:GREENL,border:`1px solid ${assigned?ORANGE:GREEN}28`,borderRadius:4,fontSize:11,fontWeight:700,color:assigned?ORANGE:GREEN}}>{assigned?`● ${assigned} active`:"● Available"}</div>
+                  const [label,color,tint] = !person.available
+                    ? [person.onDuty ? "Location not updating" : "Off duty", MID, PAPER2]
+                    : assigned ? [`Available · ${assigned} active`, ORANGE, ORANGEL] : ["Available now", GREEN, GREENL];
+                  return <div key={person.uid} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:8,padding:"12px 14px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+                    <div><div style={{fontSize:13,fontWeight:700,color:NK}}>{person.name}</div><div style={{fontSize:11.5,color:SL,marginTop:2}}>{person.lastSeenAt?`Last location ${new Date(person.lastSeenAt).toLocaleTimeString("en-ZA",{hour:"2-digit",minute:"2-digit"})}`:"Never gone on duty"}{!person.available&&assigned?` · ${assigned} active`:""}</div></div>
+                    <div style={{padding:"4px 10px",background:tint,border:`1px solid ${color}28`,borderRadius:4,fontSize:11,fontWeight:700,color,whiteSpace:"nowrap"}}>● {label}</div>
                   </div>;
                 })}
                 {!responders.length&&<div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:8,padding:16,fontSize:12,color:SL}}>No responder accounts are provisioned yet. Assign a trusted Firebase user the responder role in their Firestore profile.</div>}

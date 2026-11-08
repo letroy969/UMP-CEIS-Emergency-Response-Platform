@@ -34,9 +34,19 @@ service cloud.firestore {
           && profile.roles.hasAny(expectedRoles));
     }
 
+    // Suspended indefinitely, or temporarily banned until suspendedUntil.
+    function notSuspended(profile) {
+      return !('accountStatus' in profile)
+        || profile.accountStatus != 'suspended'
+        || ('suspendedUntil' in profile
+          && profile.suspendedUntil is timestamp
+          && profile.suspendedUntil < request.time);
+    }
+
     function profileHasRole(uid, expectedRole) {
       return profileExists(uid)
-        && hasRole(get(/databases/$(database)/documents/users/$(uid)).data, expectedRole);
+        && hasRole(get(/databases/$(database)/documents/users/$(uid)).data, expectedRole)
+        && notSuspended(get(/databases/$(database)/documents/users/$(uid)).data);
     }
 
     function admin() {
@@ -46,7 +56,8 @@ service cloud.firestore {
     function responder() {
       return verified()
         && profileExists(request.auth.uid)
-        && hasAnyRole(get(/databases/$(database)/documents/users/$(request.auth.uid)).data, ['responder', 'security', 'medical']);
+        && hasAnyRole(get(/databases/$(database)/documents/users/$(request.auth.uid)).data, ['responder', 'security', 'medical'])
+        && notSuspended(get(/databases/$(database)/documents/users/$(request.auth.uid)).data);
     }
 
     function validCoordinates(data) {

@@ -8,6 +8,9 @@ export default function IncidentEmergencyContacts({ incident, user }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   if (user.role === "responder" && ["RESOLVED", "CLOSED"].includes(incident.status)) return null;
+  if (incident.isAnonymous || !incident.reportedBy) {
+    return <p style={{ marginTop: 10, fontSize: 12, color: "#5B6577" }}>Anonymous report — no profile or emergency contacts are linked.</p>;
+  }
 
   async function toggleContacts() {
     if (expanded) {

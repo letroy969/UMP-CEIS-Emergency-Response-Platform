@@ -45,7 +45,7 @@ import { STYLES } from "./pages/portalStyles.js";
 import { createCheckin, createIncident, getCheckin, listIncidents, uploadIncidentAttachment } from "./incidentApi.js";
 
 const STUDENT_PORTAL_BACKGROUND = new URL(
-  "../REporter Background/ReporterBackground.jpg",
+  "../REporter Background/red-emergency-warning-light-flashing-darkness_84443-86332.avif",
   import.meta.url,
 ).href;
 

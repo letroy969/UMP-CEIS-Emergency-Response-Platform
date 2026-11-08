@@ -55,7 +55,9 @@ function present(id, row) {
     locationCapturedAt: iso(row.locationCapturedAt),
     locationSource: row.locationSource ?? null,
     campusVerified: row.campusVerified ?? null,
-    reporter: row.reporterName || "Student",
+    reporter: row.isAnonymous === true || !row.reportedBy ? "Anonymous" : row.reporterName || "Campus user",
+    isAnonymous: row.isAnonymous === true || !row.reportedBy,
+    isSOS: row.isSOS === true,
     createdAt,
     updatedAt: iso(row.updatedAt),
     dispatchedAt: iso(row.dispatchedAt),
@@ -64,7 +66,7 @@ function present(id, row) {
   };
 }
 
-async function apiRequest(user, path, options = {}) {
+export async function apiRequest(user, path, options = {}) {
   if (!user || !auth.currentUser || auth.currentUser.uid !== user.uid) throw new Error("Sign in to continue.");
   const token = await auth.currentUser.getIdToken();
   let response;
