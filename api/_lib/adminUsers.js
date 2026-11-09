@@ -1,5 +1,6 @@
 import { isSuspendedProfile, roleSet } from "./auth.js";
 import { fail } from "./validation.js";
+import { responderSpecialization } from "../../src/responder/specializations.js";
 
 // Roles an administrator can assign from the Admin Portal. Legacy "security" and
 // "medical" profiles keep working (they map to the responder portal) but new
@@ -97,6 +98,7 @@ export function summarizeUser(uid, authRecord, profile, nowMs = Date.now()) {
     name: profile?.fullName || authRecord?.displayName || email || "Unnamed account",
     role: typeof rawRole === "string" ? rawRole : null,
     portal,
+    specialization: portal === "responder" ? responderSpecialization(profile) : null,
     requestedRole: profile?.requestedRole || null,
     roleRequestStatus: profile?.roleRequestStatus || null,
     status,

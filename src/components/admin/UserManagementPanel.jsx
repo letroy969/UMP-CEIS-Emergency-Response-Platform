@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ban, KeyRound, RefreshCw, Search, ShieldAlert, Trash2, UserCheck, UserX } from "lucide-react";
 import { BD, GREEN, GREENL, MID, NAVY, NK, ORANGE, ORANGEL, PAPER, RED, REDL, SL, WHITE } from "../../constants.js";
-import { changeUserRole, deleteUser, listUsers, reactivateUser, sendUserPasswordReset, suspendUser } from "../../adminApi.js";
+import { changeUserRole, deleteUser, listUsers, reactivateUser, sendUserPasswordReset, setResponderSpecialization, suspendUser } from "../../adminApi.js";
+import { RESPONDER_SPECIALIZATIONS, SPECIALIZATION_KEYS, specializationLabel } from "../../responder/specializations.js";
 
 const BAN_DURATIONS = [
   ["1h", "1 hour", 60 * 60 * 1000],
@@ -60,6 +61,7 @@ export default function UserManagementPanel({ authUser, incidents, onRolesChange
   const [selectedUid, setSelectedUid] = useState(null);
   const [busy, setBusy] = useState("");
   const [nextRole, setNextRole] = useState("");
+  const [nextField, setNextField] = useState("");
   const [reason, setReason] = useState("");
   const [confirmEmail, setConfirmEmail] = useState("");
   const [banDuration, setBanDuration] = useState("24h");
@@ -87,6 +89,7 @@ export default function UserManagementPanel({ authUser, incidents, onRolesChange
   function select(person) {
     setSelectedUid(person.uid);
     setNextRole(ROLE_OPTIONS.some(([value]) => value === person.role) ? person.role : "");
+    setNextField(person.specialization || "");
     setReason("");
     setConfirmEmail("");
     setNotice("");
@@ -150,6 +153,16 @@ export default function UserManagementPanel({ authUser, incidents, onRolesChange
       setNotice(result.activeAssignments
         ? `Role changed to ${ROLE_LABEL[nextRole]}. They still hold ${result.activeAssignments} active incident assignment(s) — reassign them from Incidents.`
         : `Role changed to ${ROLE_LABEL[nextRole]}.`);
+    });
+  }
+
+  function saveField() {
+    if (!selected || !nextField || nextField === selected.specialization) return;
+    run("field", async () => {
+      await setResponderSpecialization(authUser, selected.uid, nextField);
+      replaceUser({ ...selected, specialization: nextField });
+      onRolesChanged?.();
+      setNotice(`Field set to ${specializationLabel(nextField)}. They are now dispatched to matching incidents.`);
     });
   }
 
@@ -253,6 +266,9 @@ export default function UserManagementPanel({ authUser, incidents, onRolesChange
                   <div style={{ fontSize: 12, color: SL, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{person.email || "No email"}</div>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  {person.portal === "responder" && (person.specialization
+                    ? <Badge color={GREEN} background={GREENL}>{specializationLabel(person.specialization)}</Badge>
+                    : <Badge color={RED} background={REDL}>Field not set</Badge>)}
                   {roleBadge(person)}
                   {statusBadge(person)}
                 </div>
@@ -312,6 +328,20 @@ export default function UserManagementPanel({ authUser, incidents, onRolesChange
                         <button type="button" onClick={saveRole} disabled={busy !== "" || !nextRole || nextRole === selected.role} style={{ padding: "8px 14px", background: NAVY, color: WHITE, border: 0, borderRadius: 6, fontWeight: 700, cursor: "pointer", opacity: busy !== "" || !nextRole || nextRole === selected.role ? 0.5 : 1 }}>{busy === "role" ? "Saving…" : "Save"}</button>
                       </div>
                       {selected.roleRequestStatus === "pending" && <p style={{ fontSize: 11.5, color: MID, marginTop: 6 }}>Saving a role replaces their pending {selected.requestedRole} request.</p>}
+                    </div>
+                  )}
+
+                  {selected.portal === "responder" && (
+                    <div style={{ marginBottom: 18 }}>
+                      <div style={sectionLabel}>Responder field</div>
+                      {!selected.specialization && <p style={{ fontSize: 11.5, color: RED, margin: "0 0 8px" }}>No field set. They cannot be dispatched or accept SOS alerts until you choose one.</p>}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <select aria-label="Responder field" value={nextField} onChange={event => setNextField(event.target.value)} style={{ ...inputStyle, flex: 1 }}>
+                          <option value="" disabled>Choose field</option>
+                          {SPECIALIZATION_KEYS.map(key => <option key={key} value={key}>{RESPONDER_SPECIALIZATIONS[key].label}</option>)}
+                        </select>
+                        <button type="button" onClick={saveField} disabled={busy !== "" || !nextField || nextField === selected.specialization} style={{ padding: "8px 14px", background: NAVY, color: WHITE, border: 0, borderRadius: 6, fontWeight: 700, cursor: "pointer", opacity: busy !== "" || !nextField || nextField === selected.specialization ? 0.5 : 1 }}>{busy === "field" ? "Saving…" : "Save"}</button>
+                      </div>
                     </div>
                   )}
 

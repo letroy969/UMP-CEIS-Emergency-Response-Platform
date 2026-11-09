@@ -164,6 +164,9 @@ test("user summaries merge Auth and profile data and flag suspension from either
   const summary = summarizeUser("u1", authRecord, profile);
   assert.equal(summary.email, "person@ump.ac.za");
   assert.equal(summary.portal, "responder");
+  assert.equal(summary.specialization, null);
+  assert.equal(summarizeUser("u1", authRecord, { ...profile, specialization: "nurse" }).specialization, "nurse");
+  assert.equal(summarizeUser("u1", authRecord, { ...profile, role: "student", specialization: "nurse" }).specialization, null);
   assert.equal(summary.status, "active");
   assert.equal(summary.lastSignInAt, "2026-11-08T10:30:00.000Z");
   assert.equal(summary.createdAt, "2026-11-02T08:00:00.000Z");
