@@ -28,6 +28,17 @@ export function validateRegistrationEmail(email, role = "student") {
   return normalizedEmail;
 }
 
+// Decides which account type to create on a user's first sign-in. The type
+// chosen at signup is remembered in the browser used to sign up (or to open the
+// verification link); on any other device it is unknown. A non-UMP address can
+// only ever be a responder, so that case is inferred instead of failing.
+export function signupRoleFor(storedRole, email) {
+  if (["staff", "responder", "admin"].includes(storedRole)) return storedRole;
+  const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+  if (normalizedEmail && !UMP_EMAIL.test(normalizedEmail)) return "responder";
+  return "student";
+}
+
 export function normalizeEmergencyPhone(value) {
   const input = value.trim();
   const compact = input.replace(/[()\s.-]/g, "");

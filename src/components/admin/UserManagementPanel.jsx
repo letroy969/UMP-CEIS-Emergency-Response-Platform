@@ -40,7 +40,11 @@ function statusBadge(person) {
 function roleBadge(person) {
   if (person.portal) return <Badge color={NAVY} background={`${NAVY}12`}>{ROLE_LABEL[person.role] || ROLE_LABEL[person.portal] || person.portal}</Badge>;
   if (person.roleRequestStatus === "pending") return <Badge color={ORANGE} background={ORANGEL}>Pending {person.requestedRole}</Badge>;
-  if (!person.hasProfile) return <Badge color={MID} background={PAPER}>Never signed in</Badge>;
+  if (!person.hasProfile) {
+    return person.emailVerified
+      ? <Badge color={ORANGE} background={ORANGEL}>Verified · not signed in yet</Badge>
+      : <Badge color={MID} background={PAPER}>Email not verified</Badge>;
+  }
   return <Badge color={MID} background={PAPER}>No portal access</Badge>;
 }
 
@@ -283,7 +287,7 @@ export default function UserManagementPanel({ authUser, incidents, onRolesChange
               </div>
 
               {selected.status !== "active" && selected.suspendedReason && <p style={{ fontSize: 12.5, color: RED, marginBottom: 12 }}>Reason: {selected.suspendedReason}</p>}
-              {!selected.hasProfile && <p style={{ fontSize: 12.5, color: SL, marginBottom: 12 }}>This person created a login but has never finished signing in, so they have no CEIS profile or role yet.</p>}
+              {!selected.hasProfile && <p style={{ fontSize: 12.5, color: SL, marginBottom: 12 }}>This person has a login but has never signed in to CEIS, so any access they asked for at signup has not been submitted yet. Ask them to sign in once, or assign their role below.</p>}
               {!selected.hasAuthAccount && <p style={{ fontSize: 12.5, color: ORANGE, marginBottom: 12 }}>The login for this profile no longer exists — probably an interrupted deletion. Delete it again to remove the remaining data.</p>}
 
               {isSelf ? (
@@ -293,9 +297,13 @@ export default function UserManagementPanel({ authUser, incidents, onRolesChange
                 </div>
               ) : (
                 <>
-                  {selected.hasProfile && (
+                  {!selected.hasProfile && selected.hasAuthAccount && !selected.emailVerified && (
+                    <p style={{ fontSize: 12.5, color: ORANGE, marginBottom: 18 }}>They have not verified their email yet, so no role can be assigned. Once they open the verification email you can grant access here, even before they sign in.</p>
+                  )}
+                  {(selected.hasProfile || (selected.hasAuthAccount && selected.emailVerified)) && (
                     <div style={{ marginBottom: 18 }}>
                       <div style={sectionLabel}>Role</div>
+                      {!selected.hasProfile && <p style={{ fontSize: 11.5, color: MID, margin: "0 0 8px" }}>Verified, but they have not signed in yet. Choosing a role creates their CEIS profile now, so they land in the right portal on first sign-in.</p>}
                       <div style={{ display: "flex", gap: 8 }}>
                         <select aria-label="New role" value={nextRole} onChange={event => setNextRole(event.target.value)} style={{ ...inputStyle, flex: 1 }}>
                           <option value="" disabled>Choose role</option>

@@ -9,7 +9,7 @@ import {
 import { doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../lib/firebase.js";
 import { defaultPortal, profilePortals } from "./roles.js";
-import { validateRegistrationEmail } from "./profileValidation.js";
+import { signupRoleFor, validateRegistrationEmail } from "./profileValidation.js";
 
 let registrationInProgress = false;
 const REGISTRATION_ROLES = new Set(["staff", "responder", "admin"]);
@@ -110,7 +110,7 @@ export async function loadAppUser(firebaseUser) {
   const nextRoleRequestKey = "ceis:requested-role-next";
   const storedRole = window.localStorage.getItem(roleRequestKey)
     || window.localStorage.getItem(nextRoleRequestKey);
-  const registeredRole = REGISTRATION_ROLES.has(storedRole) ? storedRole : "student";
+  const registeredRole = signupRoleFor(storedRole, email);
   const requestedRole = APPROVAL_REQUIRED_ROLES.has(registeredRole) ? registeredRole : null;
   const profile = await runTransaction(db, async transaction => {
     const profileSnapshot = await transaction.get(profileRef);

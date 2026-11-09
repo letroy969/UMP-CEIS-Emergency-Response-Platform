@@ -687,3 +687,50 @@ body {
   .ceis-admin-map-layout,
   .ceis-admin-dashboard-map-layout { grid-template-columns: minmax(0, 1fr) !important; }
 }
+
+/* ── Light / dark mode (src/theme.js) ─────────────────────────────────────
+   Light is the default. Dark mode inverts the page colours with hue kept, then
+   inverts photos, video, maps and background images back so they look natural.
+   The filter sits on the root element, which keeps position:fixed dialogs
+   (SOS, modals) anchored to the viewport. */
+html[data-ceis-theme="dark"] {
+  filter: invert(1) hue-rotate(180deg) contrast(.9);
+  color-scheme: dark;
+  background: #F0F3F8;
+}
+html[data-ceis-theme="dark"] img,
+html[data-ceis-theme="dark"] video,
+html[data-ceis-theme="dark"] picture,
+html[data-ceis-theme="dark"] canvas,
+html[data-ceis-theme="dark"] iframe,
+html[data-ceis-theme="dark"] .leaflet-container {
+  filter: invert(1) hue-rotate(180deg);
+}
+html[data-ceis-theme="dark"] .leaflet-container img { filter: none; }
+html[data-ceis-theme="dark"] .student-portal-background img {
+  filter: invert(1) hue-rotate(180deg) blur(4px) brightness(.7);
+}
+html[data-ceis-theme="dark"] .student-portal-background--vivid img {
+  filter: invert(1) hue-rotate(180deg) blur(1.5px) brightness(.75);
+}
+
+.ceis-theme-toggle {
+  position: fixed;
+  left: 16px;
+  bottom: 96px;
+  z-index: 950;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, .25);
+  border-radius: 50%;
+  background: #101D42;
+  color: #FFFFFF;
+  box-shadow: 0 6px 18px rgba(15, 35, 70, .28);
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.ceis-theme-toggle:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(15, 35, 70, .32); }
+.ceis-theme-toggle:focus-visible { outline: 3px solid #E8B020; outline-offset: 3px; }
+@media print { .ceis-theme-toggle { display: none; } }

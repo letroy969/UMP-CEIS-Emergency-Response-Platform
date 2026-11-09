@@ -9,6 +9,7 @@ import {
   Inbox,
   Map,
   MapPin,
+  Paperclip,
   Radio,
   Siren,
   ShieldCheck,
@@ -220,7 +221,7 @@ export default function AdminPortal({ user, authUser, onLogout }) {
             <h2 style={{fontFamily:"'IBM Plex Serif',serif",fontSize:24,color:NK,marginBottom:6}}>Role access requests</h2>
             <p style={{fontSize:14,color:SL,marginBottom:20}}>Review responder and admin access requests. Verified UMP staff accounts receive staff access without administrator approval; admin access is never self-assigned.</p>
             {accessRequests.length === 0
-              ? <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:9,padding:24,color:SL}}>No pending role access requests.</div>
+              ? <div style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:9,padding:24,color:SL}}>No pending role access requests. People who signed up but have not signed in yet are not listed here: find them in Users (marked “Verified · not signed in yet”) and assign their role there.</div>
               : <div style={{display:"grid",gap:10}}>
                 {accessRequests.map(request=>(
                   <article key={request.uid} style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,flexWrap:"wrap",background:WHITE,border:`1px solid ${BD}`,borderRadius:9,padding:16}}>
@@ -336,6 +337,7 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                           <div style={{display:"flex",gap:6,flexShrink:0}}>
                             <span style={{padding:"2px 8px",background:`${P.color}14`,color:P.color,borderRadius:3,fontSize:10.5,fontWeight:700}}>{inc.priority}</span>
                             <span style={{padding:"2px 8px",background:PAPER2,color:SL,borderRadius:3,fontSize:10.5}}>{STATUS_LABEL[inc.status]}</span>
+                            {inc.attachments?.length>0&&<span title={`${inc.attachments.length} attachment${inc.attachments.length===1?"":"s"}`} style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 7px",background:`${NAVY}10`,color:NAVY,borderRadius:3,fontSize:10.5,fontWeight:700}}><Paperclip size={11} aria-hidden="true"/>{inc.attachments.length}</span>}
                           </div>
                         </div>
                         <div style={{fontSize:13,color:SL,marginBottom:4,lineHeight:1.5}}>{inc.desc||"No additional description supplied."}</div>
@@ -372,6 +374,7 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                   <ReporterInfo incident={selectedInc} authUser={authUser} canViewProfile={user.access==="admin"} />
                   <IncidentEmergencyContacts incident={selectedInc} user={authUser} />
                   <IncidentMedicalInfo incident={selectedInc} user={authUser} />
+                  <IncidentEvidenceList key={selectedInc.id} incident={incidents.find(inc=>inc.id===selectedInc.id) || selectedInc} user={authUser} />
                   <div style={{height:16}} />
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
                     {[["Type",INC_TYPES[selectedInc.type]?.label],["Building",`#${selectedInc.building}`],["Time",selectedInc.time],["Responder",selectedInc.responder]].map(([l,v])=>(

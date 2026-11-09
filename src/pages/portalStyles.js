@@ -26,18 +26,4 @@ export const STYLES = `
      than in the operational portals; a light blur hides its low resolution. */
   .student-portal-background--vivid img{filter:blur(1.5px) brightness(.9);}
   .student-portal-background--vivid>div{background:rgba(239,243,249,.38);}
-
-  /* Dark mode (student & staff accessibility setting, see src/theme.js).
-     The page is colour-inverted with hue preserved; photos, video, maps and
-     the background image are inverted back so they look natural. A filter on
-     the root element keeps position:fixed dialogs (e.g. SOS) viewport-anchored. */
-  html[data-ceis-theme="dark"]{filter:invert(1) hue-rotate(180deg) contrast(.9);color-scheme:dark;}
-  html[data-ceis-theme="dark"] img,
-  html[data-ceis-theme="dark"] video,
-  html[data-ceis-theme="dark"] picture,
-  html[data-ceis-theme="dark"] canvas,
-  html[data-ceis-theme="dark"] iframe,
-  html[data-ceis-theme="dark"] .leaflet-container{filter:invert(1) hue-rotate(180deg);}
-  html[data-ceis-theme="dark"] .student-portal-background img{filter:invert(1) hue-rotate(180deg) blur(1.5px) brightness(.75);}
-  html[data-ceis-theme="dark"] .leaflet-container img{filter:none;}
 `;

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  signupRoleFor,
   normalizeEmergencyPhone,
   validateEmergencyContact,
   validateRegistrationEmail,
@@ -19,6 +20,19 @@ test("requires UMP email addresses for staff and admin access requests", () => {
     assert.equal(validateRegistrationEmail(`person@ump.ac.za`, role), "person@ump.ac.za");
     assert.throws(() => validateRegistrationEmail("person@example.com", role), /official UMP/);
   }
+});
+
+test("first sign-in keeps the account type chosen at signup", () => {
+  assert.equal(signupRoleFor("responder", "medic@example.com"), "responder");
+  assert.equal(signupRoleFor("admin", "boss@ump.ac.za"), "admin");
+  assert.equal(signupRoleFor("staff", "person@ump.ac.za"), "staff");
+});
+
+test("first sign-in on another device infers responder for non-UMP emails only", () => {
+  assert.equal(signupRoleFor(null, "Medic@Example.com"), "responder");
+  assert.equal(signupRoleFor("bogus", "medic@example.com"), "responder");
+  assert.equal(signupRoleFor(null, "230021646@ump.ac.za"), "student");
+  assert.equal(signupRoleFor(null, "person@ump.ac.za"), "student");
 });
 
 test("responder access requests accept any valid email address", () => {

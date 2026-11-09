@@ -22,7 +22,7 @@ import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../lib/firebase.js";
 import PushNotificationsButton from "../components/PushNotificationsButton.jsx";
 import MedicalProfileForm from "../components/MedicalProfileForm.jsx";
-import { applyTheme } from "../theme.js";
+import { setTheme, useTheme } from "../theme.js";
 import {
   getSafetyPreferences,
   listEmergencyContacts,
@@ -69,7 +69,8 @@ export default function StudentProfile({ user, authUser, onUserUpdated, onUnsave
     year: String(user.year || 1),
   });
   const [contacts, setContacts] = useState([]);
-  const [preferences, setPreferences] = useState({ reducedMotion: false, darkMode: false });
+  const [preferences, setPreferences] = useState({ reducedMotion: false });
+  const theme = useTheme();
   const [medicalDirty, setMedicalDirty] = useState(false);
   const [contactForm, setContactForm] = useState(null);
   const [editingContact, setEditingContact] = useState("");
@@ -115,7 +116,7 @@ export default function StudentProfile({ user, authUser, onUserUpdated, onUnsave
         getSafetyPreferences(authUser),
       ]);
       setContacts(savedContacts);
-      setPreferences({ reducedMotion: savedPreferences.reducedMotion === true, darkMode: savedPreferences.darkMode === true });
+      setPreferences({ reducedMotion: savedPreferences.reducedMotion === true });
     } catch (loadError) {
       setError(messageOf(loadError, "Could not load your private safety profile."));
     } finally {
@@ -207,18 +208,21 @@ export default function StudentProfile({ user, authUser, onUserUpdated, onUnsave
     }
   }
 
-  async function setPreference(name, value) {
+  // Dark mode is the app-wide theme; the portal saves it to the account when it changes.
+  function setDarkMode(value) {
+    setTheme(value ? "dark" : "light");
+    setNotice(value ? "Dark mode on. Saved to your account." : "Light mode on. Saved to your account.");
+  }
+
+  async function setReducedMotion(value) {
     const previous = preferences;
-    const updated = { ...preferences, [name]: value };
-    setPreferences(updated);
-    if (name === "darkMode") applyTheme(authUser.uid, value);
+    setPreferences({ ...preferences, reducedMotion: value });
     setError("");
     try {
-      await saveSafetyPreferences(authUser, updated);
+      await saveSafetyPreferences(authUser, { reducedMotion: value, darkMode: theme === "dark" });
       setNotice("Accessibility preference saved.");
     } catch (saveError) {
       setPreferences(previous);
-      if (name === "darkMode") applyTheme(authUser.uid, previous.darkMode);
       setError(messageOf(saveError, "Could not save the accessibility preference."));
     }
   }
@@ -349,11 +353,11 @@ export default function StudentProfile({ user, authUser, onUserUpdated, onUnsave
                 <h3 style={{ fontSize: 14, color: NK, margin: "26px 0 10px", paddingTop: 18, borderTop: `1px solid ${BD}` }}>Display & accessibility settings</h3>
                 <div style={{ display: "grid", gap: 10, maxWidth: 520 }}>
                   <label style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: 12, border: `1px solid ${BD}`, borderRadius: 7, cursor: "pointer" }}>
-                    <input type="checkbox" checked={preferences.darkMode} onChange={event => setPreference("darkMode", event.target.checked)} style={{ marginTop: 3 }}/>
-                    <span><strong style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: NK }}><Moon size={14} aria-hidden="true"/>Dark mode</strong><span style={{ display: "block", fontSize: 11.5, color: SL }}>Use a dark colour scheme across your portal. Easier on the eyes at night and in low light. Saved to your account.</span></span>
+                    <input type="checkbox" checked={theme === "dark"} onChange={event => setDarkMode(event.target.checked)} style={{ marginTop: 3 }}/>
+                    <span><strong style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: NK }}><Moon size={14} aria-hidden="true"/>Dark mode</strong><span style={{ display: "block", fontSize: 11.5, color: SL }}>Use a dark colour scheme across CEIS. Easier on the eyes at night and in low light. Saved to your account; you can also switch with the moon / sun button at the bottom left of any page.</span></span>
                   </label>
                   <label style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: 12, border: `1px solid ${BD}`, borderRadius: 7, cursor: "pointer" }}>
-                    <input type="checkbox" checked={preferences.reducedMotion} onChange={event => setPreference("reducedMotion", event.target.checked)} style={{ marginTop: 3 }}/>
+                    <input type="checkbox" checked={preferences.reducedMotion} onChange={event => setReducedMotion(event.target.checked)} style={{ marginTop: 3 }}/>
                     <span><strong style={{ display: "block", fontSize: 12, color: NK }}>Reduce motion in this profile</strong><span style={{ fontSize: 11.5, color: SL }}>Persist this choice and reduce animation and transition effects in the profile view.</span></span>
                   </label>
                 </div>

@@ -77,7 +77,14 @@ export async function getSafetyPreferences(user) {
   requireCurrentUser(user);
   const snapshot = await getDoc(doc(db, "users", user.uid, "private", "preferences"));
   const data = snapshot.exists() ? snapshot.data() : {};
-  return { reducedMotion: data.reducedMotion === true, darkMode: data.darkMode === true };
+  // darkMode is null when the account has never chosen, so the device setting applies.
+  return { reducedMotion: data.reducedMotion === true, darkMode: typeof data.darkMode === "boolean" ? data.darkMode : null };
+}
+
+// Saves only the dark-mode choice, keeping the other stored preferences.
+export async function saveDarkModePreference(user, darkMode) {
+  const current = await getSafetyPreferences(user);
+  await saveSafetyPreferences(user, { reducedMotion: current.reducedMotion, darkMode: darkMode === true });
 }
 
 export async function saveSafetyPreferences(user, preferences) {

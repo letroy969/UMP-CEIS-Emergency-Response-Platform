@@ -36,8 +36,8 @@ import Signup from "./auth/Signup.jsx";
 import SOSActivation from "./components/SOSActivation.jsx";
 import PushNotificationsButton from "./components/PushNotificationsButton.jsx";
 import { auth } from "./lib/firebase.js";
-import { applyTheme, cachedDarkMode, clearTheme } from "./theme.js";
-import { getSafetyPreferences } from "./auth/studentProfile.js";
+import { setTheme, subscribeTheme } from "./theme.js";
+import { getSafetyPreferences, saveDarkModePreference } from "./auth/studentProfile.js";
 import { canAccessPortal } from "./auth/roles.js";
 import { isRegistrationInProgress, isValidEmail, loadAppUser, requestPasswordReset, signInUser, signOutUser } from "./auth/firebaseAuth.js";
 import AdminPortal from "./pages/AdminPortal.jsx";
@@ -222,15 +222,27 @@ function StudentPortal({ user, authUser, onLogout, onProfileUpdated, onOpenMedic
   const [dataError, setDataError] = useState("");
   const submittingReport = useRef(false);
 
-  // Apply the user's dark-mode preference while they are in this portal.
+  // Keep the light/dark choice in step with the account: a saved account
+  // preference applies on sign-in, and any later toggle is saved back.
   useEffect(() => {
     let active = true;
-    applyTheme(user.id, cachedDarkMode(user.id));
+    let accountDark = null;
     getSafetyPreferences(authUser)
-      .then(preferences => { if (active) applyTheme(user.id, preferences.darkMode); })
+      .then(preferences => {
+        // Skip if the account never chose, or the user already toggled while this loaded.
+        if (!active || preferences.darkMode === null || accountDark !== null) return;
+        accountDark = preferences.darkMode;
+        setTheme(preferences.darkMode ? "dark" : "light");
+      })
       .catch(() => {});
-    return () => { active = false; clearTheme(); };
-  }, [authUser, user.id]);
+    const unsubscribe = subscribeTheme(mode => {
+      const dark = mode === "dark";
+      if (dark === accountDark) return;
+      accountDark = dark;
+      saveDarkModePreference(authUser, dark).catch(error => console.error("Dark mode preference could not be saved", error));
+    });
+    return () => { active = false; unsubscribe(); };
+  }, [authUser]);
 
   useEffect(() => {
     let active = true;

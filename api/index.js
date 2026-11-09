@@ -473,12 +473,44 @@ route("patch", "/admin/users/:uid/role", authenticate, async (req, res) => {
   const uid = adminTargetUid(req.params.uid, req.user.uid);
   const role = assignableRole(req.body?.role);
   const profileRef = services.db.collection("users").doc(uid);
+  // Accounts that verified their email but never signed in have no profile yet;
+  // the admin can still grant them a role, which creates the profile here.
+  const authRecord = await services.auth.getUser(uid).catch(error => {
+    if (error.code === "auth/user-not-found") return null;
+    throw error;
+  });
   let previousRole = null;
   let wasResponder = false;
   let target = null;
+  let createdProfile = false;
   await services.db.runTransaction(async transaction => {
     const snapshot = await transaction.get(profileRef);
-    if (!snapshot.exists) fail("This account has no CEIS profile yet. The user must sign in once before a role can be assigned.", 409);
+    if (!snapshot.exists) {
+      if (!authRecord) fail("User not found.", 404);
+      if (!authRecord.emailVerified) fail("This person has not verified their email address yet. Ask them to open the verification email first.", 409);
+      const now = Timestamp.now();
+      const email = authRecord.email || "";
+      const fallbackName = email.split("@")[0];
+      const fullName = [authRecord.displayName?.trim(), fallbackName]
+        .find(name => name && name.length >= 2 && name.length <= 100) || "CEIS User";
+      target = { uid, email: email || null, name: fullName };
+      transaction.create(profileRef, {
+        uid,
+        email,
+        fullName,
+        role,
+        roles: [role],
+        createdAt: now,
+        createdByAdmin: req.user.uid,
+        roleChangedAt: now,
+        roleChangedBy: req.user.uid,
+      });
+      transaction.create(services.db.collection("adminAuditLog").doc(), auditEntry(
+        req.user, "USER_ROLE_CHANGED", target, { from: null, to: role, profileCreated: true }, now,
+      ));
+      createdProfile = true;
+      return;
+    }
     const profile = snapshot.data();
     previousRole = Array.isArray(profile.role) ? profile.role[0] : profile.role ?? null;
     wasResponder = isResponderProfile(profile);
@@ -496,7 +528,7 @@ route("patch", "/admin/users/:uid/role", authenticate, async (req, res) => {
     activeAssignments = await activeAssignmentCount(services, uid);
   }
   const { summary } = await loadAdminTarget(services, uid);
-  res.json({ user: summary, previousRole, activeAssignments });
+  res.json({ user: summary, previousRole, activeAssignments, createdProfile });
 });
 
 route("post", "/admin/users/:uid/suspend", authenticate, async (req, res) => {

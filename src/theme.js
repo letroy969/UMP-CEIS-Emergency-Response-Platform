@@ -1,29 +1,60 @@
-// Dark mode for the student and staff portals. The saved preference lives in
-// Firestore (users/{uid}/private/preferences); a per-account local copy lets the
-// theme apply before Firestore answers, so the page does not flash light first.
-// The styles themselves are in pages/portalStyles.js under [data-ceis-theme].
+import { useSyncExternalStore } from "react";
 
-const key = uid => `ceis:dark-mode:${uid}`;
+// One light/dark setting for the whole app (landing page, sign-in and every
+// portal). Light is the default; the choice is remembered on this device.
+// Signed-in students and staff also have it saved to their account (see
+// StudentPortal in CommandCenter.jsx), so it follows them across devices.
+// The dark styles live in index.css under html[data-ceis-theme="dark"].
 
-export function applyTheme(uid, dark) {
-  if (dark) document.documentElement.dataset.ceisTheme = "dark";
+const STORAGE_KEY = "ceis:theme";
+const listeners = new Set();
+let current = "light";
+
+function readStored() {
+  try {
+    return window.localStorage.getItem(STORAGE_KEY) === "dark" ? "dark" : "light";
+  } catch {
+    return "light";
+  }
+}
+
+function paint(mode) {
+  if (mode === "dark") document.documentElement.dataset.ceisTheme = "dark";
   else delete document.documentElement.dataset.ceisTheme;
-  try {
-    if (uid) window.localStorage.setItem(key(uid), dark ? "1" : "0");
-  } catch {
-    // Storage can be unavailable (private mode); the Firestore value still applies.
-  }
 }
 
-export function cachedDarkMode(uid) {
-  try {
-    return window.localStorage.getItem(key(uid)) === "1";
-  } catch {
-    return false;
-  }
+// Call once before the first render so a saved dark choice applies without a light flash.
+export function initTheme() {
+  current = readStored();
+  paint(current);
 }
 
-// Called when leaving the student/staff portal so other portals stay light.
-export function clearTheme() {
-  delete document.documentElement.dataset.ceisTheme;
+export function getTheme() {
+  return current;
+}
+
+export function setTheme(mode) {
+  const next = mode === "dark" ? "dark" : "light";
+  if (next === current) return;
+  current = next;
+  paint(next);
+  try {
+    window.localStorage.setItem(STORAGE_KEY, next);
+  } catch {
+    // Storage can be unavailable (private mode); the theme still applies for this visit.
+  }
+  listeners.forEach(listener => listener(next));
+}
+
+export function toggleTheme() {
+  setTheme(current === "dark" ? "light" : "dark");
+}
+
+export function subscribeTheme(listener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function useTheme() {
+  return useSyncExternalStore(subscribeTheme, getTheme, () => "light");
 }

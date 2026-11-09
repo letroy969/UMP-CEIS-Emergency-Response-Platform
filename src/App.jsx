@@ -2,6 +2,7 @@ import { useState } from "react";
 import LandingSite      from "./LandingSite.jsx";
 import CommandCenterApp from "./CommandCenter.jsx";
 import VerifyEmail from "./auth/VerifyEmail.jsx";
+import ThemeToggle from "./components/ThemeToggle.jsx";
 
 /**
  * UMP CEIS — Unified Application Root
@@ -15,6 +16,15 @@ import VerifyEmail from "./auth/VerifyEmail.jsx";
  * its own login, student portal, and admin dashboard routing internally.
  */
 export default function App() {
+  return (
+    <>
+      <Screens />
+      <ThemeToggle />
+    </>
+  );
+}
+
+function Screens() {
   const [screen, setScreen] = useState(() =>
     new URLSearchParams(window.location.search).get("access") === "system"
       ? "system"
