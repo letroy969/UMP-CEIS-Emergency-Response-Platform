@@ -335,13 +335,15 @@ route("get", "/responders", authenticate, async (req, res) => {
     ]);
     if (isSuspendedProfile(profile.data())) return null;
     const lastSeenMs = presence.get("updatedAt")?.toMillis?.() ?? null;
+    // Older presence records only have `available`; treat that as on duty.
+    const onDuty = typeof presence.get("onDuty") === "boolean" ? presence.get("onDuty") : presence.get("available") === true;
     return {
       uid,
       name: profile.get("fullName") || profile.get("email") || "Responder",
       // Same freshness window SOS auto-dispatch uses: a responder who went on duty
       // but whose app stopped reporting a location is not shown as available.
-      available: presence.get("available") === true && lastSeenMs != null && Date.now() - lastSeenMs <= RESPONDER_PRESENCE_FRESH_MS,
-      onDuty: presence.get("available") === true,
+      available: onDuty && lastSeenMs != null && Date.now() - lastSeenMs <= RESPONDER_PRESENCE_FRESH_MS,
+      onDuty,
       lastSeenAt: lastSeenMs == null ? null : new Date(lastSeenMs).toISOString(),
     };
   }));
@@ -1176,6 +1178,117 @@ route("post", "/incidents/:id/claim", authenticate, async (req, res) => {
   res.json({ incident: incidentForClient(id, claimed) });
 });
 
+async function onDutyResponderIds(services, excludeUid) {
+  const snapshot = await services.db.collection("responderPresence").where("onDuty", "==", true).limit(200).get();
+  const now = Date.now();
+  return snapshot.docs
+    .filter(doc => doc.id !== excludeUid && now - (doc.get("updatedAt")?.toMillis?.() ?? 0) <= RESPONDER_PRESENCE_FRESH_MS)
+    .map(doc => doc.id);
+}
+
+// Progress notes and backup requests from the scene. Stored on the incident's
+// timeline so admins see them live; backup requests also alert admins and the
+// other responders currently on duty.
+route("post", "/incidents/:id/updates", authenticate, async (req, res) => {
+  const services = getFirebaseServices();
+  const adminActor = hasRole(req.user, "admin");
+  if (!adminActor && !isResponder(req.user)) fail("Only admins or responders can post incident updates.", 403);
+  await enforceRateLimit(services.db, `incident_update_${req.user.uid}`, 20);
+  const id = text(req.params.id, "Incident id", { max: 150 });
+  const kind = req.body?.kind === "backup" ? "backup" : "note";
+  const message = text(req.body?.message ?? (kind === "backup" ? "Backup requested." : ""), "Update", { min: kind === "backup" ? 1 : 2, max: 500 });
+  const ref = services.db.collection("incidents").doc(id);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) fail("Incident not found.", 404);
+  const incident = snapshot.data();
+  if (!adminActor && incident.responderUid !== req.user.uid) fail("This incident is not assigned to you.", 403);
+  if (["RESOLVED", "CLOSED"].includes(incident.status)) fail("This incident is already closed.", 409);
+  const now = Timestamp.now();
+  const eventRef = ref.collection("events").doc();
+  await eventRef.set({
+    event: kind === "backup" ? "BACKUP_REQUESTED" : "RESPONDER_UPDATE",
+    actorUid: req.user.uid,
+    actorName: req.user.name,
+    message,
+    status: incident.status,
+    createdAt: now,
+  });
+  await ref.update({ updatedAt: now });
+
+  let alerted = 0;
+  if (kind === "backup") {
+    try {
+      const [adminIds, responderIds] = await Promise.all([
+        usersWithRole(services, ["admin"]),
+        onDutyResponderIds(services, req.user.uid),
+      ]);
+      const recipients = [...new Set([...adminIds, ...responderIds])].filter(uid => uid !== req.user.uid);
+      alerted = recipients.length;
+      await notifyUsers(services, {
+        userIds: recipients,
+        title: `Backup requested · ${incident.reference}`,
+        body: `${req.user.name} needs backup at ${incident.buildingName || "the incident location"}: ${message}`.slice(0, 300),
+        data: { incidentId: id, reference: incident.reference, kind: "backup" },
+        emergency: true,
+      });
+    } catch (error) {
+      console.error("Backup request alert failed", id, error);
+    }
+  }
+  res.status(201).json({ update: { id: eventRef.id, kind, message, createdAt: now.toDate().toISOString() }, alerted });
+});
+
+// A responder who cannot attend hands the incident back before reaching the
+// scene. It returns to the unassigned queue (an SOS reappears for every
+// responder) and admins are told so they can redispatch.
+route("post", "/incidents/:id/release", authenticate, async (req, res) => {
+  if (!isResponder(req.user)) fail("Responder access is required.", 403);
+  const services = getFirebaseServices();
+  const id = text(req.params.id, "Incident id", { max: 150 });
+  const reason = text(req.body?.reason, "Reason", { min: 3, max: 300 });
+  const ref = services.db.collection("incidents").doc(id);
+  let released;
+  await services.db.runTransaction(async transaction => {
+    const snapshot = await transaction.get(ref);
+    if (!snapshot.exists) fail("Incident not found.", 404);
+    const before = snapshot.data();
+    if (before.responderUid !== req.user.uid) fail("This incident is not assigned to you.", 403);
+    if (!["TEAM_DISPATCHED", "ACKNOWLEDGED"].includes(before.status)) {
+      fail("You can only hand back an incident before you are on scene. Post an update or request backup instead.", 409);
+    }
+    const now = Timestamp.now();
+    const updates = { responderUid: null, responder: null, dispatchedByUid: null, dispatchedAt: null, status: "NEW", updatedAt: now };
+    transaction.update(ref, updates);
+    transaction.create(ref.collection("events").doc(), {
+      event: "RESPONDER_RELEASED",
+      actorUid: req.user.uid,
+      actorName: req.user.name,
+      message: reason,
+      fromStatus: before.status,
+      status: "NEW",
+      createdAt: now,
+    });
+    released = { ...before, ...updates };
+  });
+
+  try {
+    const [adminIds, responderIds] = await Promise.all([
+      usersWithRole(services, ["admin"]),
+      released.isSOS ? onDutyResponderIds(services, req.user.uid) : Promise.resolve([]),
+    ]);
+    await notifyUsers(services, {
+      userIds: [...new Set([...adminIds, ...responderIds])],
+      title: released.isSOS ? `SOS needs a responder again · ${released.reference}` : `Incident needs redispatch · ${released.reference}`,
+      body: `${req.user.name} cannot attend: ${reason}`.slice(0, 300),
+      data: { incidentId: id, reference: released.reference, kind: released.isSOS ? "sos" : "incident-update" },
+      emergency: released.isSOS === true,
+    });
+  } catch (error) {
+    console.error("Release notification failed", id, error);
+  }
+  res.json({ incident: incidentForClient(id, released) });
+});
+
 route("patch", "/incidents/:id", authenticate, async (req, res) => {
   const services = getFirebaseServices();
   const id = text(req.params.id, "Incident id", { max: 150 });
@@ -1271,13 +1384,26 @@ route("get", "/dashboard/analytics", authenticate, async (req, res) => {
 
 route("put", "/responders/presence", authenticate, async (req, res) => {
   if (!isResponder(req.user)) fail("Responder access is required.", 403);
+  // onDuty: the responder is working and sharing location (shown to admins).
+  // available: on duty AND free, i.e. eligible for SOS auto-dispatch. A busy
+  // responder stays on duty but is not auto-assigned a second emergency.
   const available = req.body?.available;
   if (typeof available !== "boolean") fail("Set available to true or false.");
-  const data = { available, updatedAt: FieldValue.serverTimestamp() };
-  if (available) Object.assign(data, coordinates(req.body.latitude, req.body.longitude));
+  const onDuty = typeof req.body?.onDuty === "boolean" ? req.body.onDuty : available;
   const services = getFirebaseServices();
+  await enforceRateLimit(services.db, `presence_${req.user.uid}`, 30);
+  const data = { available: onDuty && available, onDuty, updatedAt: FieldValue.serverTimestamp() };
+  if (onDuty) {
+    Object.assign(data, coordinates(req.body.latitude, req.body.longitude));
+    const accuracy = req.body.accuracyMeters;
+    data.accuracyMeters = Number.isFinite(accuracy) && accuracy >= 0 && accuracy <= 100000 ? accuracy : null;
+    if (data.available) data.assignmentReservedAt = FieldValue.delete();
+  } else {
+    // Off duty: stop holding the responder's location.
+    Object.assign(data, { latitude: FieldValue.delete(), longitude: FieldValue.delete(), accuracyMeters: FieldValue.delete() });
+  }
   await services.db.collection("responderPresence").doc(req.user.uid).set(data, { merge: true });
-  res.json({ available, updatedAt: new Date().toISOString() });
+  res.json({ onDuty, available: data.available, updatedAt: new Date().toISOString() });
 });
 
 route("post", "/notifications/tokens", authenticate, async (req, res) => {

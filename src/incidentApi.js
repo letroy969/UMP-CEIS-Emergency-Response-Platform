@@ -330,11 +330,39 @@ export function isAnonymousSOSConfigured() {
   return Boolean(appCheck);
 }
 
-export async function setResponderPresence(user, available, coordinates = {}) {
+// onDuty: working and sharing location. free: not busy with an active incident,
+// so eligible for SOS auto-dispatch. Coordinates are required while on duty.
+export async function setResponderPresence(user, { onDuty, free = true, latitude, longitude, accuracyMeters } = {}) {
   return apiRequest(user, "/responders/presence", {
     method: "PUT",
-    body: JSON.stringify({ available, ...coordinates }),
+    body: JSON.stringify(onDuty
+      ? { onDuty: true, available: Boolean(free), latitude, longitude, accuracyMeters }
+      : { onDuty: false, available: false }),
   });
+}
+
+export async function postIncidentUpdate(user, incidentId, { message, kind = "note" }) {
+  return apiRequest(user, `/incidents/${encodeURIComponent(incidentId)}/updates`, {
+    method: "POST",
+    body: JSON.stringify({ message, kind }),
+  });
+}
+
+export async function releaseIncident(user, incidentId, reason) {
+  const payload = await apiRequest(user, `/incidents/${encodeURIComponent(incidentId)}/release`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+  return payload.incident;
+}
+
+// Live timeline of one incident (admins and the assigned responder may read it).
+export function subscribeIncidentEvents(incidentId, onRows, onError) {
+  return onSnapshot(
+    query(collection(db, "incidents", incidentId, "events"), orderBy("createdAt", "asc")),
+    snapshot => onRows(snapshot.docs.map(item => ({ id: item.id, ...item.data(), createdAt: iso(item.data().createdAt) }))),
+    error => onError(new Error(error.message || "The incident timeline could not be loaded.")),
+  );
 }
 
 export async function registerPushToken(user, token) {

@@ -16,12 +16,15 @@ const EVENT_LABEL = {
   EMERGENCY_CONTACTS_VIEWED: "Emergency contacts viewed",
   REPORTER_PROFILE_VIEWED: "Reporter profile viewed",
   MEDICAL_INFO_VIEWED: "Medical & accessibility details viewed",
+  RESPONDER_UPDATE: "Responder update",
+  BACKUP_REQUESTED: "Backup requested",
+  RESPONDER_RELEASED: "Responder handed incident back",
 };
 
 function actorLabel(event, people) {
   if (event.actorUid === "system") return "System";
   if (event.actorUid === "anonymous") return "Anonymous visitor";
-  return people[event.actorUid] || `User ${String(event.actorUid || "").slice(0, 6)}…`;
+  return people[event.actorUid] || event.actorName || `User ${String(event.actorUid || "").slice(0, 6)}…`;
 }
 
 // Read-only audit trail of one incident. Admins may read events directly under
@@ -52,6 +55,7 @@ export default function IncidentTimeline({ incidentId, people = {} }) {
               {EVENT_LABEL[event.event] || event.event}
               {event.status && ["STATUS_CHANGED", "RESPONDER_ASSIGNED"].includes(event.event) && <span style={{ fontWeight: 500, color: SL }}> · {STATUS_LABEL[event.status] || event.status}</span>}
             </div>
+            {event.message && <div style={{ fontSize: 12.5, color: event.event === "BACKUP_REQUESTED" ? "#9B1C1C" : NK, whiteSpace: "pre-wrap", margin: "2px 0" }}>{event.message}</div>}
             <div style={{ fontSize: 11.5, color: MID }}>
               {event.createdAt?.toDate ? event.createdAt.toDate().toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" }) : ""} · {actorLabel(event, people)}
               {event.responderUid && event.event !== "STATUS_CHANGED" && people[event.responderUid] && event.actorUid !== event.responderUid ? ` → ${people[event.responderUid]}` : ""}

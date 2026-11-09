@@ -734,3 +734,6 @@ html[data-ceis-theme="dark"] .student-portal-background--vivid img {
 .ceis-theme-toggle:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(15, 35, 70, .32); }
 .ceis-theme-toggle:focus-visible { outline: 3px solid #E8B020; outline-offset: 3px; }
 @media print { .ceis-theme-toggle { display: none; } }
+
+/* Responder map: the incident being navigated to stands out. */
+.ceis-incident-marker--selected { transform: scale(1.25); box-shadow: 0 0 0 5px rgba(184, 48, 24, .25), 0 3px 10px rgba(12, 24, 48, .4); }
