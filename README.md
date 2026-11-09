@@ -105,7 +105,8 @@ Students and staff use the same incident form and can read only reports they sub
 
 - `users/{uid}`: profile and assigned role, plus pending responder or admin access-request metadata.
 - `users/{uid}/emergencyContacts/{contactId}`: private emergency contacts. Users manage their own contacts; admins and the responder assigned to an active linked incident can retrieve them on demand through the authenticated API. Anonymous incidents have no linked profile or contacts.
-- `users/{uid}/private/preferences`: private accessibility preferences.
+- `users/{uid}/private/preferences`: private accessibility preferences (reduced motion, dark mode for the student and staff portals).
+- `users/{uid}/private/medical`: optional medical and accessibility details (allergies, conditions, medication, accessibility needs, emergency instructions). Saved only with the user's explicit consent and editable or deletable by them at any time. Only the owner can read it directly. Admins, the responder assigned to the user's active incident, and responders viewing an open SOS read it through `GET /api/incidents/:id/medical`, which validates the data and logs a `MEDICAL_INFO_VIEWED` event on the incident. This is special personal information under POPIA.
 - `users/{uid}/pushTokens/{tokenId}`: private device notification tokens.
 - `incidents/{incidentId}`: authenticated and anonymous incident reports, assignment, status, location, and evidence metadata. Evidence files themselves are stored in the private R2 bucket. Anonymous SOS records are marked `isAnonymous` and `isSOS`; they are visible to admins and to the assigned responder only.
 - `incidents/{incidentId}/events/{eventId}`: status, dispatch, evidence, and sensitive-contact access audit events.

@@ -108,8 +108,14 @@ service cloud.firestore {
             && !('requestedRole' in request.resource.data)
             && !('roleRequestStatus' in request.resource.data)
             && !('roleRequestedAt' in request.resource.data))
+          // Responder requests may use any verified email (external emergency
+          // services); admin requests still need a UMP address. Both stay
+          // without portal access until an administrator approves them.
           || (request.resource.data.role == 'student'
-            && validUmpRoleEmail(request.resource.data.email)
+            && ((request.resource.data.requestedRole == 'admin' && validUmpRoleEmail(request.resource.data.email))
+              || (request.resource.data.requestedRole == 'responder'
+                && request.resource.data.email is string
+                && request.resource.data.email.size() <= 254))
             && request.resource.data.requestedRole in ['responder', 'admin']
             && request.resource.data.roleRequestStatus == 'pending'
             && request.resource.data.roleRequestedAt == request.time));
@@ -166,17 +172,38 @@ service cloud.firestore {
       match /private/{privateDocument} {
         allow read: if verified()
           && request.auth.uid == userId
-          && privateDocument == 'preferences';
+          && privateDocument in ['preferences', 'medical'];
         allow create, update: if verified()
           && request.auth.uid == userId
           && privateDocument == 'preferences'
           && request.resource.data.keys().hasAll(['reducedMotion', 'updatedAt'])
-          && request.resource.data.keys().hasOnly(['reducedMotion', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['reducedMotion', 'darkMode', 'updatedAt'])
           && request.resource.data.reducedMotion is bool
+          && (!('darkMode' in request.resource.data) || request.resource.data.darkMode is bool)
+          && request.resource.data.updatedAt == request.time;
+        // Health details (special personal information under POPIA). Saved only
+        // with explicit consent; responders and admins never read this directly
+        // — the API serves it to authorised incident handlers and audits it.
+        allow create, update: if verified()
+          && request.auth.uid == userId
+          && privateDocument == 'medical'
+          && request.resource.data.keys().hasOnly([
+            'consent', 'consentedAt', 'allergies', 'conditions', 'medication',
+            'accessibility', 'instructions', 'updatedAt'
+          ])
+          && request.resource.data.consent == true
+          && request.resource.data.consentedAt is timestamp
+          && request.resource.data.allergies is map
+          && request.resource.data.conditions is map
+          && request.resource.data.medication is map
+          && request.resource.data.medication.items is list
+          && request.resource.data.medication.items.size() <= 10
+          && request.resource.data.accessibility is map
+          && request.resource.data.instructions is map
           && request.resource.data.updatedAt == request.time;
         allow delete: if verified()
           && request.auth.uid == userId
-          && privateDocument == 'preferences';
+          && privateDocument in ['preferences', 'medical'];
       }
     }
 

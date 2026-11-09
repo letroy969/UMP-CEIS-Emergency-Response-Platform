@@ -359,7 +359,7 @@ export default function UserManagementPanel({ authUser, incidents, onRolesChange
                       <p style={{ fontSize: 12.5, color: RED }}>This responder has {activeAssignments} active incident assignment(s). Reassign or close them before deleting the account.</p>
                     ) : (
                       <>
-                        <p style={{ fontSize: 12, color: SL, marginBottom: 8, lineHeight: 1.5 }}>Permanently removes the login, profile, emergency contacts, preferences, registered devices and safety check-ins. Incident reports they filed are kept for the record. This cannot be undone.</p>
+                        <p style={{ fontSize: 12, color: SL, marginBottom: 8, lineHeight: 1.5 }}>Permanently removes the login, profile, emergency contacts, medical details, preferences, registered devices and safety check-ins. Incident reports they filed are kept for the record. This cannot be undone.</p>
                         <label style={{ fontSize: 11.5, color: SL, display: "block", marginBottom: 4 }} htmlFor="confirm-delete-email">Type <strong>{selected.email || "the email"}</strong> to confirm</label>
                         <input id="confirm-delete-email" value={confirmEmail} onChange={event => setConfirmEmail(event.target.value)} autoComplete="off" style={{ ...inputStyle, width: "100%", marginBottom: 8 }} />
                         <button type="button" onClick={remove} disabled={busy !== "" || !emailMatches} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", background: RED, color: WHITE, border: 0, borderRadius: 6, fontWeight: 700, cursor: emailMatches ? "pointer" : "not-allowed", opacity: emailMatches && busy === "" ? 1 : 0.5 }}>

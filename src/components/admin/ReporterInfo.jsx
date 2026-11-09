@@ -3,6 +3,7 @@ import { BadgeCheck, EyeOff, UserRound, X } from "lucide-react";
 import { BD, GREEN, GREENL, MID, NAVY, NK, PAPER, RED, SL, WHITE } from "../../constants.js";
 import { getIncidentReporter } from "../../adminApi.js";
 import IncidentEmergencyContacts from "../IncidentEmergencyContacts.jsx";
+import IncidentMedicalInfo from "../IncidentMedicalInfo.jsx";
 
 const ROLE_LABEL = { student: "Student", staff: "Staff", responder: "Responder", admin: "Administrator" };
 
@@ -68,7 +69,9 @@ function ReporterProfileDialog({ incident, authUser, onClose }) {
                   </div>
                   <div style={{ fontSize: 10, fontWeight: 700, color: MID, textTransform: "uppercase", letterSpacing: 1, margin: "16px 0 0" }}>Emergency contacts</div>
                   <IncidentEmergencyContacts incident={incident} user={authUser} />
-                  <p style={{ fontSize: 11, color: MID, marginTop: 14 }}>Opening this profile and its emergency contacts is recorded on the incident timeline.</p>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: MID, textTransform: "uppercase", letterSpacing: 1, margin: "16px 0 0" }}>Medical & accessibility</div>
+                  <IncidentMedicalInfo incident={incident} user={authUser} />
+                  <p style={{ fontSize: 11, color: MID, marginTop: 14 }}>Opening this profile, its emergency contacts and medical details is recorded on the incident timeline.</p>
                 </>
               )}
         </div>

@@ -1,6 +1,7 @@
 const REGISTRATION_ROLES = new Set(["student", "staff", "responder", "admin"]);
 const STUDENT_EMAIL = /^\d{9}@ump\.ac\.za$/;
 const UMP_EMAIL = /^[^\s@]+@ump\.ac\.za$/;
+const ANY_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export function validateRegistrationEmail(email, role = "student") {
   const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
@@ -10,6 +11,14 @@ export function validateRegistrationEmail(email, role = "student") {
   if (role === "student") {
     if (normalizedEmail.length !== 19 || !STUDENT_EMAIL.test(normalizedEmail)) {
       throw new Error("Student accounts require a 9-digit student number followed by @ump.ac.za (19 characters total), for example 230021646@ump.ac.za.");
+    }
+    return normalizedEmail;
+  }
+  // Responders include external emergency services, so any address is accepted;
+  // their access still stays denied until a CEIS administrator approves it.
+  if (role === "responder") {
+    if (normalizedEmail.length > 254 || !ANY_EMAIL.test(normalizedEmail)) {
+      throw new Error("Enter a valid email address, for example name@example.com.");
     }
     return normalizedEmail;
   }

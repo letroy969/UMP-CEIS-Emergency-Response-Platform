@@ -22,6 +22,7 @@ import { STYLES } from "./portalStyles.js";
 import { assignIncident, createIncident, listAccessRequests, listResponders, reviewAccessRequest as submitAccessRequest, subscribeIncidents, updateIncident } from "../incidentApi.js";
 import IncidentEvidenceList from "../components/IncidentEvidenceList.jsx";
 import IncidentEmergencyContacts from "../components/IncidentEmergencyContacts.jsx";
+import IncidentMedicalInfo from "../components/IncidentMedicalInfo.jsx";
 import PushNotificationsButton from "../components/PushNotificationsButton.jsx";
 import CampusAlertComposer from "../components/CampusAlertComposer.jsx";
 import IncidentAnalyticsPanel from "../components/IncidentAnalyticsPanel.jsx";
@@ -370,6 +371,7 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                   <div style={{fontSize:10,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Reported by</div>
                   <ReporterInfo incident={selectedInc} authUser={authUser} canViewProfile={user.access==="admin"} />
                   <IncidentEmergencyContacts incident={selectedInc} user={authUser} />
+                  <IncidentMedicalInfo incident={selectedInc} user={authUser} />
                   <div style={{height:16}} />
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
                     {[["Type",INC_TYPES[selectedInc.type]?.label],["Building",`#${selectedInc.building}`],["Time",selectedInc.time],["Responder",selectedInc.responder]].map(([l,v])=>(

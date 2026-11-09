@@ -16,7 +16,7 @@ const ROLE_COPY = {
   responder: {
     title: "Request responder access",
     button: "Request responder access",
-    description: "Use your official @ump.ac.za email and verify it before signing in. A CEIS administrator must approve responder access.",
+    description: "Any email address can be used, including external emergency-service addresses. Verify it before signing in. A CEIS administrator must approve responder access.",
   },
   admin: {
     title: "Request admin access",
@@ -64,7 +64,7 @@ export default function Signup({ onBack, role = "student" }) {
         }
         setMessage(accountRole === "student" || accountRole === "staff"
           ? `Your ${accountRole} account is created. Verify your @ump.ac.za email, then sign in to the ${accountRole} portal.`
-          : `Your ${accountRole} account request is created. Verify your @ump.ac.za email and sign in to submit it for administrator review. ${accountRole === "admin" ? "Admin access remains denied until an existing administrator approves it; if approved, an administrator will email you with the verification steps needed to activate access." : "Responder access remains unavailable until an administrator approves your request."}`);
+          : `Your ${accountRole} account request is created. Verify your ${accountRole === "responder" ? "" : "@ump.ac.za "}email and sign in to submit it for administrator review. ${accountRole === "admin" ? "Admin access remains denied until an existing administrator approves it; if approved, an administrator will email you with the verification steps needed to activate access." : "Responder access remains unavailable until an administrator approves your request."}`);
       });
     } catch (error) {
       setMessage(error.message || "Could not connect to the authentication service.");
@@ -84,7 +84,7 @@ export default function Signup({ onBack, role = "student" }) {
       </div>
       <form onSubmit={handleSubmit} style={{padding:"23px 28px"}}>
         <label style={labelStyle}>Full name<input value={fullName} onChange={e=>setFullName(e.target.value)} autoComplete="name" minLength={2} maxLength={100} required style={inputStyle}/></label>
-        <label style={labelStyle}>UMP email address<input value={email} onChange={e=>setEmail(e.target.value.toLowerCase())} type="email" placeholder={accountRole === "student" ? "230021646@ump.ac.za" : "name@ump.ac.za"} autoComplete="email" required minLength={accountRole === "student" ? 19 : undefined} maxLength={accountRole === "student" ? 19 : 254} pattern={accountRole === "student" ? "[0-9]{9}@ump\\.ac\\.za" : "[^\\s@]+@ump\\.ac\\.za"} title={accountRole === "student" ? "Enter your 9-digit UMP student number followed by @ump.ac.za (19 characters total)." : "Enter a valid email address ending in @ump.ac.za."} style={inputStyle}/>{accountRole === "student"&&<span style={{display:"block",fontSize:11,fontWeight:400,textTransform:"none",letterSpacing:0,color:SL,marginTop:5}}>Exactly 19 characters: 9 digits followed by @ump.ac.za.</span>}</label>
+        <label style={labelStyle}>{accountRole === "responder" ? "Email address" : "UMP email address"}<input value={email} onChange={e=>setEmail(e.target.value.toLowerCase())} type="email" placeholder={accountRole === "student" ? "230021646@ump.ac.za" : accountRole === "responder" ? "name@example.com" : "name@ump.ac.za"} autoComplete="email" required minLength={accountRole === "student" ? 19 : undefined} maxLength={accountRole === "student" ? 19 : 254} pattern={accountRole === "student" ? "[0-9]{9}@ump\\.ac\\.za" : accountRole === "responder" ? undefined : "[^\\s@]+@ump\\.ac\\.za"} title={accountRole === "student" ? "Enter your 9-digit UMP student number followed by @ump.ac.za (19 characters total)." : accountRole === "responder" ? "Enter any valid email address." : "Enter a valid email address ending in @ump.ac.za."} style={inputStyle}/>{accountRole === "student"&&<span style={{display:"block",fontSize:11,fontWeight:400,textTransform:"none",letterSpacing:0,color:SL,marginTop:5}}>Exactly 19 characters: 9 digits followed by @ump.ac.za.</span>}</label>
         <label style={labelStyle}>Password<input value={password} onChange={e=>setPassword(e.target.value)} type="password" autoComplete="new-password" minLength={12} maxLength={128} required style={inputStyle}/><span style={{display:"block",fontSize:11,fontWeight:400,textTransform:"none",letterSpacing:0,color:SL,marginTop:5}}>12–128 characters; include uppercase, lowercase, a number, and a symbol.</span></label>
         <label style={labelStyle}>Confirm password<input value={confirm} onChange={e=>setConfirm(e.target.value)} type="password" autoComplete="new-password" minLength={12} maxLength={128} required style={inputStyle}/></label>
         {message&&<p role="status" style={{background:loading?`${NAVY}0D`:success?`${GREEN}14`:REDL,color:loading?NAVY:success?GREEN:RED,padding:11,borderRadius:7,fontSize:12.5,lineHeight:1.55,marginBottom:14}}>{message}</p>}

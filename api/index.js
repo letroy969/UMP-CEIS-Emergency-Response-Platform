@@ -35,6 +35,7 @@ import {
   signEvidenceUpload,
 } from "./_lib/r2Storage.js";
 import { handleChat } from "./chat.js";
+import { normalizeMedicalProfile } from "../src/medical/medicalProfile.js";
 import { notifyUsers, usersWithRole } from "./_lib/notifications.js";
 import { coordinates, fail, incidentInput, STATUSES, text } from "./_lib/validation.js";
 
@@ -652,6 +653,54 @@ route("post", "/incidents", authenticate, async (req, res) => {
   res.status(201).json({ incident: incidentForClient(created.ref.id, created.data) });
 });
 
+// Who may see a reporter's emergency contacts and medical details: admins, the
+// responder assigned to the active incident, and any responder for an open SOS
+// still waiting to be accepted (the same SOS alerts responders can already read).
+function canViewReporterEmergencyData(user, incident) {
+  if (hasRole(user, "admin")) return true;
+  if (!isResponder(user)) return false;
+  const openSos = incident.isSOS === true && !incident.responderUid && incident.status === "NEW";
+  return openSos || (incident.responderUid === user.uid && !["RESOLVED", "CLOSED"].includes(incident.status));
+}
+
+route("get", "/incidents/:id/medical", authenticate, async (req, res) => {
+  const services = getFirebaseServices();
+  const incidentId = text(req.params.id, "Incident id", { max: 150 });
+  const incidentRef = services.db.collection("incidents").doc(incidentId);
+  const snapshot = await incidentRef.get();
+  if (!snapshot.exists) fail("Incident not found.", 404);
+  const incident = snapshot.data();
+  if (!canViewReporterEmergencyData(req.user, incident)) fail("You are not allowed to view medical details for this incident.", 403);
+  if (typeof incident.reportedBy !== "string" || incident.isAnonymous === true) {
+    res.set("cache-control", "no-store").json({ medical: null, reason: "anonymous" });
+    return;
+  }
+  const record = await services.db.collection("users").doc(incident.reportedBy).collection("private").doc("medical").get();
+  await incidentRef.collection("events").add({
+    event: "MEDICAL_INFO_VIEWED",
+    actorUid: req.user.uid,
+    found: record.exists && record.get("consent") === true,
+    createdAt: Timestamp.now(),
+  });
+  if (!record.exists || record.get("consent") !== true) {
+    res.set("cache-control", "no-store").json({ medical: null, reason: "not-provided" });
+    return;
+  }
+  let medical;
+  try {
+    // Re-validate on the way out so only known, bounded fields ever reach a responder.
+    medical = normalizeMedicalProfile(record.data(), { requireConsent: true });
+  } catch (error) {
+    console.error("Stored medical profile failed validation", incident.reportedBy, error.message);
+    res.set("cache-control", "no-store").json({ medical: null, reason: "unreadable" });
+    return;
+  }
+  res.set("cache-control", "no-store").json({
+    medical,
+    updatedAt: record.get("updatedAt")?.toDate?.().toISOString?.() || null,
+  });
+});
+
 route("get", "/incidents/:id/emergency-contacts", authenticate, async (req, res) => {
   const services = getFirebaseServices();
   const incidentId = text(req.params.id, "Incident id", { max: 150 });
@@ -659,13 +708,7 @@ route("get", "/incidents/:id/emergency-contacts", authenticate, async (req, res)
   const snapshot = await incidentRef.get();
   if (!snapshot.exists) fail("Incident not found.", 404);
   const incident = snapshot.data();
-  // Responders see contacts for their active assignments and for any open SOS
-  // still waiting for a responder (the same SOS alerts they can already read).
-  const openSos = incident.isSOS === true && !incident.responderUid && incident.status === "NEW";
-  const authorized = hasRole(req.user, "admin")
-    || (isResponder(req.user)
-      && ((incident.responderUid === req.user.uid && !["RESOLVED", "CLOSED"].includes(incident.status)) || openSos));
-  if (!authorized) fail("You are not allowed to view contacts for this incident.", 403);
+  if (!canViewReporterEmergencyData(req.user, incident)) fail("You are not allowed to view contacts for this incident.", 403);
   if (typeof incident.reportedBy !== "string") {
     res.set("cache-control", "no-store").json({ contacts: [] });
     return;

@@ -433,6 +433,17 @@ export async function getIncidentEmergencyContacts(user, incidentId) {
   }
 }
 
+export async function getIncidentMedicalInfo(user, incidentId) {
+  if (!user || !["admin", "responder"].includes(user.role)) {
+    throw new Error("Only administrators and responders handling this incident can view medical details.");
+  }
+  try {
+    return await apiRequest(user, `/incidents/${encodeURIComponent(incidentId)}/medical`);
+  } catch (error) {
+    fail(error, "Could not load medical details.");
+  }
+}
+
 export async function getCheckin(user) {
   if (!user) throw new Error("Sign in to access safety check-ins.");
   try {

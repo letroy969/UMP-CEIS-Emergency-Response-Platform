@@ -11,6 +11,7 @@ import {
   FileText,
   LockKeyhole,
   MapPin,
+  Moon,
   Plus,
   Save,
   Trash2,
@@ -20,6 +21,8 @@ import {
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../lib/firebase.js";
 import PushNotificationsButton from "../components/PushNotificationsButton.jsx";
+import MedicalProfileForm from "../components/MedicalProfileForm.jsx";
+import { applyTheme } from "../theme.js";
 import {
   getSafetyPreferences,
   listEmergencyContacts,
@@ -29,7 +32,7 @@ import {
   saveSafetyPreferences,
   saveStudentProfile,
 } from "../auth/studentProfile.js";
-import { GREEN, GREENL, NAVY, RED, REDL, WHITE, PAPER, BD, NK, SL, MID } from "../constants.js";
+import { GREEN, GREENL, NAVY, RED, REDL, WHITE, BD, NK, SL, MID } from "../constants.js";
 
 const SECTIONS = [
   { id: "personal", title: "Personal details", description: "Your details and campus affiliation", Icon: UserRound },
@@ -66,7 +69,8 @@ export default function StudentProfile({ user, authUser, onUserUpdated, onUnsave
     year: String(user.year || 1),
   });
   const [contacts, setContacts] = useState([]);
-  const [preferences, setPreferences] = useState({ reducedMotion: false });
+  const [preferences, setPreferences] = useState({ reducedMotion: false, darkMode: false });
+  const [medicalDirty, setMedicalDirty] = useState(false);
   const [contactForm, setContactForm] = useState(null);
   const [editingContact, setEditingContact] = useState("");
   const [loading, setLoading] = useState(true);
@@ -78,7 +82,7 @@ export default function StudentProfile({ user, authUser, onUserUpdated, onUnsave
     || form.faculty !== (user.faculty === "Faculty not listed" ? "" : user.faculty || "")
     || form.department !== (user.dept || "")
     || form.year !== String(user.year || 1);
-  const hasUnsavedChanges = profileDirty || contactForm !== null;
+  const hasUnsavedChanges = profileDirty || contactForm !== null || medicalDirty;
 
   useEffect(() => {
     onUnsavedChangesChange?.(hasUnsavedChanges);
@@ -111,7 +115,7 @@ export default function StudentProfile({ user, authUser, onUserUpdated, onUnsave
         getSafetyPreferences(authUser),
       ]);
       setContacts(savedContacts);
-      setPreferences({ reducedMotion: savedPreferences.reducedMotion === true });
+      setPreferences({ reducedMotion: savedPreferences.reducedMotion === true, darkMode: savedPreferences.darkMode === true });
     } catch (loadError) {
       setError(messageOf(loadError, "Could not load your private safety profile."));
     } finally {
@@ -203,15 +207,18 @@ export default function StudentProfile({ user, authUser, onUserUpdated, onUnsave
     }
   }
 
-  async function setReducedMotion(value) {
-    const updated = { reducedMotion: value };
+  async function setPreference(name, value) {
+    const previous = preferences;
+    const updated = { ...preferences, [name]: value };
     setPreferences(updated);
+    if (name === "darkMode") applyTheme(authUser.uid, value);
     setError("");
     try {
       await saveSafetyPreferences(authUser, updated);
       setNotice("Accessibility preference saved.");
     } catch (saveError) {
-      setPreferences(previous => ({ ...previous, reducedMotion: !value }));
+      setPreferences(previous);
+      if (name === "darkMode") applyTheme(authUser.uid, previous.darkMode);
       setError(messageOf(saveError, "Could not save the accessibility preference."));
     }
   }
@@ -235,7 +242,7 @@ export default function StudentProfile({ user, authUser, onUserUpdated, onUnsave
   ].filter(Boolean).length;
 
   return (
-    <main className="ceis-profile" style={{ minHeight: "calc(100vh - 60px)", background: PAPER, padding: "28px 5% 56px", fontFamily: "'IBM Plex Sans',sans-serif" }}>
+    <main className="ceis-profile" style={{ minHeight: "calc(100vh - 60px)", background: "transparent", padding: "28px 5% 56px", fontFamily: "'IBM Plex Sans',sans-serif" }}>
       <style>{`.ceis-profile-layout{display:grid;grid-template-columns:minmax(220px,270px) 1fr;gap:18px;align-items:start}.ceis-profile-section-nav{background:${WHITE};border:1px solid ${BD};border-radius:10px;padding:8px;display:grid;gap:4px}.ceis-contact-card{display:flex;align-items:center;gap:10px}@media(max-width:700px){.ceis-profile-layout{grid-template-columns:1fr}.ceis-profile-section-nav{grid-template-columns:repeat(2,minmax(0,1fr))}.ceis-contact-card{flex-wrap:wrap}}${preferences.reducedMotion ? ".ceis-profile *, .ceis-profile *::before, .ceis-profile *::after{animation-duration:0.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:0.01ms!important}" : ""}`}</style>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
         <button type="button" onClick={leaveProfile} style={{ border: 0, background: "none", color: NAVY, padding: "4px 0", fontWeight: 700, cursor: "pointer", marginBottom: 14 }}>← Back to portal</button>
@@ -245,7 +252,7 @@ export default function StudentProfile({ user, authUser, onUserUpdated, onUnsave
             <div>
               <h1 style={{ fontSize: 22, color: NK, margin: 0 }}>{user.name}</h1>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: SL, marginTop: 5 }}>
-                <span>Student account</span><span>·</span>
+                <span>{user.portal === "staff" ? "Staff account" : "Student account"}</span><span>·</span>
                 <CheckCircle2 size={14} color={GREEN} aria-hidden="true"/>
                 <span style={{ color: GREEN }}>{auth.currentUser?.emailVerified ? "Email verified" : "Email not verified"}</span>
               </div>
@@ -300,7 +307,7 @@ export default function StudentProfile({ user, authUser, onUserUpdated, onUnsave
             {section === "contacts" && (
               <div>
                 <div style={{ background: "#F5F7FC", border: `1px solid ${BD}`, borderRadius: 7, padding: 12, color: SL, fontSize: 12, lineHeight: 1.6, marginBottom: 16 }}>
-                  Your contacts are stored in a private area visible only to your signed-in account. Adding a contact does <strong>not</strong> authorize or enable CEIS to notify them, and contacts are not currently shared with responders.
+                  Your contacts are stored in a private area of your account. When you report an incident or raise an SOS, campus administrators and the responder handling it can view them so they can reach your people; every view is logged. CEIS does <strong>not</strong> notify your contacts automatically.
                 </div>
                 {loading ? <div role="status" style={{ padding: 20, color: MID }}>Loading private contacts…</div> : contacts.length === 0 ? <div style={{ padding: "18px 0", color: SL, fontSize: 13 }}>No emergency contacts added yet.</div> : (
                   <div style={{ display: "grid", gap: 9, marginBottom: 16 }}>
@@ -338,15 +345,18 @@ export default function StudentProfile({ user, authUser, onUserUpdated, onUnsave
 
             {section === "medical" && (
               <div>
-                <div style={{ display: "flex", gap: 10, padding: 14, background: "#FFF8E8", border: "1px solid #EBD9A8", borderRadius: 8, marginBottom: 18 }}>
-                  <LockKeyhole size={18} color="#856404" aria-hidden="true"/>
-                  <p style={{ margin: 0, fontSize: 12, color: SL, lineHeight: 1.6 }}>CEIS does not currently collect medical or accessibility details. We are not enabling medical fields until a separately protected, audited responder-access workflow is available. Do not enter medical information in ordinary profile fields.</p>
+                <MedicalProfileForm authUser={authUser} onDirtyChange={setMedicalDirty} />
+                <h3 style={{ fontSize: 14, color: NK, margin: "26px 0 10px", paddingTop: 18, borderTop: `1px solid ${BD}` }}>Display & accessibility settings</h3>
+                <div style={{ display: "grid", gap: 10, maxWidth: 520 }}>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: 12, border: `1px solid ${BD}`, borderRadius: 7, cursor: "pointer" }}>
+                    <input type="checkbox" checked={preferences.darkMode} onChange={event => setPreference("darkMode", event.target.checked)} style={{ marginTop: 3 }}/>
+                    <span><strong style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: NK }}><Moon size={14} aria-hidden="true"/>Dark mode</strong><span style={{ display: "block", fontSize: 11.5, color: SL }}>Use a dark colour scheme across your portal. Easier on the eyes at night and in low light. Saved to your account.</span></span>
+                  </label>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: 12, border: `1px solid ${BD}`, borderRadius: 7, cursor: "pointer" }}>
+                    <input type="checkbox" checked={preferences.reducedMotion} onChange={event => setPreference("reducedMotion", event.target.checked)} style={{ marginTop: 3 }}/>
+                    <span><strong style={{ display: "block", fontSize: 12, color: NK }}>Reduce motion in this profile</strong><span style={{ fontSize: 11.5, color: SL }}>Persist this choice and reduce animation and transition effects in the profile view.</span></span>
+                  </label>
                 </div>
-                <h3 style={{ fontSize: 14, color: NK }}>Accessibility</h3>
-                <label style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: 12, border: `1px solid ${BD}`, borderRadius: 7, cursor: "pointer", maxWidth: 500 }}>
-                  <input type="checkbox" checked={preferences.reducedMotion} onChange={event => setReducedMotion(event.target.checked)} style={{ marginTop: 3 }}/>
-                  <span><strong style={{ display: "block", fontSize: 12, color: NK }}>Reduce motion in this profile</strong><span style={{ fontSize: 11.5, color: SL }}>Persist this choice and reduce animation and transition effects in the profile view.</span></span>
-                </label>
               </div>
             )}
 
@@ -362,7 +372,7 @@ export default function StudentProfile({ user, authUser, onUserUpdated, onUnsave
                 </div>
                 <div style={{ border: `1px solid ${BD}`, borderRadius: 8, padding: 14 }}>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, color: NK, fontWeight: 700 }}><Eye size={17} color={NAVY}/>Profile visibility</div>
-                  <p style={{ fontSize: 12, color: SL, lineHeight: 1.6, margin: "8px 0 0" }}>Your basic university profile is available to your account and authorized administrators. Emergency contacts are stored separately and visible only to your account. They are not displayed on incident maps.</p>
+                  <p style={{ fontSize: 12, color: SL, lineHeight: 1.6, margin: "8px 0 0" }}>Your basic university profile is available to your account and authorized administrators. Emergency contacts and medical details are stored separately; administrators and the responder handling an incident you report can view them, and each view is logged. They are never displayed on incident maps.</p>
                 </div>
               </div>
             )}
@@ -391,7 +401,7 @@ export default function StudentProfile({ user, authUser, onUserUpdated, onUnsave
                 </div>
                 <div style={{ border: `1px solid ${BD}`, borderRadius: 8, padding: 14 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: NK, marginBottom: 6 }}>Your safety data</div>
-                  <p style={{ fontSize: 12, color: SL, lineHeight: 1.6, margin: 0 }}>You can correct or remove emergency contacts here. Medical data is not collected. Account deletion requests and data-retention schedules are not yet supported in this portal; contact UMP ICT/CEIS support for assistance.</p>
+                  <p style={{ fontSize: 12, color: SL, lineHeight: 1.6, margin: 0 }}>You can correct or remove emergency contacts and medical details at any time. Medical details are optional and saved only with your consent. Account deletion requests and data-retention schedules are not yet supported in this portal; contact UMP ICT/CEIS support for assistance.</p>
                 </div>
                 <button type="button" onClick={onLogout} style={{ justifySelf: "start", border: `1px solid ${RED}`, background: WHITE, color: RED, borderRadius: 6, padding: "9px 13px", fontWeight: 700, cursor: "pointer" }}>Sign out</button>
               </div>

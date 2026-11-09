@@ -15,6 +15,7 @@ const EVENT_LABEL = {
   EVIDENCE_AUTO_DELETED: "Evidence removed after 90 days",
   EMERGENCY_CONTACTS_VIEWED: "Emergency contacts viewed",
   REPORTER_PROFILE_VIEWED: "Reporter profile viewed",
+  MEDICAL_INFO_VIEWED: "Medical & accessibility details viewed",
 };
 
 function actorLabel(event, people) {

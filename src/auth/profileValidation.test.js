@@ -14,10 +14,18 @@ test("accepts only a 19-character nine-digit student email", () => {
   assert.throws(() => validateRegistrationEmail("230021646@gmail.com", "student"), /@ump\.ac\.za/);
 });
 
-test("requires UMP email addresses for staff and privileged access requests", () => {
-  for (const role of ["staff", "responder", "admin"]) {
+test("requires UMP email addresses for staff and admin access requests", () => {
+  for (const role of ["staff", "admin"]) {
     assert.equal(validateRegistrationEmail(`person@ump.ac.za`, role), "person@ump.ac.za");
     assert.throws(() => validateRegistrationEmail("person@example.com", role), /official UMP/);
+  }
+});
+
+test("responder access requests accept any valid email address", () => {
+  assert.equal(validateRegistrationEmail(" Medic@Example.com ", "responder"), "medic@example.com");
+  assert.equal(validateRegistrationEmail("person@ump.ac.za", "responder"), "person@ump.ac.za");
+  for (const invalid of ["", "no-at-sign", "a@b", "two@@example.com", "spaces in@example.com", `${"x".repeat(250)}@example.com`]) {
+    assert.throws(() => validateRegistrationEmail(invalid, "responder"), /valid email/);
   }
 });
 

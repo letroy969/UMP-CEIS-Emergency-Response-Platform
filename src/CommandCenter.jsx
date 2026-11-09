@@ -36,6 +36,8 @@ import Signup from "./auth/Signup.jsx";
 import SOSActivation from "./components/SOSActivation.jsx";
 import PushNotificationsButton from "./components/PushNotificationsButton.jsx";
 import { auth } from "./lib/firebase.js";
+import { applyTheme, cachedDarkMode, clearTheme } from "./theme.js";
+import { getSafetyPreferences } from "./auth/studentProfile.js";
 import { canAccessPortal } from "./auth/roles.js";
 import { isRegistrationInProgress, isValidEmail, loadAppUser, requestPasswordReset, signInUser, signOutUser } from "./auth/firebaseAuth.js";
 import AdminPortal from "./pages/AdminPortal.jsx";
@@ -220,6 +222,16 @@ function StudentPortal({ user, authUser, onLogout, onProfileUpdated, onOpenMedic
   const [dataError, setDataError] = useState("");
   const submittingReport = useRef(false);
 
+  // Apply the user's dark-mode preference while they are in this portal.
+  useEffect(() => {
+    let active = true;
+    applyTheme(user.id, cachedDarkMode(user.id));
+    getSafetyPreferences(authUser)
+      .then(preferences => { if (active) applyTheme(user.id, preferences.darkMode); })
+      .catch(() => {});
+    return () => { active = false; clearTheme(); };
+  }, [authUser, user.id]);
+
   useEffect(() => {
     let active = true;
     Promise.all([listIncidents(authUser, true), getCheckin(authUser)])
@@ -327,7 +339,7 @@ function StudentPortal({ user, authUser, onLogout, onProfileUpdated, onOpenMedic
   return (
     <div className="student-portal-shell" style={{minHeight:"100vh",background:"transparent",fontFamily:"'IBM Plex Sans',sans-serif"}}>
       <style>{STYLES}</style>
-      <div className="student-portal-background" aria-hidden="true">
+      <div className="student-portal-background student-portal-background--vivid" aria-hidden="true">
         <img src={STUDENT_PORTAL_BACKGROUND} alt="" />
         <div />
       </div>
