@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import { FieldPath, FieldValue } from "firebase-admin/firestore";
 
-async function pushToUsers(services, userIds, notification, data = {}) {
+async function pushToUsers(services, userIds, notification, data = {}, emergency = false) {
   const tokens = [];
   for (const uid of [...new Set(userIds)].slice(0, 500)) {
     const docs = await services.db.collection("users").doc(uid).collection("pushTokens").limit(20).get();
@@ -17,7 +17,18 @@ async function pushToUsers(services, userIds, notification, data = {}) {
       tokens: batch.map(item => item.token),
       notification,
       data: Object.fromEntries(Object.entries(data).map(([key, value]) => [key, String(value)])),
-      webpush: { fcmOptions: { link: "/" }, notification: { icon: "/favicon.svg", tag: data.incidentId || "ceis-alert" } },
+      webpush: {
+        // Emergencies are delivered immediately and stay on screen until dismissed.
+        headers: emergency ? { Urgency: "high", TTL: "3600" } : { Urgency: "normal", TTL: "86400" },
+        fcmOptions: { link: "/?access=system" },
+        notification: {
+          icon: "/favicon.svg",
+          badge: "/favicon.svg",
+          tag: data.incidentId || data.alertId || "ceis-alert",
+          renotify: true,
+          requireInteraction: emergency,
+        },
+      },
     });
     sent += result.successCount;
     failed += result.failureCount;
@@ -81,7 +92,7 @@ async function sendPaWebhook(payload) {
 export async function notifyUsers(services, { userIds, title, body, data = {}, emergency = false }) {
   const results = { push: { sent: 0, failed: 0, configured: true }, sms: { configured: false, sent: 0 }, pa: { configured: false } };
   try {
-    results.push = await pushToUsers(services, userIds, { title, body }, data);
+    results.push = await pushToUsers(services, userIds, { title, body }, data, emergency);
   } catch (error) {
     results.push = { configured: true, sent: 0, failed: userIds.length, error: error.message };
   }

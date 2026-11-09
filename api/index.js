@@ -118,6 +118,38 @@ function incidentForClient(id, row) {
 
 const RESPONDER_PRESENCE_FRESH_MS = 120000;
 
+const INCIDENT_TYPE_LABELS = { medical: "Medical emergency", fire: "Fire", security: "Security incident", hazard: "Hazard", infrastructure: "Infrastructure issue", wellbeing: "Wellbeing concern", other: "Incident" };
+const STATUS_FOR_REPORTER = {
+  NEW: "received",
+  ACKNOWLEDGED: "acknowledged — a responder is on the way",
+  TEAM_DISPATCHED: "assigned to a responder",
+  ON_SCENE: "being handled — the responder is on scene",
+  RESOLVED: "resolved",
+  CLOSED: "closed",
+};
+
+function incidentTypeLabel(type) {
+  return INCIDENT_TYPE_LABELS[type] || "Incident";
+}
+
+function incidentWhere(row) {
+  if (row.buildingName) return row.buildingName;
+  if (row.latitude != null) return "the reported GPS location";
+  return row.building && row.building !== "0" ? `Building ${row.building}` : "the reported location";
+}
+
+// Notifications follow an action that already succeeded, so a delivery problem
+// is logged rather than turned into an error response.
+async function safeNotify(services, payload, context) {
+  if (!payload.userIds?.length) return null;
+  try {
+    return await notifyUsers(services, payload);
+  } catch (error) {
+    console.error("Notification delivery failed", context, payload.title, error);
+    return null;
+  }
+}
+
 function validAssignmentStatus(status) {
   if (!STATUSES.has(status)) fail("Choose a valid incident status.");
 }
@@ -684,6 +716,20 @@ route("post", "/incidents", authenticate, async (req, res) => {
   await enforceRateLimit(services.db, `incident_${req.user.uid}`, 15);
   const input = incidentInput(req.body);
   const created = await createIncidentRecord(services, req.user, input);
+  // Tell the admin team about every new report (urgent for P1/P2). Awaited so the
+  // serverless function is not frozen mid-send; failures never fail the report.
+  try {
+    const adminIds = (await usersWithRole(services, ["admin"])).filter(uid => uid !== req.user.uid);
+    await safeNotify(services, {
+      userIds: adminIds,
+      title: `New ${created.data.priority} report · ${created.data.reference}`,
+      body: `${incidentTypeLabel(created.data.type)} at ${incidentWhere(created.data)}, reported by ${created.data.reporterName}.`,
+      data: { incidentId: created.ref.id, reference: created.data.reference, kind: "new-incident" },
+      emergency: ["P1", "P2"].includes(created.data.priority),
+    }, created.ref.id);
+  } catch (error) {
+    console.error("New incident admin lookup failed", created.ref.id, error);
+  }
   res.status(201).json({ incident: incidentForClient(created.ref.id, created.data) });
 });
 
@@ -1301,6 +1347,7 @@ route("patch", "/incidents/:id", authenticate, async (req, res) => {
   if (responderActor && !adminActor && !["ACKNOWLEDGED", "ON_SCENE", "RESOLVED"].includes(status)) fail("Responders cannot set that status.", 403);
 
   let changed;
+  let assignedNow = false;
   await services.db.runTransaction(async transaction => {
     const snapshot = await transaction.get(ref);
     if (!snapshot.exists) fail("Incident not found.", 404);
@@ -1325,6 +1372,7 @@ route("patch", "/incidents/:id", authenticate, async (req, res) => {
       updates.dispatchedByUid = req.user.uid;
       updates.status = "TEAM_DISPATCHED";
       updates.dispatchedAt = now;
+      assignedNow = true;
     }
     if (status === "RESOLVED" || status === "CLOSED") updates.resolvedAt = now;
     transaction.update(ref, updates);
@@ -1339,13 +1387,46 @@ route("patch", "/incidents/:id", authenticate, async (req, res) => {
     changed = { ...before, ...updates };
   });
 
-  const recipientIds = [changed.reportedBy, changed.responderUid].filter(Boolean);
-  await notifyUsers(services, {
-    userIds: recipientIds,
-    title: "Incident updated",
-    body: `${changed.reference} is now ${changed.status.replaceAll("_", " ").toLowerCase()}.`,
-    data: { incidentId: id, kind: "incident-update" },
-  });
+  const urgent = changed.isSOS === true || ["P1", "P2"].includes(changed.priority);
+  const notices = [];
+  const reporterUid = changed.reportedBy && changed.reportedBy !== req.user.uid ? changed.reportedBy : null;
+  if (assignedNow) {
+    // The responder needs a clear, actionable dispatch alert, not a generic update.
+    notices.push(safeNotify(services, {
+      userIds: [changed.responderUid],
+      title: `${urgent ? "Urgent: " : ""}You've been dispatched · ${changed.reference}`,
+      body: `${changed.isSOS ? "SOS" : incidentTypeLabel(changed.type)} at ${incidentWhere(changed)}. Open the Responder portal to navigate.`,
+      data: { incidentId: id, reference: changed.reference, kind: "dispatch" },
+      emergency: urgent,
+    }, id));
+    if (reporterUid) {
+      notices.push(safeNotify(services, {
+        userIds: [reporterUid],
+        title: "A responder has been assigned",
+        body: `${changed.responder} is responding to your report ${changed.reference}.`,
+        data: { incidentId: id, reference: changed.reference, kind: "incident-update" },
+      }, id));
+    }
+  } else {
+    if (reporterUid) {
+      notices.push(safeNotify(services, {
+        userIds: [reporterUid],
+        title: "Update on your report",
+        body: `${changed.reference} is ${STATUS_FOR_REPORTER[changed.status] || changed.status.toLowerCase()}.`,
+        data: { incidentId: id, reference: changed.reference, kind: "incident-update" },
+      }, id));
+    }
+    // A responder is told when an admin changes their incident, not about their own updates.
+    if (adminActor && changed.responderUid && changed.responderUid !== req.user.uid) {
+      notices.push(safeNotify(services, {
+        userIds: [changed.responderUid],
+        title: `Incident ${changed.reference} updated by the admin team`,
+        body: `Status is now ${changed.status.replaceAll("_", " ").toLowerCase()}.`,
+        data: { incidentId: id, reference: changed.reference, kind: "incident-update" },
+      }, id));
+    }
+  }
+  await Promise.all(notices);
   res.json({ incident: incidentForClient(id, changed) });
 });
 
@@ -1466,7 +1547,10 @@ route("get", "/firebase-messaging-sw.js", async (_req, res) => {
   };
   if (Object.values(config).some(value => !value)) return res.status(503).type("text").send("Firebase web configuration is incomplete.");
   res.set({ "service-worker-allowed": "/", "cache-control": "no-cache" }).type("application/javascript").send(
-    `importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js","https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js");firebase.initializeApp(${JSON.stringify(config)});const messaging=firebase.messaging();messaging.onBackgroundMessage(({notification={},data={}})=>{self.registration.showNotification(notification.title||"UMP Campus Safety",{body:notification.body||"A campus safety update is available.",icon:"/favicon.svg",data});});self.addEventListener("notificationclick",event=>{event.notification.close();event.waitUntil(clients.openWindow("/"));});`,
+    // Background alerts for when no CEIS tab is open. Messages include a
+    // `notification` block, which browsers display themselves; the click handler
+    // opens the portal (or focuses an open CEIS tab) instead of the landing page.
+    `importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js","https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js");firebase.initializeApp(${JSON.stringify(config)});firebase.messaging();self.addEventListener("install",()=>self.skipWaiting());self.addEventListener("activate",event=>event.waitUntil(self.clients.claim()));self.addEventListener("notificationclick",event=>{event.notification.close();const target=new URL("/?access=system",self.location.origin).href;event.waitUntil(self.clients.matchAll({type:"window",includeUncontrolled:true}).then(list=>{const open=list.find(client=>new URL(client.url).origin===self.location.origin);if(open){return open.focus();}return self.clients.openWindow(target);}));});`,
   );
 });
 
