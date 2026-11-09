@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { GREEN, NAVY, RED, REDL, SL, WHITE } from "../constants.js";
 import { applyEmailVerificationCode } from "./firebaseAuth.js";
+import { isSpecialization } from "../responder/specializations.js";
 
 const SIGNUP_ROLES = new Set(["staff", "responder", "admin"]);
 
@@ -13,6 +14,20 @@ function getAccessRequestRole() {
   try {
     const role = new URL(continueUrl, window.location.origin).searchParams.get("requestedRole");
     return SIGNUP_ROLES.has(role) ? role : null;
+  } catch {
+    return null;
+  }
+}
+
+function getRequestedField() {
+  const params = new URLSearchParams(window.location.search);
+  const direct = params.get("requestedField");
+  if (isSpecialization(direct)) return direct;
+  const continueUrl = params.get("continueUrl");
+  if (!continueUrl) return null;
+  try {
+    const field = new URL(continueUrl, window.location.origin).searchParams.get("requestedField");
+    return isSpecialization(field) ? field : null;
   } catch {
     return null;
   }
@@ -36,6 +51,8 @@ export default function VerifyEmail() {
       const requestedRole = getAccessRequestRole();
       if (requestedRole) {
         window.localStorage.setItem("ceis:requested-role-next", requestedRole);
+        const requestedField = requestedRole === "responder" ? getRequestedField() : null;
+        if (requestedField) window.localStorage.setItem("ceis:requested-field-next", requestedField);
       }
       setStatus("success");
       setMessage(requestedRole === "staff"

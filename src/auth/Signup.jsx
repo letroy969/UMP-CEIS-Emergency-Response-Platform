@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { BD, GREEN, MID, NAVY, RED, REDL, SL, WHITE } from "../constants.js";
 import { registerUser, validateNewPassword } from "./firebaseAuth.js";
+import { RESPONDER_SPECIALIZATIONS, SPECIALIZATION_KEYS } from "../responder/specializations.js";
 
 const ROLE_COPY = {
   student: {
@@ -32,6 +33,7 @@ export default function Signup({ onBack, role = "student" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [field, setField] = useState("");
   const [message, setMessage] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -43,6 +45,7 @@ export default function Signup({ onBack, role = "student" }) {
     const passwordError = validateNewPassword(password);
     if (passwordError) { setMessage(passwordError); return; }
     if (password !== confirm) { setMessage("The passwords do not match."); return; }
+    if (accountRole === "responder" && !field) { setMessage("Choose your responder field."); return; }
     setLoading(true);
     try {
       const { verificationEmail } = await registerUser({
@@ -50,6 +53,7 @@ export default function Signup({ onBack, role = "student" }) {
         email,
         password,
         requestedRole: accountRole === "student" ? null : accountRole,
+        specialization: accountRole === "responder" ? field : null,
         onProgress: setMessage,
       });
       setPassword("");
@@ -85,6 +89,15 @@ export default function Signup({ onBack, role = "student" }) {
       <form onSubmit={handleSubmit} style={{padding:"23px 28px"}}>
         <label style={labelStyle}>Full name<input value={fullName} onChange={e=>setFullName(e.target.value)} autoComplete="name" minLength={2} maxLength={100} required style={inputStyle}/></label>
         <label style={labelStyle}>{accountRole === "responder" ? "Email address" : "UMP email address"}<input value={email} onChange={e=>setEmail(e.target.value.toLowerCase())} type="email" placeholder={accountRole === "student" ? "230021646@ump.ac.za" : accountRole === "responder" ? "name@example.com" : "name@ump.ac.za"} autoComplete="email" required minLength={accountRole === "student" ? 19 : undefined} maxLength={accountRole === "student" ? 19 : 254} pattern={accountRole === "student" ? "[0-9]{9}@ump\\.ac\\.za" : accountRole === "responder" ? undefined : "[^\\s@]+@ump\\.ac\\.za"} title={accountRole === "student" ? "Enter your 9-digit UMP student number followed by @ump.ac.za (19 characters total)." : accountRole === "responder" ? "Enter any valid email address." : "Enter a valid email address ending in @ump.ac.za."} style={inputStyle}/>{accountRole === "student"&&<span style={{display:"block",fontSize:11,fontWeight:400,textTransform:"none",letterSpacing:0,color:SL,marginTop:5}}>Exactly 19 characters: 9 digits followed by @ump.ac.za.</span>}</label>
+        {accountRole === "responder" && (
+          <label style={labelStyle}>Responder field
+            <select value={field} onChange={e=>setField(e.target.value)} required style={{...inputStyle,background:WHITE}}>
+              <option value="" disabled>Choose your field</option>
+              {SPECIALIZATION_KEYS.map(key=><option key={key} value={key}>{RESPONDER_SPECIALIZATIONS[key].label}</option>)}
+            </select>
+            <span style={{display:"block",fontSize:11,fontWeight:400,textTransform:"none",letterSpacing:0,color:SL,marginTop:5}}>You are only dispatched to incidents your field can handle. An administrator confirms it when approving your access.</span>
+          </label>
+        )}
         <label style={labelStyle}>Password<input value={password} onChange={e=>setPassword(e.target.value)} type="password" autoComplete="new-password" minLength={12} maxLength={128} required style={inputStyle}/><span style={{display:"block",fontSize:11,fontWeight:400,textTransform:"none",letterSpacing:0,color:SL,marginTop:5}}>12–128 characters; include uppercase, lowercase, a number, and a symbol.</span></label>
         <label style={labelStyle}>Confirm password<input value={confirm} onChange={e=>setConfirm(e.target.value)} type="password" autoComplete="new-password" minLength={12} maxLength={128} required style={inputStyle}/></label>
         {message&&<p role="status" style={{background:loading?`${NAVY}0D`:success?`${GREEN}14`:REDL,color:loading?NAVY:success?GREEN:RED,padding:11,borderRadius:7,fontSize:12.5,lineHeight:1.55,marginBottom:14}}>{message}</p>}

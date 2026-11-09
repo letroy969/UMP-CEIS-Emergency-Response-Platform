@@ -51,6 +51,7 @@ export default function AdminPortal({ user, authUser, onLogout }) {
   const [reviewingUid, setReviewingUid] = useState("");
   const [selectedResponders, setSelectedResponders] = useState({});
   const [savingFieldUid, setSavingFieldUid] = useState("");
+  const [requestFields, setRequestFields] = useState({});
   const [dataError, setDataError] = useState("");
   useEffect(() => {
     let active = true;
@@ -146,7 +147,13 @@ export default function AdminPortal({ user, authUser, onLogout }) {
     setReviewingUid(uid);
     setDataError("");
     try {
-      const result = await submitAccessRequest(authUser, uid, action);
+      const request = accessRequests.find(item => item.uid === uid);
+      const field = request?.requestedRole === "responder" ? (requestFields[uid] || request.specialization || null) : null;
+      if (action === "approve" && request?.requestedRole === "responder" && !field) {
+        setDataError("Choose this responder's field before approving.");
+        return;
+      }
+      const result = await submitAccessRequest(authUser, uid, action, action === "approve" ? field : null);
       setAccessRequests(previous => previous.filter(request => request.uid !== uid));
       if (action === "approve" && result.requestedRole === "responder") {
         setResponders(await listResponders(authUser));
@@ -248,6 +255,14 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                       <div style={{fontSize:13,color:SL,marginTop:4}}>{request.email}</div>
                       <div style={{fontSize:12,fontWeight:700,color:NAVY,marginTop:4,textTransform:"capitalize"}}>Requested role: {request.requestedRole}</div>
                       {request.requestedAt&&<div style={{fontSize:11,color:MID,marginTop:4}}>Requested {new Date(request.requestedAt).toLocaleString()}</div>}
+                      {request.requestedRole==="responder"&&(
+                        <label style={{display:"block",fontSize:12,color:SL,marginTop:8}}>Responder field{request.specialization?" (chosen at signup)":""}
+                          <select aria-label={`Field for ${request.name}`} value={requestFields[request.uid]||request.specialization||""} onChange={event=>setRequestFields(value=>({...value,[request.uid]:event.target.value}))} style={{display:"block",marginTop:4,padding:"6px 8px",border:`1px solid ${requestFields[request.uid]||request.specialization?BD:RED}`,borderRadius:5,fontSize:12.5,color:NK,background:WHITE}}>
+                            <option value="" disabled>Choose field…</option>
+                            {SPECIALIZATION_KEYS.map(key=><option key={key} value={key}>{RESPONDER_SPECIALIZATIONS[key].label}</option>)}
+                          </select>
+                        </label>
+                      )}
                     </div>
                     <div style={{display:"flex",gap:8}}>
                       <button type="button" disabled={reviewingUid===request.uid} onClick={()=>reviewAccessRequest(request.uid,"reject")} style={{padding:"8px 12px",border:`1px solid ${BD}`,borderRadius:5,background:WHITE,color:RED,fontWeight:700,cursor:"pointer"}}>Reject</button>

@@ -399,6 +399,36 @@ route("get", "/responders", authenticate, async (req, res) => {
   res.json({ responders });
 });
 
+// A person who signed up as a responder records the field they chose on the
+// signup form. Pending responders cannot use the normal authenticated API, so
+// this route verifies the ID token itself and only accepts the field while the
+// responder request is still pending. After approval only admins change it.
+route("post", "/profile/requested-field", async (req, res) => {
+  const match = /^Bearer\s+(.+)$/i.exec(req.get("authorization") || "");
+  if (!match) fail("Sign in to continue.", 401);
+  const specialization = req.body?.specialization;
+  if (!isSpecialization(specialization)) fail("Choose a valid responder field.");
+  const services = getFirebaseServices();
+  let claims;
+  try {
+    claims = await services.auth.verifyIdToken(match[1], true);
+  } catch {
+    fail("Your session has ended. Sign in again.", 401);
+  }
+  if (claims.email_verified !== true) fail("Verify your email address first.", 403);
+  await enforceRateLimit(services.db, `requested_field_${claims.uid}`, 10);
+  const profileRef = services.db.collection("users").doc(claims.uid);
+  await services.db.runTransaction(async transaction => {
+    const profile = await transaction.get(profileRef);
+    if (!profile.exists) fail("Your account profile is not provisioned.", 403);
+    if (profile.get("requestedRole") !== "responder" || profile.get("roleRequestStatus") !== "pending") {
+      fail("Your responder field can only be changed by an administrator.", 409);
+    }
+    transaction.update(profileRef, { specialization, specializationChangedAt: Timestamp.now(), specializationChangedBy: claims.uid });
+  });
+  res.json({ specialization });
+});
+
 route("get", "/access-requests", authenticate, async (req, res) => {
   requireRole(req.user, ["admin"]);
   const snapshot = await getFirebaseServices().db.collection("users")
@@ -411,6 +441,7 @@ route("get", "/access-requests", authenticate, async (req, res) => {
     name: profile.get("fullName") || "Name not provided",
     email: profile.get("email") || "",
     requestedRole: profile.get("requestedRole"),
+    specialization: isSpecialization(profile.get("specialization")) ? profile.get("specialization") : null,
     requestedAt: profile.get("roleRequestedAt")?.toDate?.().toISOString?.() || null,
   }));
   requests.sort((a, b) => (a.requestedAt || "").localeCompare(b.requestedAt || ""));
@@ -425,6 +456,8 @@ route("patch", "/access-requests/:uid", authenticate, async (req, res) => {
   }
   const action = req.body?.action;
   if (!["approve", "reject"].includes(action)) fail("Choose approve or reject.");
+  const chosenField = req.body?.specialization;
+  if (chosenField != null && !isSpecialization(chosenField)) fail("Choose a valid responder field.");
 
   const services = getFirebaseServices();
   const profileRef = services.db.collection("users").doc(targetUid);
@@ -439,9 +472,14 @@ route("patch", "/access-requests/:uid", authenticate, async (req, res) => {
       fail("This access request is no longer pending.", 409);
     }
     reviewedRole = requestedRole;
+    const field = chosenField || (isSpecialization(profile.get("specialization")) ? profile.get("specialization") : null);
+    if (action === "approve" && requestedRole === "responder" && !field) {
+      fail("Choose this responder's field before approving.");
+    }
     const now = Timestamp.now();
     transaction.update(profileRef, {
       ...(action === "approve" ? { role: requestedRole, roles: [requestedRole] } : {}),
+      ...(action === "approve" && requestedRole === "responder" ? { specialization: field } : {}),
       roleRequestStatus: action === "approve" ? "approved" : "rejected",
       roleRequestReviewedAt: now,
       roleRequestReviewedBy: req.user.uid,
@@ -450,7 +488,7 @@ route("patch", "/access-requests/:uid", authenticate, async (req, res) => {
       req.user,
       action === "approve" ? "ACCESS_REQUEST_APPROVED" : "ACCESS_REQUEST_REJECTED",
       { uid: targetUid, email: profile.get("email") || null, name: profile.get("fullName") || null },
-      { requestedRole },
+      { requestedRole, ...(action === "approve" && requestedRole === "responder" ? { specialization: field } : {}) },
       now,
     ));
   });

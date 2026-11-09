@@ -428,7 +428,7 @@ export async function listAccessRequests(user) {
   }
 }
 
-export async function reviewAccessRequest(user, uid, action) {
+export async function reviewAccessRequest(user, uid, action, specialization = null) {
   if (!user || user.role !== "admin") throw new Error("Admin access is required to review access requests.");
   if (typeof uid !== "string" || !["approve", "reject"].includes(action)) {
     throw new Error("Choose a valid access request.");
@@ -436,7 +436,7 @@ export async function reviewAccessRequest(user, uid, action) {
   try {
     return await apiRequest(user, `/access-requests/${encodeURIComponent(uid)}`, {
       method: "PATCH",
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({ action, ...(specialization ? { specialization } : {}) }),
     });
   } catch (error) {
     fail(error, "Could not update the access request.");

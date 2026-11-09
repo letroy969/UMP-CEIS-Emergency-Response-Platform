@@ -9,12 +9,48 @@ import {
 import { doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../lib/firebase.js";
 import { defaultPortal, profilePortals } from "./roles.js";
-import { responderSpecialization } from "../responder/specializations.js";
+import { isSpecialization, responderSpecialization } from "../responder/specializations.js";
 import { signupRoleFor, validateRegistrationEmail } from "./profileValidation.js";
 
 let registrationInProgress = false;
 const REGISTRATION_ROLES = new Set(["staff", "responder", "admin"]);
 const APPROVAL_REQUIRED_ROLES = new Set(["responder", "admin"]);
+
+// The field a responder chose at signup is kept on this device until their
+// first verified sign-in, then sent to the API while their request is pending.
+async function submitRequestedField(firebaseUser, profile) {
+  const fieldKey = `ceis:requested-field:${firebaseUser.uid}`;
+  const nextFieldKey = "ceis:requested-field-next";
+  const field = window.localStorage.getItem(fieldKey) || window.localStorage.getItem(nextFieldKey);
+  const clear = () => {
+    window.localStorage.removeItem(fieldKey);
+    window.localStorage.removeItem(nextFieldKey);
+  };
+  if (!field) return profile;
+  if (!isSpecialization(field) || profile.requestedRole !== "responder" || profile.roleRequestStatus !== "pending") {
+    clear();
+    return profile;
+  }
+  if (profile.specialization === field) {
+    clear();
+    return profile;
+  }
+  try {
+    const response = await fetch("/api/profile/requested-field", {
+      method: "POST",
+      headers: { authorization: `Bearer ${await firebaseUser.getIdToken()}`, "content-type": "application/json" },
+      body: JSON.stringify({ specialization: field }),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    clear();
+    return { ...profile, specialization: field };
+  } catch (error) {
+    // Not fatal: it is retried on the next sign-in, and the admin chooses the
+    // field when approving the request anyway.
+    console.error("Could not record the requested responder field", error);
+    return profile;
+  }
+}
 
 export function isRegistrationInProgress() {
   return registrationInProgress;
@@ -114,7 +150,7 @@ export async function loadAppUser(firebaseUser) {
     || window.localStorage.getItem(nextRoleRequestKey);
   const registeredRole = signupRoleFor(storedRole, email);
   const requestedRole = APPROVAL_REQUIRED_ROLES.has(registeredRole) ? registeredRole : null;
-  const profile = await runTransaction(db, async transaction => {
+  const savedProfile = await runTransaction(db, async transaction => {
     const profileSnapshot = await transaction.get(profileRef);
     if (profileSnapshot.exists()) return profileSnapshot.data();
 
@@ -139,6 +175,7 @@ export async function loadAppUser(firebaseUser) {
   });
   window.localStorage.removeItem(roleRequestKey);
   window.localStorage.removeItem(nextRoleRequestKey);
+  const profile = await submitRequestedField(firebaseUser, savedProfile);
 
   const suspension = activeSuspension(profile);
   if (suspension) {
@@ -156,6 +193,7 @@ export async function registerUser({
   email,
   password,
   requestedRole = null,
+  specialization = null,
   onProgress = () => {},
 }) {
   const normalizedName = fullName.trim();
@@ -164,6 +202,9 @@ export async function registerUser({
   }
   if (requestedRole !== null && !REGISTRATION_ROLES.has(requestedRole)) {
     throw new Error("Choose a valid account type.");
+  }
+  if (requestedRole === "responder" && !isSpecialization(specialization)) {
+    throw new Error("Choose your responder field.");
   }
   const normalizedEmail = validateRegistrationEmail(email, requestedRole || "student");
   const passwordError = validateNewPassword(password);
@@ -181,6 +222,9 @@ export async function registerUser({
     if (requestedRole) {
       window.localStorage.setItem(`ceis:requested-role:${credential.user.uid}`, requestedRole);
     }
+    if (requestedRole === "responder") {
+      window.localStorage.setItem(`ceis:requested-field:${credential.user.uid}`, specialization);
+    }
     await waitForFirebaseOperation(
       updateProfile(credential.user, { displayName: normalizedName }),
       "updating your account",
@@ -188,7 +232,7 @@ export async function registerUser({
     );
     onProgress("Sending your verification email…");
     const verificationEmail = waitForFirebaseOperation(sendEmailVerification(credential.user, {
-      url: emailActionUrl(`/verify-email${requestedRole ? `?requestedRole=${encodeURIComponent(requestedRole)}` : ""}`),
+      url: emailActionUrl(`/verify-email${requestedRole ? `?requestedRole=${encodeURIComponent(requestedRole)}` : ""}${requestedRole === "responder" ? `&requestedField=${encodeURIComponent(specialization)}` : ""}`),
       handleCodeInApp: true,
     }), "requesting the verification email", 5000)
       .then(() => null, error => authError(error))
