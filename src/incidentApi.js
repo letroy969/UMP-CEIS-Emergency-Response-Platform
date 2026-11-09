@@ -292,7 +292,15 @@ export async function activateAnonymousSOS(position, requestId) {
     throw new Error("The SOS request could not be verified. Close this dialog and try again.");
   }
 
-  const { token } = await getToken(appCheck, false);
+  let token;
+  try {
+    ({ token } = await getToken(appCheck, false));
+  } catch (error) {
+    // reCAPTCHA failures (invalid site key, unregistered domain, blocked script)
+    // surface as a raw Firebase code. Tell the person what to do instead.
+    console.error("App Check token for anonymous SOS failed", error);
+    throw new Error("Anonymous SOS could not verify this device (reCAPTCHA failed). Sign in to send an SOS, or call UMP Campus Security on +27 13 002 0010 or 10177 now.");
+  }
   let response;
   try {
     response = await fetch("/api/sos/anonymous", {

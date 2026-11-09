@@ -1,5 +1,6 @@
 import { BD, NK, WHITE } from "../../constants.js";
 import { activeAssignmentsByResponder } from "../../admin/responders.js";
+import { canHandleIncident, requiredFieldsText, specializationLabel } from "../../responder/specializations.js";
 
 function lastSeen(value) {
   if (!value) return "never on duty";
@@ -9,30 +10,41 @@ function lastSeen(value) {
   return `last seen ${new Date(value).toLocaleDateString("en-ZA")}`;
 }
 
-// Groups every provisioned responder by how dispatchable they are right now so
-// the admin can see availability without leaving the dropdown. Off-duty
-// responders stay selectable: an admin may still need to call someone in.
-export default function ResponderSelect({ responders, incidents, value, onChange, ariaLabel, style }) {
+// Groups responders whose field can handle the incident by how dispatchable
+// they are right now. Off-duty matches stay selectable: an admin may still need
+// to call someone in. Responders from other fields are listed but disabled,
+// because the server refuses to dispatch them to this incident.
+export default function ResponderSelect({ responders, incidents, incident, value, onChange, ariaLabel, style }) {
   const active = activeAssignmentsByResponder(incidents);
-  const free = responders.filter(person => person.available && !active[person.uid]);
-  const busy = responders.filter(person => person.available && active[person.uid]);
-  const offDuty = responders.filter(person => !person.available);
+  const matching = responders.filter(person => canHandleIncident(person.specialization, incident));
+  const others = responders.filter(person => !canHandleIncident(person.specialization, incident));
+  const field = person => specializationLabel(person.specialization);
+  const free = matching.filter(person => person.available && !active[person.uid]);
+  const busy = matching.filter(person => person.available && active[person.uid]);
+  const offDuty = matching.filter(person => !person.available);
   const groups = [
-    [`Available now (${free.length})`, free, () => "available"],
-    [`Available, on other incidents (${busy.length})`, busy, person => `${active[person.uid]} active`],
-    [`Off duty (${offDuty.length})`, offDuty, person => `${person.onDuty ? "location not updating" : "off duty"} · ${lastSeen(person.lastSeenAt)}${active[person.uid] ? ` · ${active[person.uid]} active` : ""}`],
+    [`Available now (${free.length})`, free, () => "available", false],
+    [`Available, on other incidents (${busy.length})`, busy, person => `${active[person.uid]} active`, false],
+    [`Not available (${offDuty.length})`, offDuty, person => `${person.onDuty ? "location not updating" : "off duty"} · ${lastSeen(person.lastSeenAt)}${active[person.uid] ? ` · ${active[person.uid]} active` : ""}`, false],
+    [`Wrong field for this incident (${others.length})`, others, () => "cannot be dispatched", true],
   ];
+  const placeholder = !responders.length
+    ? "No responders provisioned"
+    : matching.length
+      ? `Select responder (${free.length} available now)`
+      : `No responder in the right field (${requiredFieldsText(incident)})`;
   return (
     <select
       aria-label={ariaLabel}
       value={value || ""}
       onChange={event => onChange(event.target.value)}
+      title={`Fields that can respond: ${requiredFieldsText(incident)}`}
       style={{ minWidth: 0, padding: "9px 10px", border: `1px solid ${BD}`, borderRadius: 6, color: NK, background: WHITE, ...style }}
     >
-      <option value="">{responders.length ? `Select responder (${free.length} available now)` : "No responders provisioned"}</option>
-      {groups.filter(([, people]) => people.length).map(([label, people, describe]) => (
+      <option value="">{placeholder}</option>
+      {groups.filter(([, people]) => people.length).map(([label, people, describe, disabled]) => (
         <optgroup key={label} label={label}>
-          {people.map(person => <option key={person.uid} value={person.uid}>{person.name} — {describe(person)}</option>)}
+          {people.map(person => <option key={person.uid} value={person.uid} disabled={disabled}>{person.name} ({field(person)}) — {describe(person)}</option>)}
         </optgroup>
       ))}
     </select>

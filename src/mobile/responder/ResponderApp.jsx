@@ -18,6 +18,7 @@ import {
 import { INC_TYPES, PRIORITY, STATUS_LABEL } from "../../constants.js";
 import { claimSOS, releaseIncident, subscribeIncidents, subscribeOpenSOS, updateIncident } from "../../incidentApi.js";
 import { useResponderLocation } from "../../responder/useResponderLocation.js";
+import { SOS_SPECIALIZATIONS, specializationLabel } from "../../responder/specializations.js";
 import { formatDistance, navigationSummary, navigationTarget } from "../../maps/navigation.js";
 import ResponderMap from "../../components/responder/ResponderMap.jsx";
 import NavigationPanel from "../../components/responder/NavigationPanel.jsx";
@@ -86,7 +87,7 @@ export default function ResponderApp({ user, authUser, onSignOut, toast }) {
   const mapSelected = [...active, ...openSOS].find(incident => incident.id === mapSelectedId) || null;
   const navIncident = navOpen ? selected || mapSelected : null;
 
-  const { onDuty, setOnDuty, position, error: locationError, lastSyncAt, syncError } = useResponderLocation(authUser, {
+  const { onDuty, setOnDuty, position, error: locationError, syncError } = useResponderLocation(authUser, {
     navigating: Boolean(selected) || tab !== "assignments" || active.length > 0 || navOpen,
     busy: active.length > 0,
   });
@@ -184,12 +185,15 @@ export default function ResponderApp({ user, authUser, onSignOut, toast }) {
       />
 
       <main className="m-screen">
-        {!showDetail && (
-          <div className={`m-alert ${onDuty ? "m-alert--ok" : "m-alert--info"}`} role="status" style={{ marginBottom: 12, fontSize: 14 }}>
-            {onDuty
-              ? (active.length ? "On duty · busy — admins can dispatch you; auto-dispatch skips you." : "On duty · sharing your location for SOS auto-dispatch.")
-              : "Off duty · tap the power button to go on duty and share your location."}
-            {onDuty && <span style={{ display: "block", opacity: .8, fontSize: 13 }}>{syncError ? `⚠ ${syncError}` : lastSyncAt ? `Updated ${lastSyncAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}` : "Waiting for GPS…"}</span>}
+        {!user.specialization && (
+          <div className="m-alert m-alert--error" role="alert" style={{ marginBottom: 12 }}>
+            Your responder field is not set. You cannot be dispatched or accept SOS alerts until an administrator sets it.
+          </div>
+        )}
+        {onDuty && syncError && <div className="m-alert m-alert--warn" role="alert" style={{ marginBottom: 12 }}>⚠ {syncError}</div>}
+        {tab === "sos" && user.specialization && !SOS_SPECIALIZATIONS.includes(user.specialization) && (
+          <div className="m-alert m-alert--info" role="status" style={{ marginBottom: 12 }}>
+            SOS alerts are accepted by security, medical and nursing responders. As a {specializationLabel(user.specialization)}, an admin dispatches you to incidents in your field.
           </div>
         )}
         {locationError && <div className="m-alert m-alert--warn" role="alert" style={{ marginBottom: 12 }}>{locationError}</div>}
@@ -316,7 +320,7 @@ export default function ResponderApp({ user, authUser, onSignOut, toast }) {
         fab={canNavigate ? { label: "Navigate to incident", icon: <Navigation size={23} color="var(--m-tint)" aria-hidden="true" />, onClick: () => setNavOpen(true) } : null}
       />
 
-      <Drawer open={menuOpen} onClose={() => setMenuOpen(false)} header={<div><div style={{ fontSize: 20, fontWeight: 700 }}>{user.name}</div><div className="m-muted">Responder · {user.email}</div></div>}>
+      <Drawer open={menuOpen} onClose={() => setMenuOpen(false)} header={<div><div style={{ fontSize: 20, fontWeight: 700 }}>{user.name}</div><div className="m-muted">{specializationLabel(user.specialization)} · {user.email}</div></div>}>
         <DrawerItem icon={<History size={17} />} color="#1A2766" label={`Assignment history (${history.length})`} onClick={() => { setMenuOpen(false); setPage("history"); }} />
         <div className="m-drawer-sep" />
         <DrawerItem icon={<Bell size={17} />} color="#FF3B30" label="Notifications" onClick={() => { setMenuOpen(false); setPage("notifications"); }} />

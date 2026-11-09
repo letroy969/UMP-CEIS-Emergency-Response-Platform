@@ -33,6 +33,8 @@ import IncidentTimeline from "../components/admin/IncidentTimeline.jsx";
 import ResponderSelect from "../components/admin/ResponderSelect.jsx";
 import ReporterInfo from "../components/admin/ReporterInfo.jsx";
 import { downloadCsv, incidentsToCsv } from "../admin/incidentCsv.js";
+import { setResponderSpecialization } from "../adminApi.js";
+import { RESPONDER_SPECIALIZATIONS, SPECIALIZATION_KEYS, requiredFieldsText } from "../responder/specializations.js";
 
 const ADMIN_PORTAL_BACKGROUND = new URL("../../Administration Backgrounf/Administration Background.jpg", import.meta.url).href;
 
@@ -48,6 +50,7 @@ export default function AdminPortal({ user, authUser, onLogout }) {
   const [accessRequests, setAccessRequests] = useState([]);
   const [reviewingUid, setReviewingUid] = useState("");
   const [selectedResponders, setSelectedResponders] = useState({});
+  const [savingFieldUid, setSavingFieldUid] = useState("");
   const [dataError, setDataError] = useState("");
   useEffect(() => {
     let active = true;
@@ -110,6 +113,21 @@ export default function AdminPortal({ user, authUser, onLogout }) {
     }, 30000);
     return () => window.clearInterval(timer);
   }, [authUser, user.access]);
+
+  async function changeResponderField(uid, specialization) {
+    if (!specialization) return;
+    setSavingFieldUid(uid);
+    try {
+      await setResponderSpecialization(authUser, uid, specialization);
+      setResponders(previous => previous.map(person => person.uid === uid ? { ...person, specialization } : person));
+      setDataError("");
+    } catch (error) {
+      setDataError(error.message);
+    } finally {
+      setSavingFieldUid("");
+    }
+  }
+  const respondersWithoutField = responders.filter(person => !person.specialization).length;
 
   const peopleNames = useMemo(() => ({
     ...Object.fromEntries(responders.map(person => [person.uid, person.name])),
@@ -402,6 +420,7 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                       ariaLabel="Choose responder for selected incident"
                       responders={responders}
                       incidents={incidents}
+                      incident={selectedInc}
                       value={selectedResponders[selectedInc.id]}
                       onChange={uid=>setSelectedResponders(value=>({...value,[selectedInc.id]:uid}))}
                       style={{flex:1}}
@@ -515,6 +534,7 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                         ariaLabel={`Responder for ${inc.reference || inc.id}`}
                         responders={responders}
                         incidents={incidents}
+                        incident={inc}
                         value={selectedResponders[inc.id]}
                         onChange={uid=>setSelectedResponders(value=>({...value,[inc.id]:uid}))}
                         style={{flex:"1 1 240px"}}
@@ -528,6 +548,7 @@ export default function AdminPortal({ user, authUser, onLogout }) {
                       </button>
                     </div>
                     <div style={{marginTop:8,fontSize:11.5,color:MID}}>Current: {inc.responder} · Status: <span style={{color:ORANGE,fontWeight:600}}>{STATUS_LABEL[inc.status]}</span></div>
+                    <div style={{marginTop:4,fontSize:11.5,color:MID}}>Needs: {requiredFieldsText(inc)}</div>
                   </div>
                 ))}
                 {active.filter(i=>["P1","P2"].includes(i.priority)).length===0&&(
@@ -537,13 +558,19 @@ export default function AdminPortal({ user, authUser, onLogout }) {
               {/* Provisioned responders */}
               <div>
                 <div style={{fontSize:12,fontWeight:700,color:MID,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Provisioned Responders</div>
+                {respondersWithoutField>0&&<div role="alert" style={{background:REDL,color:RED,border:`1px solid ${RED}30`,borderRadius:8,padding:"10px 12px",fontSize:12.5,marginBottom:10}}><strong>{respondersWithoutField} responder{respondersWithoutField===1?"":"s"} without a field.</strong> They cannot be dispatched or accept SOS alerts until you choose their field below.</div>}
                 {responders.map(person=>{
                   const assigned = incidents.filter(inc=>inc.responderUid===person.uid && !["RESOLVED","CLOSED"].includes(inc.status)).length;
                   const [label,color,tint] = !person.available
                     ? [person.onDuty ? "Location not updating" : "Off duty", MID, PAPER2]
                     : assigned ? [`Available · ${assigned} active`, ORANGE, ORANGEL] : ["Available now", GREEN, GREENL];
                   return <div key={person.uid} style={{background:WHITE,border:`1px solid ${BD}`,borderRadius:8,padding:"12px 14px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
-                    <div><div style={{fontSize:13,fontWeight:700,color:NK}}>{person.name}</div><div style={{fontSize:11.5,color:SL,marginTop:2}}>{person.lastSeenAt?`Last location ${new Date(person.lastSeenAt).toLocaleTimeString("en-ZA",{hour:"2-digit",minute:"2-digit"})}`:"Never gone on duty"}{!person.available&&assigned?` · ${assigned} active`:""}</div></div>
+                    <div style={{minWidth:0}}><div style={{fontSize:13,fontWeight:700,color:NK}}>{person.name}</div><div style={{fontSize:11.5,color:SL,marginTop:2}}>{person.lastSeenAt?`Last location ${new Date(person.lastSeenAt).toLocaleTimeString("en-ZA",{hour:"2-digit",minute:"2-digit"})}`:"Never gone on duty"}{!person.available&&assigned?` · ${assigned} active`:""}</div>
+                      <select aria-label={`Field for ${person.name}`} value={person.specialization||""} disabled={savingFieldUid===person.uid} onChange={event=>changeResponderField(person.uid,event.target.value)} style={{marginTop:6,padding:"5px 8px",border:`1px solid ${person.specialization?BD:RED}`,borderRadius:5,fontSize:12,color:NK,background:WHITE,maxWidth:"100%"}}>
+                        {!person.specialization&&<option value="">Choose field…</option>}
+                        {SPECIALIZATION_KEYS.map(key=><option key={key} value={key}>{RESPONDER_SPECIALIZATIONS[key].label}</option>)}
+                      </select>
+                    </div>
                     <div style={{padding:"4px 10px",background:tint,border:`1px solid ${color}28`,borderRadius:4,fontSize:11,fontWeight:700,color,whiteSpace:"nowrap"}}>● {label}</div>
                   </div>;
                 })}

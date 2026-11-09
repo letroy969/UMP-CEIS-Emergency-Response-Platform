@@ -3,6 +3,7 @@ import { ArrowLeft, BellRing, CheckCircle2, ClipboardList, History, Map as MapIc
 import { NAVY, RED, REDL, GREEN, GREENL, GOLD, WHITE, PAPER, PAPER2, BD, NK, SL, MID, ORANGE, ORANGEL, LOGO, INC_TYPES, PRIORITY, STATUS_LABEL } from "../constants.js";
 import { STYLES } from "./portalStyles.js";
 import { claimSOS, releaseIncident, subscribeIncidents, subscribeOpenSOS, updateIncident } from "../incidentApi.js";
+import { SOS_SPECIALIZATIONS, specializationLabel } from "../responder/specializations.js";
 import IncidentEvidenceList from "../components/IncidentEvidenceList.jsx";
 import IncidentEmergencyContacts from "../components/IncidentEmergencyContacts.jsx";
 import IncidentMedicalInfo from "../components/IncidentMedicalInfo.jsx";
@@ -151,7 +152,7 @@ export default function ResponderPortal({ user, authUser, onLogout }) {
   const history = useMemo(() => incidents.filter(incident => CLOSED.includes(incident.status)), [incidents]);
   const selected = incidents.find(incident => incident.id === selectedId) || openSOS.find(incident => incident.id === selectedId) || null;
   const needsPosition = Boolean(selected) || tab === "map" || (tab === "sos" && openSOS.length > 0) || (tab === "active" && activeIncidents.length > 0);
-  const { onDuty, setOnDuty, position, error: locationError, lastSyncAt, syncError } = useResponderLocation(authUser, {
+  const { onDuty, setOnDuty, position, error: locationError, syncError } = useResponderLocation(authUser, {
     navigating: needsPosition,
     busy: activeIncidents.length > 0,
   });
@@ -260,7 +261,7 @@ export default function ResponderPortal({ user, authUser, onLogout }) {
         <div style={{ maxWidth: 1180, margin: "0 auto", padding: "10px 4%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <img src={LOGO} alt="UMP" style={{ height: 34, objectFit: "contain", mixBlendMode: "lighten" }} />
-            <div><div style={{ fontSize: 10, color: "rgba(255,255,255,.58)", letterSpacing: 1.5, textTransform: "uppercase" }}>Responder workspace</div><div style={{ fontSize: 15, fontWeight: 700 }}>{user.name}</div></div>
+            <div><div style={{ fontSize: 10, color: "rgba(255,255,255,.58)", letterSpacing: 1.5, textTransform: "uppercase" }}>Responder workspace</div><div style={{ fontSize: 15, fontWeight: 700 }}>{user.name}</div><div style={{ fontSize: 11.5, color: user.specialization ? "rgba(255,255,255,.75)" : "#FFB4A8" }}>{specializationLabel(user.specialization)}</div></div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <button type="button" onClick={() => setOnDuty(!onDuty)} aria-pressed={onDuty} title={onDuty ? "You are visible to dispatch. Click to go off duty." : "Go on duty to receive SOS auto-dispatch and appear as available."} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 999, border: 0, background: onDuty ? GREEN : "rgba(255,255,255,.12)", color: WHITE, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
@@ -284,19 +285,16 @@ export default function ResponderPortal({ user, authUser, onLogout }) {
       </header>
 
       <section style={{ maxWidth: 1180, margin: "0 auto", padding: "20px 4% 60px" }}>
-        {/* Duty status strip: tells the responder exactly how dispatch sees them. */}
-        <div role="status" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 14px", borderRadius: 8, marginBottom: 14, background: onDuty ? GREENL : PAPER, border: `1px solid ${onDuty ? `${GREEN}40` : BD}`, fontSize: 13, color: NK }}>
-          {onDuty ? (
-            <>
-              <strong style={{ color: GREEN }}>On duty.</strong>
-              {activeIncidents.length > 0 ? "You're busy with an assignment, so SOS auto-dispatch will skip you; admins can still dispatch you." : "Sharing your location — you can be auto-dispatched to the nearest SOS."}
-              <span style={{ color: MID }}>{syncError ? `⚠ ${syncError}` : lastSyncAt ? `Last update ${lastSyncAt.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" })}` : "Waiting for GPS…"}</span>
-            </>
-          ) : (
-            <><strong>Off duty.</strong> Admins see you as unavailable and SOS auto-dispatch skips you. Your location is not shared. <button type="button" onClick={() => setOnDuty(true)} style={{ border: 0, background: "none", color: NAVY, fontWeight: 800, cursor: "pointer", textDecoration: "underline", padding: 0 }}>Go on duty</button></>
-          )}
-          {locationError && <span style={{ color: RED, flexBasis: "100%" }}>{locationError}</span>}
-        </div>
+        {!user.specialization && (
+          <div role="alert" style={{ background: REDL, color: RED, padding: "10px 14px", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>
+            <strong>Your responder field is not set.</strong> You cannot be dispatched or accept SOS alerts until an administrator sets your field.
+          </div>
+        )}
+        {(locationError || (onDuty && syncError)) && (
+          <div role="alert" style={{ background: REDL, color: RED, padding: "10px 14px", borderRadius: 8, marginBottom: 14, fontSize: 13 }}>
+            {locationError || `⚠ ${syncError}`}
+          </div>
+        )}
 
         {newAssignment && (
           <div role="alert" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "12px 14px", marginBottom: 14, borderRadius: 8, background: REDL, border: `1px solid ${RED}40` }}>
@@ -359,6 +357,7 @@ export default function ResponderPortal({ user, authUser, onLogout }) {
         {tab === "sos" && (
           <section aria-label="Open SOS alerts">
             <p style={{ fontSize: 13, color: SL, marginBottom: 12 }}>SOS alerts no responder has accepted yet, nearest first. Accepting assigns it to you, alerts the admin team and tells the person you&apos;re on the way.</p>
+            {user.specialization && !SOS_SPECIALIZATIONS.includes(user.specialization) && <div role="status" style={{ background: PAPER, color: SL, padding: 10, borderRadius: 6, marginBottom: 10, fontSize: 13 }}>SOS alerts are accepted by security, medical and nursing responders. As a {specializationLabel(user.specialization)} you can see them but an admin dispatches you to incidents in your field.</div>}
             {sosError && <div role="alert" style={{ background: REDL, color: RED, padding: 10, borderRadius: 6, marginBottom: 10, fontSize: 13 }}>{sosError}</div>}
             {sortedSOS.length === 0 ? <div style={{ ...card, padding: 28, textAlign: "center", color: SL }}>No open SOS alerts right now.</div> : (
               <div style={{ display: "grid", gap: 10 }}>

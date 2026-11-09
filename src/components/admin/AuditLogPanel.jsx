@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { BD, GREEN, MID, NAVY, NK, ORANGE, PAPER, RED, REDL, SL, WHITE } from "../../constants.js";
 import { listAuditLog } from "../../adminApi.js";
+import { specializationLabel } from "../../responder/specializations.js";
 
 const ACTIONS = {
   USER_ROLE_CHANGED: ["Role changed", NAVY],
+  RESPONDER_FIELD_CHANGED: ["Responder field changed", NAVY],
   USER_SUSPENDED: ["Account disabled", RED],
   USER_TEMP_BANNED: ["Temporary ban", ORANGE],
   USER_REACTIVATED: ["Account reactivated", GREEN],
@@ -19,6 +21,7 @@ function describe(entry) {
   const d = entry.details || {};
   switch (entry.action) {
     case "USER_ROLE_CHANGED": return `${d.from || "none"} → ${d.to}`;
+    case "RESPONDER_FIELD_CHANGED": return `${d.from ? specializationLabel(d.from) : "none"} → ${specializationLabel(d.to)}`;
     case "USER_SUSPENDED": return d.reason ? `Reason: ${d.reason}` : "No reason given";
     case "USER_TEMP_BANNED": return `Until ${d.until ? new Date(d.until).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" }) : "?"}${d.reason ? ` · Reason: ${d.reason}` : ""}`;
     case "PASSWORD_RESET_SENT": return d.signOutEverywhere ? "Signed out of all devices" : "Sessions kept";

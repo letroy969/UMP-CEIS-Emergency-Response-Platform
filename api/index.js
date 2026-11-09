@@ -38,6 +38,13 @@ import { handleChat } from "./chat.js";
 import { normalizeMedicalProfile } from "../src/medical/medicalProfile.js";
 import { notifyUsers, usersWithRole } from "./_lib/notifications.js";
 import { coordinates, fail, incidentInput, STATUSES, text } from "./_lib/validation.js";
+import {
+  canHandleIncident,
+  isSpecialization,
+  requiredFieldsText,
+  responderSpecialization,
+  specializationLabel,
+} from "../src/responder/specializations.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -176,8 +183,16 @@ async function autoAssignNearest(services, incident) {
     && candidate.distance <= maxDistance
     && now - (candidate.data.updatedAt?.toMillis?.() ?? 0) <= 120000)
     .sort((a, b) => a.distance - b.distance);
+  if (!candidates.length) return null;
+
+  // Only responders whose field can handle this incident are dispatched.
+  const profiles = await services.db.getAll(...candidates.map(candidate => services.db.collection("users").doc(candidate.uid)));
+  const profileByUid = new Map(profiles.map(profile => [profile.id, profile]));
 
   for (const candidate of candidates) {
+    const profile = profileByUid.get(candidate.uid);
+    if (!profile?.exists || isSuspendedProfile(profile.data())
+      || !canHandleIncident(responderSpecialization(profile.data()), incident)) continue;
     const claimed = await services.db.runTransaction(async transaction => {
       const snapshot = await transaction.get(candidate.ref);
       if (!snapshot.exists || snapshot.get("available") !== true
@@ -186,7 +201,6 @@ async function autoAssignNearest(services, incident) {
       return true;
     });
     if (!claimed) continue;
-    const profile = await services.db.collection("users").doc(candidate.uid).get();
     return { uid: candidate.uid, name: profile.get("fullName") || profile.get("email") || "Responder", distanceKm: candidate.distance };
   }
   return null;
@@ -372,6 +386,7 @@ route("get", "/responders", authenticate, async (req, res) => {
     return {
       uid,
       name: profile.get("fullName") || profile.get("email") || "Responder",
+      specialization: responderSpecialization(profile.data()),
       // Same freshness window SOS auto-dispatch uses: a responder who went on duty
       // but whose app stopped reporting a location is not shown as available.
       available: onDuty && lastSeenMs != null && Date.now() - lastSeenMs <= RESPONDER_PRESENCE_FRESH_MS,
@@ -563,6 +578,36 @@ route("patch", "/admin/users/:uid/role", authenticate, async (req, res) => {
   }
   const { summary } = await loadAdminTarget(services, uid);
   res.json({ user: summary, previousRole, activeAssignments, createdProfile });
+});
+
+// Sets a responder's field (e.g. Medical, Security, Electrician). Dispatch only
+// sends responders to incidents their field can handle.
+route("patch", "/admin/users/:uid/specialization", authenticate, async (req, res) => {
+  requireRole(req.user, ["admin"]);
+  const services = getFirebaseServices();
+  await enforceRateLimit(services.db, `admin_action_${req.user.uid}`, 30);
+  const uid = adminTargetUid(req.params.uid, req.user.uid);
+  const specialization = req.body?.specialization;
+  if (!isSpecialization(specialization)) fail("Choose a valid responder field.");
+  const profileRef = services.db.collection("users").doc(uid);
+  let previous = null;
+  await services.db.runTransaction(async transaction => {
+    const snapshot = await transaction.get(profileRef);
+    if (!snapshot.exists) fail("User not found.", 404);
+    const profile = snapshot.data();
+    if (!isResponderProfile(profile)) fail("Only responder accounts have a field. Give this person the responder role first.", 409);
+    previous = responderSpecialization(profile);
+    const now = Timestamp.now();
+    transaction.update(profileRef, { specialization, specializationChangedAt: now, specializationChangedBy: req.user.uid });
+    transaction.create(services.db.collection("adminAuditLog").doc(), auditEntry(
+      req.user,
+      "RESPONDER_FIELD_CHANGED",
+      { uid, email: profile.email || null, name: profile.fullName || null },
+      { from: previous, to: specialization },
+      now,
+    ));
+  });
+  res.json({ uid, specialization, previous });
 });
 
 route("post", "/admin/users/:uid/suspend", authenticate, async (req, res) => {
@@ -1080,6 +1125,17 @@ app.get("/cleanup-evidence", async (req, res, next) => {
 
 const RESPONDER_ROLE_NAMES = ["responder", "security", "medical"];
 
+// Keeps only the responders whose field can handle the incident, so alerts reach
+// people who are allowed to accept it.
+async function responderIdsForIncident(services, uids, incident) {
+  const unique = [...new Set(uids)];
+  if (!unique.length) return [];
+  const profiles = await services.db.getAll(...unique.map(uid => services.db.collection("users").doc(uid)));
+  return profiles
+    .filter(profile => profile.exists && canHandleIncident(responderSpecialization(profile.data()), incident))
+    .map(profile => profile.id);
+}
+
 // Alerts every admin and every responder about a new SOS. The assigned responder
 // (if any) gets a separate "you are dispatched" alert. Never throws: the SOS is
 // already saved and visible on the Admin and Responder portals regardless.
@@ -1094,7 +1150,15 @@ async function alertSos(services, created, { anonymous = false } = {}) {
       return [];
     }
   };
-  const [adminIds, responderIds] = await Promise.all([lookup(["admin"]), lookup(RESPONDER_ROLE_NAMES)]);
+  const [adminIds, allResponderIds] = await Promise.all([lookup(["admin"]), lookup(RESPONDER_ROLE_NAMES)]);
+  let responderIds = [];
+  try {
+    responderIds = await responderIdsForIncident(services, allResponderIds, created.data);
+  } catch (error) {
+    console.error("SOS alert responder field lookup failed", error);
+    // Better to over-alert than to leave an SOS unseen.
+    responderIds = allResponderIds;
+  }
   const assignedUid = created.assignment?.uid || null;
   const broadcast = [...new Set([...adminIds, ...responderIds])].filter(uid => uid !== assignedUid);
   const who = anonymous ? "Anonymous visitor" : created.data.reporterName || "Campus user";
@@ -1189,6 +1253,9 @@ route("post", "/incidents/:id/claim", authenticate, async (req, res) => {
     const before = snapshot.data();
     if (before.isSOS !== true) fail("Only SOS alerts can be accepted from the Responder portal.", 403);
     if (before.responderUid || before.status !== "NEW") fail("Another responder has already accepted this SOS.", 409);
+    if (!canHandleIncident(responderSpecialization(req.user.profile), before)) {
+      fail(`This SOS needs one of these responder fields: ${requiredFieldsText(before)}. Your field is ${specializationLabel(responderSpecialization(req.user.profile))}.`, 403);
+    }
     const now = Timestamp.now();
     const updates = {
       responderUid: req.user.uid,
@@ -1320,7 +1387,9 @@ route("post", "/incidents/:id/release", authenticate, async (req, res) => {
   try {
     const [adminIds, responderIds] = await Promise.all([
       usersWithRole(services, ["admin"]),
-      released.isSOS ? onDutyResponderIds(services, req.user.uid) : Promise.resolve([]),
+      released.isSOS
+        ? onDutyResponderIds(services, req.user.uid).then(ids => responderIdsForIncident(services, ids, released))
+        : Promise.resolve([]),
     ]);
     await notifyUsers(services, {
       userIds: [...new Set([...adminIds, ...responderIds])],
@@ -1367,6 +1436,13 @@ route("patch", "/incidents/:id", authenticate, async (req, res) => {
       const roles = [responderProfile.get("role"), ...(responderProfile.get("roles") || [])].flat();
       if (!responderProfile.exists || !roles.some(role => ["responder", "security", "medical"].includes(role))) fail("Choose a provisioned responder account.");
       if (isSuspendedProfile(responderProfile.data())) fail("This responder account is suspended. Choose another responder.");
+      const field = responderSpecialization(responderProfile.data());
+      if (!isSpecialization(field)) {
+        fail("This responder has no field set. Set their field in Assignments → Provisioned Responders before dispatching them.");
+      }
+      if (!canHandleIncident(field, before)) {
+        fail(`This responder's field (${specializationLabel(field)}) cannot be dispatched to this incident. Choose one of: ${requiredFieldsText(before)}.`);
+      }
       updates.responderUid = responderUid;
       updates.responder = responderProfile.get("fullName") || responderProfile.get("email") || "Responder";
       updates.dispatchedByUid = req.user.uid;

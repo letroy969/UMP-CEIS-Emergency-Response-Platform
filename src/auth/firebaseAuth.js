@@ -9,6 +9,7 @@ import {
 import { doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../lib/firebase.js";
 import { defaultPortal, profilePortals } from "./roles.js";
+import { responderSpecialization } from "../responder/specializations.js";
 import { signupRoleFor, validateRegistrationEmail } from "./profileValidation.js";
 
 let registrationInProgress = false;
@@ -93,6 +94,7 @@ function appUser(firebaseUser, profile) {
     roles,
     requestedRole: profile.requestedRole || null,
     roleRequestStatus: profile.roleRequestStatus || null,
+    specialization: role === "responder" ? responderSpecialization(profile) : null,
   };
 }
 

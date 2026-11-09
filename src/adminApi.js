@@ -18,6 +18,11 @@ export async function changeUserRole(user, uid, role) {
   return apiRequest(user, userPath(uid, "/role"), { method: "PATCH", body: JSON.stringify({ role }) });
 }
 
+export async function setResponderSpecialization(user, uid, specialization) {
+  requireAdmin(user);
+  return apiRequest(user, userPath(uid, "/specialization"), { method: "PATCH", body: JSON.stringify({ specialization }) });
+}
+
 // Without `until` the account is disabled indefinitely; with an ISO end date it is banned temporarily.
 export async function suspendUser(user, uid, reason, until = null) {
   requireAdmin(user);
