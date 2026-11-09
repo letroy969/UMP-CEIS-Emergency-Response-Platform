@@ -231,6 +231,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Campus-wide alerts are broadcast to everyone by push; signed-in users can
+    // read the history (phone app → Campus alerts). Only the API writes them.
+    match /campusAlerts/{alertId} {
+      allow read: if verified();
+      allow write: if false;
+    }
+
     match /safetyCheckins/{checkinId} {
       allow read: if verified()
         && (resource.data.userId == request.auth.uid || admin());

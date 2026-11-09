@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { isAppMode } from "./mobile/appMode.js";
 
 // One light/dark setting for the whole app (landing page, sign-in and every
 // portal). Light is the default; the choice is remembered on this device.
@@ -19,8 +20,11 @@ function readStored() {
 }
 
 function paint(mode) {
-  if (mode === "dark") document.documentElement.dataset.ceisTheme = "dark";
-  else delete document.documentElement.dataset.ceisTheme;
+  // The phone app (src/mobile) has real light/dark colour tokens, so it gets
+  // its own attribute instead of the website's colour-inversion dark mode.
+  const attribute = isAppMode() ? "ceisMobileTheme" : "ceisTheme";
+  if (mode === "dark") document.documentElement.dataset[attribute] = "dark";
+  else delete document.documentElement.dataset[attribute];
 }
 
 // Call once before the first render so a saved dark choice applies without a light flash.
